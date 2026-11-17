@@ -14,6 +14,7 @@
 import express from 'express';
 import helloRouter from './routes/hello.js';
 import authRouter from './routes/auth.js';
+import commerceRouter from './routes/commerce.js';
 import adminRouter from './routes/admin.js';
 import catalogRouter from './routes/catalog.js';
 
@@ -68,6 +69,9 @@ export function createApp() {
   // --- Аутентификация ЛР8 ---
   app.use('/api/v1', authRouter);
 
+  // --- Серверная корзина и заказы ЛР8 ---
+  app.use('/api/v1', commerceRouter);
+
   // --- Каталог ЛР7 ---
   // Товары, категории и готовые сборки. Данные берутся из Supabase,
   // а при отсутствии переменных окружения — из демонстрационной фикстуры.
@@ -91,6 +95,8 @@ export function createApp() {
         hello: 'GET /api/v1/hello',
         database: 'GET /api/v1/hello/db',
         auth: 'POST /api/v1/auth/register, /login, /refresh, /logout; GET /auth/me',
+        cart: 'GET /api/v1/cart; POST /cart/items; PATCH/DELETE /cart/items/:id',
+        orders: 'GET /api/v1/orders; POST /orders',
         adminOrders: 'GET /api/v1/admin/orders (нужен токен)',
       },
       note: 'Спецификация REST API — 41 операция, файл api/openapi.yaml',
