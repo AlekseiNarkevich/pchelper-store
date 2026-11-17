@@ -84,3 +84,11 @@ CREATE TABLE IF NOT EXISTS "Заказ_Позиции" (
 INSERT INTO "Пользователи" (id, email, имя, роль)
 VALUES (1, 'demo@pchelper.by', 'Демо-пользователь', 'customer')
 ON CONFLICT (id) DO NOTHING;
+
+-- RLS включаем явно. Backend использует SERVICE_ROLE_KEY и обходит политики,
+-- поэтому его запросы продолжат работать; анонимный доступ остаётся закрытым.
+ALTER TABLE "Пользователи" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Корзины" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Корзина_Позиции" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Заказы" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "Заказ_Позиции" ENABLE ROW LEVEL SECURITY;
