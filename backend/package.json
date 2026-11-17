@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "pchelper-store-backend",
   "version": "1.0.0",
   "private": true,
@@ -8,10 +8,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test tests/health.test.js tests/catalog.test.js",
+    "test": "node --test tests/health.test.js tests/catalog.test.js tests/auth.test.js",
     "test:smoke": "node --test tests/smoke.test.js",
-    "test:ci": "node --test tests/health.test.js tests/catalog.test.js",
-    "test:coverage": "c8 --reporter=text --reporter=lcov --check-coverage --lines 70 node --test tests/health.test.js tests/catalog.test.js",
+    "test:ci": "node --test tests/health.test.js tests/catalog.test.js tests/auth.test.js",
+    "test:coverage": "c8 --reporter=text --reporter=lcov --check-coverage --lines 70 node --test tests/health.test.js tests/catalog.test.js tests/auth.test.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.10",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

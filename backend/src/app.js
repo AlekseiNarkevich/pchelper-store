@@ -13,6 +13,7 @@
 
 import express from 'express';
 import helloRouter from './routes/hello.js';
+import authRouter from './routes/auth.js';
 import adminRouter from './routes/admin.js';
 import catalogRouter from './routes/catalog.js';
 
@@ -64,6 +65,9 @@ export function createApp() {
   // Пункт 9 задания 6 — приложение типа «Hello World».
   app.use('/api/v1', helloRouter);
 
+  // --- Аутентификация ЛР8 ---
+  app.use('/api/v1', authRouter);
+
   // --- Каталог ЛР7 ---
   // Товары, категории и готовые сборки. Данные берутся из Supabase,
   // а при отсутствии переменных окружения — из демонстрационной фикстуры.
@@ -86,6 +90,7 @@ export function createApp() {
         health: 'GET /api/v1/health',
         hello: 'GET /api/v1/hello',
         database: 'GET /api/v1/hello/db',
+        auth: 'POST /api/v1/auth/register, /login, /refresh, /logout; GET /auth/me',
         adminOrders: 'GET /api/v1/admin/orders (нужен токен)',
       },
       note: 'Спецификация REST API — 41 операция, файл api/openapi.yaml',
