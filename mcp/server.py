@@ -46,6 +46,7 @@ from mcp.server.fastmcp import FastMCP
 import audit
 import services
 from db import COMPONENT_TYPES, ORDER_STATUSES, init_db
+from supabase_sync import sync_from_supabase
 
 #: Идентификатор агента для журнала действий.
 AGENT = os.getenv("PCHELPER_AGENT_NAME", "claude-desktop")
@@ -661,21 +662,30 @@ def main() -> None:
       --reset  пересоздать mock-базу из schema.sql и seed.sql;
       --http   запуск через Streamable HTTP вместо stdio
               (нужен для MCP Inspector и для контейнера);
-      --host / --port  адрес и порт для HTTP-режима.
+      --host / --port    адрес и порт для HTTP-режима.
 
     Без аргументов запускается stdio-транспорт — так сервер
     подключается к Claude Desktop и Cursor как дочерний процесс.
+      --sync-supabase    синхронизировать каталог из Supabase перед запуском.
     """
     parser = argparse.ArgumentParser(description="MCP-сервер PCHelper")
     parser.add_argument("--http", action="store_true", help="запуск через Streamable HTTP вместо stdio")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--reset", action="store_true", help="пересоздать mock-базу")
+    parser.add_argument(
+        "--sync-supabase",
+        action="store_true",
+        help="синхронизировать каталог из Supabase перед запуском",
+    )
     args = parser.parse_args()
 
     if args.reset or not os.path.exists(os.getenv("PCHELPER_DB", "pchelper_mcp.db")):
         path = init_db(reset=args.reset)
         print(f"[PCHelper MCP] mock-база готова: {path}", file=sys.stderr)
+
+    if args.sync_supabase:
+        sync_from_supabase()
 
     if args.http:
         mcp.settings.host = args.host

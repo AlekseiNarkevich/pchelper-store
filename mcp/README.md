@@ -54,6 +54,22 @@ python server.py --http --port 8080
 При первом запуске рядом появится файл `pchelper_mcp.db` (SQLite) —
 он создаётся из `schema.sql` и наполняется данными из `seed.sql`.
 
+### Подключение к Supabase (ЛР8)
+
+MCP работает с локальной SQLite-копией, но каталог можно подтянуть из
+реального проекта Supabase:
+
+```bash
+# Windows PowerShell
+$env:SUPABASE_URL="https://....supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY="...."
+python server.py --reset --sync-supabase --http --port 8080
+```
+
+Флаг `--sync-supabase` читает восемь таблиц каталога через PostgREST и
+перезаписывает локальную копию. После этого инструменты MCP видят реальные
+96 товаров и 7 готовых сборок. Доменная логика и бизнес-правила не меняются.
+
 ### Проверка через MCP Inspector
 
 ```bash
