@@ -6,9 +6,12 @@ import Header from './components/Header.jsx';
 import Cart from './pages/Cart.jsx';
 import Catalog from './pages/Catalog.jsx';
 import Home from './pages/Home.jsx';
+import Login from './pages/Login.jsx';
 import NotFound from './pages/NotFound.jsx';
 import Prebuilt from './pages/Prebuilt.jsx';
 import Product from './pages/Product.jsx';
+import Profile from './pages/Profile.jsx';
+import RequireAuth from './components/RequireAuth.jsx';
 
 /**
  * Каркас витрины: шапка, область страницы, подвал.
@@ -29,6 +32,15 @@ export default function App() {
           <Route path="/product/:id" element={<Product />} />
           <Route path="/prebuilt" element={<Prebuilt />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
 import { cartCount, onCartChange } from '../cart.js';
+import { logout, onAuthChange, readAuth } from '../auth.js';
 import React from 'react';
 
 /**
@@ -14,12 +15,14 @@ import React from 'react';
  */
 export default function Header() {
   const [count, setCount] = useState(cartCount);
+  const [user, setUser] = useState(() => readAuth().user);
   const [term, setTerm] = useState('');
   const [preview, setPreview] = useState([]);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => onCartChange(() => setCount(cartCount())), []);
+  useEffect(() => onAuthChange(() => setUser(readAuth().user)), []);
 
   useEffect(() => {
     const value = term.trim();
@@ -141,6 +144,28 @@ export default function Header() {
               </div>
             )}
           </div>
+
+          {user ? (
+            <>
+              <Link className="nav-pill" to="/profile">
+                {user.name || user.email}
+              </Link>
+              <button
+                className="link-button"
+                onClick={async () => {
+                  await logout();
+                  navigate('/');
+                }}
+                type="button"
+              >
+                Выйти
+              </button>
+            </>
+          ) : (
+            <Link className="nav-pill" to="/login">
+              Войти
+            </Link>
+          )}
 
           <Link className="icon-btn" title="Корзина" to="/cart">
             🛒 <span className="badge">{count}</span>

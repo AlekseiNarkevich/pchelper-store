@@ -140,3 +140,67 @@ body {
   object-fit: contain;
   padding: 8px;
 }
+
+/* Формы входа и регистрации (ЛР8). */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 32px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  box-shadow: var(--shadow-card, none);
+}
+
+.auth-card h1 {
+  margin-bottom: 8px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted, #555);
+}
+
+.field input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  font-size: 14px;
+}
+
+.auth-switch,
+.auth-hint {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text-muted, #555);
+}
+
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--primary, #1976d2);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  min-height: 0;
+}
