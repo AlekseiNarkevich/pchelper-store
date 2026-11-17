@@ -47,9 +47,11 @@ function verifyPassword(password, stored) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
+let nextUserId = 2;
+
 /** Демо-пользователь для локальной проверки и тестов. */
 users.set('demo@pchelper.by', {
-  id: 'user-demo',
+  id: '1',
   email: 'demo@pchelper.by',
   name: 'Демо-пользователь',
   role: 'user',
@@ -99,7 +101,7 @@ export function register(data) {
   }
 
   const user = {
-    id: `user-${randomBytes(6).toString('hex')}`,
+    id: String(nextUserId++),
     email,
     name: String(data.name || '').trim() || email.split('@')[0],
     role: 'user',
