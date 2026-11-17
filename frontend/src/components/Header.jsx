@@ -65,7 +65,9 @@ export default function Header() {
     <header className="site-header">
       <div className="container header-inner">
         <Link className="brand" to="/" aria-label="PCHelper — на главную">
-          <span className="brand-mark">PC</span>
+          <span className="brand-mark">
+            <img alt="" aria-hidden="true" src="/icons/logo-glyph.png" />
+          </span>
           <span>
             <span className="brand-name">PCHelper</span>
             <br />

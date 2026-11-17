@@ -1,0 +1,142 @@
+/* ==========================================================================
+   PCHelper (ЛР8) — доступность, адаптив и PWA-доработки.
+   Подключается после app.css и shop.css.
+   ========================================================================== */
+
+/* Видимый фокус с высоким контрастом. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--accent, #fbc02d);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Ссылка «Перейти к содержимому» видна только при фокусе. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 8px;
+  z-index: 1000;
+  padding: 10px 14px;
+  background: var(--primary, #1976d2);
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 12px;
+}
+
+/* Тач-цели не менее 44×44 px (требование ЛР8). */
+:where(button, .btn, .nav-pill, .chip, .icon-btn, .add, .qty button, a.btn) {
+  min-height: 44px;
+}
+
+:where(input, select, textarea) {
+  min-height: 44px;
+}
+
+/* Резиновая типографика и отсутствие горизонтального скролла. */
+html {
+  scroll-padding-top: 76px;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+:where(.h1, h1) {
+  font-size: clamp(24px, 4.5vw, 34px);
+}
+
+:where(.h2, h2) {
+  font-size: clamp(20px, 3.2vw, 26px);
+}
+
+:where(.h3, h3) {
+  font-size: clamp(17px, 2.4vw, 20px);
+}
+
+/* Учёт safe-area на мобильных устройствах. */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .app-shell {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .site-header {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Уважение prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Тёмная тема по системной настройке. */
+@media (prefers-color-scheme: dark) {
+  .theme-blue {
+    --bg: #141414;
+    --surface: #1f1f1f;
+    --surface-2: #2a2a2a;
+    --border: #333333;
+    --border-strong: #555555;
+
+    --primary: #64b5f6;
+    --primary-hover: #90caf9;
+    --primary-soft: #1b2a38;
+    --on-primary: #0b1620;
+
+    --accent: #fbc02d;
+    --accent-strong: #f9a825;
+    --accent-soft: #3a2f12;
+    --on-accent: #111111;
+
+    --text: #f5f5f5;
+    --text-muted: #c9c9c9;
+    --text-faint: #9e9e9e;
+  }
+
+  body {
+    background: var(--bg, #141414);
+    color: var(--text, #f5f5f5);
+  }
+}
+
+/* Мобильная навигация не должна обрезаться. */
+@media (max-width: 680px) {
+  .main-nav {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Логотип из курсовой 3 курса используется в шапке.
+   Placeholder показываем, если у товара нет фото. */
+.brand-mark {
+  overflow: hidden;
+}
+
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.photo img[src='/placeholder.jpg'] {
+  object-fit: contain;
+  padding: 8px;
+}

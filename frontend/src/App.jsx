@@ -17,8 +17,11 @@ import Product from './pages/Product.jsx';
 export default function App() {
   return (
     <div className="app-shell theme-blue">
+      <a className="skip-link" href="#main">
+        Перейти к содержимому
+      </a>
       <Header />
-      <main className="app-main">
+      <main className="app-main" id="main">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
