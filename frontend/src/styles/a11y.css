@@ -3,6 +3,24 @@
    Подключается после app.css и shop.css.
    ========================================================================== */
 
+/* Скрытый текст для скринридеров. */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Контраст второстепенного текста ≥4.5:1 (требование ЛР8). */
+.theme-blue {
+  --text-faint: #666666;
+}
+
 /* Видимый фокус с высоким контрастом. */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 3px solid var(--accent, #fbc02d);

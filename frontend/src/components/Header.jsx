@@ -67,7 +67,7 @@ export default function Header() {
   return (
     <header className="site-header">
       <div className="container header-inner">
-        <Link className="brand" to="/" aria-label="PCHelper — на главную">
+        <Link className="brand" to="/">
           <span className="brand-mark">
             <img alt="" aria-hidden="true" src="/icons/logo-glyph.png" />
           </span>
@@ -167,8 +167,9 @@ export default function Header() {
             </Link>
           )}
 
-          <Link className="icon-btn" title="Корзина" to="/cart">
+          <Link className="icon-btn" to="/cart">
             🛒 <span className="badge">{count}</span>
+            <span className="visually-hidden">Корзина</span>
           </Link>
         </div>
       </div>
