@@ -6,7 +6,7 @@ import HomePage from '../pages/HomePage.js';
 import LoginPage from '../pages/LoginPage.js';
 import ProductPage from '../pages/ProductPage.js';
 import ProfilePage from '../pages/ProfilePage.js';
-import { loginAs } from '../utils/helpers.js';
+import { firstProductId, loginAs } from '../utils/helpers.js';
 
 test.describe('PCHelper — расширенные UI-сценарии', () => {
   test('LR9-01: пустая корзина имеет h1', async ({ page }) => {
@@ -63,21 +63,24 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     await expect(catalog.productCards().first()).toBeVisible();
   });
 
-  test('карточка товара показывает цену', async ({ page }) => {
-    await page.goto('/product/cpu:1');
+  test('карточка товара показывает цену', async ({ page, request }) => {
+    const id = await firstProductId(request);
+    await page.goto(`/product/${id}`);
     await expect(page.locator('body')).toContainText('BYN');
   });
 
-  test('карточка товара показывает характеристики', async ({ page }) => {
+  test('карточка товара показывает характеристики', async ({ page, request }) => {
+    const id = await firstProductId(request);
     const product = new ProductPage(page);
-    await product.goto('/product/cpu:1');
+    await product.goto(`/product/${id}`);
     await expect(product.specs()).toBeVisible();
   });
 
-  test('товар добавляется в корзину из карточки', async ({ page }) => {
+  test('товар добавляется в корзину из карточки', async ({ page, request }) => {
+    const id = await firstProductId(request);
     const product = new ProductPage(page);
     const cart = new CartPage(page);
-    await product.goto('/product/cpu:1');
+    await product.goto(`/product/${id}`);
     await product.addToCart();
     await cart.goto('/cart');
     await expect(cart.rows()).toHaveCount(1);
