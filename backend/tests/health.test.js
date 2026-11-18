@@ -40,7 +40,7 @@ async function get(path, headers = {}) {
   const text = await res.text();
   // Тело может оказаться не-JSON (например, HTML-страница nginx),
   // поэтому разбор не должен ронять тест.
-  let body = null;
+  let body;
   try {
     body = text ? JSON.parse(text) : null;
   } catch {

@@ -23,7 +23,7 @@ const BASE = process.env.BASE_URL || 'http://api:3001';
 async function getJson(path, headers = {}) {
   const res = await fetch(`${BASE}${path}`, { headers });
   const text = await res.text();
-  let body = null;
+  let body;
   try {
     body = text ? JSON.parse(text) : null;
   } catch {
