@@ -162,6 +162,15 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     await page.goto('/no-such-page');
     await expect(page.locator('body')).toContainText('Такой страницы нет');
   });
+
+  test('визуальная регрессия главной страницы', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveScreenshot('home-chromium.png', {
+      maxDiffPixelRatio: 0.08,
+      animations: 'disabled',
+    });
+  });
 });
 
 test.describe('PCHelper — мобильный PWA', () => {
