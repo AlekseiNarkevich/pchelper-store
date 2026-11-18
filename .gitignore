@@ -33,6 +33,11 @@ __pycache__/
 venv/
 .pytest_cache/
 
+# --- Артефакты Playwright (ЛР9) ---
+test-results/
+playwright-report/
+blob-report/
+
 # --- Служебные файлы ОС и редакторов ---
 .DS_Store
 Thumbs.db
