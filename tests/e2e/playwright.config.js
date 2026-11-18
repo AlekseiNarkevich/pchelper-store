@@ -17,7 +17,7 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.BASE_URL || 'http://127.0.0.1:5173',
-    channel: 'chrome',
+    channel: process.env.CI ? undefined : 'chrome',
     viewport: { width: 1440, height: 900 },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -28,7 +28,10 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: process.env.CI ? undefined : 'chrome',
+      },
     },
   ],
 });

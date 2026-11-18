@@ -1,4 +1,4 @@
-﻿# =====================================================================
+# =====================================================================
 #  PCHelper — CI/CD-конвейер (GitHub Actions)
 #  Задание 6, пункты 6, 10, 11, 12, 13.
 #
@@ -416,3 +416,61 @@ jobs:
                -H 'Content-Type: application/json' \
                -d "{\"commitId\": \"$COMMIT_SHA\"}"
           echo "Деплой запущен для коммита $COMMIT_SHA"
+
+
+  # -------------------------------------------------------------------
+  # Этап 6. Автоматизированные E2E-тесты Playwright (ЛР9)
+  #   Запускается на push и PR в develop/main. Backend работает на
+  #   фикстуре — секреты в CI не нужны.
+  # -------------------------------------------------------------------
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-24.04
+    needs: [web, test]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+            tests/e2e/package-lock.json
+
+      - name: Установить зависимости
+        run: |
+          npm ci --prefix backend --ignore-scripts
+          npm ci --prefix frontend --ignore-scripts
+          npm ci --prefix tests/e2e --ignore-scripts
+
+      - name: Установить Chromium для Playwright
+        run: npx --prefix tests/e2e playwright install --with-deps chromium
+
+      - name: Поднять backend и frontend
+        run: |
+          npm start --prefix backend > /tmp/pchelper-api.log 2>&1 &
+          npm run dev --prefix frontend -- --host 127.0.0.1 --port 5173 > /tmp/pchelper-web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3001/api/v1/health > /dev/null && curl -fsS http://127.0.0.1:5173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/pchelper-api.log
+          cat /tmp/pchelper-web.log
+          exit 1
+
+      - name: Прогнать E2E-тесты
+        env:
+          CI: 'true'
+        run: npm test --prefix tests/e2e
+
+      - name: Загрузить HTML-отчёт
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: playwright-report
+          path: tests/e2e/playwright-report
+          retention-days: 7
