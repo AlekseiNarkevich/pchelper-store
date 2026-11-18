@@ -14,6 +14,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : 2,
   reporter: [['list'], ['html', { open: 'never' }]],
+  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}.png',
 
   use: {
     baseURL: process.env.BASE_URL || 'http://127.0.0.1:5173',
