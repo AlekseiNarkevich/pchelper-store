@@ -69,7 +69,7 @@ export default function Header() {
       <div className="container header-inner">
         <Link className="brand" to="/">
           <span className="brand-mark">
-            <img alt="" aria-hidden="true" src="/icons/logo-glyph.png" />
+            <img alt="" aria-hidden="true" src="/logo-icon.jpg" />
           </span>
           <span>
             <span className="brand-name">PCHelper</span>

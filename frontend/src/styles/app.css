@@ -177,10 +177,8 @@ select {
 }
 
 .brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ec407a 0%, #f06292 55%, #fbc02d 100%);
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
