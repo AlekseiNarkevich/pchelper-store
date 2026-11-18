@@ -7,6 +7,6 @@ export default class ProfilePage extends BasePage {
   }
 
   async logout() {
-    await this.page.getByRole('button', { name: 'Выйти' }).click();
+    await this.page.locator('.auth-card').getByRole('button', { name: 'Выйти' }).click();
   }
 }

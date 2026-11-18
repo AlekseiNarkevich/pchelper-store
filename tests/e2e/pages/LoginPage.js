@@ -22,11 +22,13 @@ export default class LoginPage extends BasePage {
     return this.page.locator('.state.error');
   }
 
-  async login(email, password) {
+  async login(email, password, waitForNavigation = true) {
     await this.emailInput().fill(email);
     await this.passwordInput().fill(password);
     await this.submitButton().click();
-    await this.page.waitForURL((url) => !url.pathname.endsWith('/login'));
+    if (waitForNavigation) {
+      await this.page.waitForURL((url) => !url.pathname.endsWith('/login'));
+    }
   }
 
   async switchToRegister() {
