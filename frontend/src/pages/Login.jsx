@@ -1,8 +1,8 @@
 import React from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
-import { login, register } from '../auth.js';
+import { login, readAuth, register } from '../auth.js';
 
 /**
  * Страница входа и регистрации (ЛР8).
@@ -18,6 +18,13 @@ export default function Login() {
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/';
+
+  // Авторизованному пользователю не показываем форму входа (дефект LR9-03).
+  useEffect(() => {
+    if (readAuth().accessToken) {
+      navigate(from, { replace: true });
+    }
+  }, [from, navigate]);
 
   async function handleSubmit(event) {
     event.preventDefault();

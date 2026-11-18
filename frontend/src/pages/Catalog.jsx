@@ -145,8 +145,12 @@ export default function Catalog() {
             type="number"
             value={maxPrice}
           />
+          <label className="small faint" htmlFor="catalog-sort">
+            Сортировка
+          </label>
           <select
             className="select"
+            id="catalog-sort"
             onChange={(event) => resetAnd(() => setSort(event.target.value))}
             value={sort}
           >
