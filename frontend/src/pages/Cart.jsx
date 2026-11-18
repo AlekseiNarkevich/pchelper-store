@@ -34,7 +34,7 @@ export default function Cart() {
           <span>Корзина</span>
         </div>
         <div className="state">
-          <div className="h2">Корзина пуста</div>
+          <h1 className="h2">Корзина пуста</h1>
           <p className="muted">Добавьте товары из каталога или готовую сборку.</p>
           <Link className="btn" to="/catalog">
             Перейти в каталог
