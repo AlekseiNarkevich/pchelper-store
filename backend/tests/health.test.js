@@ -82,17 +82,17 @@ test('проверка БД: без DATABASE_URL маршрут /hello/db отв
   }
 });
 
-test('требование FR-08: админ-маршрут без токена возвращает 403', async () => {
+test('требование FR-08: админ-маршрут без токена возвращает 401', async () => {
   const { status, body } = await get('/api/v1/admin/orders');
-  assert.equal(status, 403);
-  assert.equal(body.error.code, 'FORBIDDEN');
+  assert.equal(status, 401);
+  assert.equal(body.error.code, 'UNAUTHORIZED');
 });
 
-test('требование FR-08: админ-маршрут с неверным токеном тоже возвращает 403', async () => {
+test('требование FR-08: админ-маршрут с неверным токеном тоже возвращает 401', async () => {
   const { status } = await get('/api/v1/admin/orders', {
     Authorization: 'Bearer wrong-token-value',
   });
-  assert.equal(status, 403);
+  assert.equal(status, 401);
 });
 
 test('требование FR-08: админ-маршрут с верным токеном возвращает 200', async () => {
