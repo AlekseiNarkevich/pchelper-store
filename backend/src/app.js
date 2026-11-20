@@ -83,9 +83,25 @@ export function createApp() {
   // --- Статика веб-клиента для desktop-версии ---
   // Включается только по флагу, чтобы тесты и чистый API не получали HTML.
   if (process.env.SERVE_WEB === '1' && existsSync(FRONTEND_DIST)) {
-    app.use(express.static(FRONTEND_DIST));
+    // Файлы Vite в /assets содержат хеш в имени и не меняются, поэтому
+    // их можно кэшировать надолго. index.html отдаётся без кэша: иначе
+    // после обновления браузер открывает старую страницу со ссылкой
+    // на уже удалённый файл и показывает белый экран.
+    app.use(
+      '/assets',
+      express.static(join(FRONTEND_DIST, 'assets'), {
+        immutable: true,
+        maxAge: '1y',
+      }),
+    );
+    app.use(express.static(FRONTEND_DIST, { index: false }));
     app.get('*', (req, res, next) => {
-      if (req.path.startsWith('/api/')) return next();
+      // Неизвестный файл сборки — это 404, а не index.html: иначе
+      // браузер получает HTML вместо JavaScript и молча ломает страницу.
+      if (req.path.startsWith('/api/') || req.path.startsWith('/assets/')) {
+        return next();
+      }
+      res.set('Cache-Control', 'no-store');
       return res.sendFile(join(FRONTEND_DIST, 'index.html'));
     });
   }

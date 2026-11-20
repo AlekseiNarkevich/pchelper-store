@@ -196,6 +196,20 @@ async function createWindow() {
     }
   });
 
+  // Чистим кэш service worker до загрузки. Иначе после обновления
+  // приложения Electron может открыть старую страницу из кэша: она
+  // ссылается на уже удалённые файлы, и окно остаётся белым.
+  await win.webContents.session
+    .clearStorageData({ storages: ['serviceworkers', 'cachestorage'] })
+    .catch((error) => console.error('[web] очистка кэша:', error.message));
+  await win.webContents.session
+    .clearCache()
+    .catch((error) => console.error('[web] очистка HTTP-кэша:', error.message));
+
+  win.webContents.on('did-fail-load', (_event, code, description, url) => {
+    console.error(`[web] не загрузилось ${url}: ${code} ${description}`);
+  });
+
   win.loadURL(appUrl);
   // Магазин удобнее смотреть на всей площади экрана.
   win.maximize();

@@ -1,10 +1,14 @@
-/* PCHelper (ЛР8) — service worker для PWA. */
-const CACHE = 'pchelper-v1';
+/* PCHelper (ЛР8) — service worker для PWA.
+ *
+ * Важно: страница (index.html) не кэшируется навсегда. После обновления
+ * сборки имена файлов в /assets меняются, и старая страница ссылается
+ * на уже удалённый JavaScript — получается белый экран. Поэтому
+ * навигационные запросы идут в сеть, а кэш остаётся запасным вариантом
+ * для офлайн-режима.
+ */
+const CACHE = 'pchelper-v2';
 
 const SHELL = [
-  '/',
-  '/index.html',
-  '/mobile.html',
   '/manifest.webmanifest',
   '/favicon.svg',
   '/icons/icon-192.png',
@@ -31,6 +35,49 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+/**
+ * Сначала сеть, потом кэш. Для страниц и API: свежий ответ важнее скорости.
+ *
+ * @param {Request} request Запрос.
+ * @returns {Promise<Response>}
+ */
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const copy = response.clone();
+      caches.open(CACHE).then((cache) => cache.put(request, copy));
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (request.mode === 'navigate') {
+      const shell = await caches.match('/index.html');
+      if (shell) return shell;
+    }
+    return Response.error();
+  }
+}
+
+/**
+ * Сначала кэш, потом сеть. Для файлов с хешем в имени: они не меняются.
+ *
+ * @param {Request} request Запрос.
+ * @returns {Promise<Response>}
+ */
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response.ok) {
+    const copy = response.clone();
+    caches.open(CACHE).then((cache) => cache.put(request, copy));
+  }
+  return response;
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
@@ -38,30 +85,17 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // API: сеть сначала, кэш как fallback для офлайн-режима.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request)),
-    );
+    event.respondWith(networkFirst(request));
     return;
   }
 
-  // Статика: кэш primero, сеть для обновления.
-  event.respondWith(
-    caches.match(request).then(
-      (cached) =>
-        cached ||
-        fetch(request).then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
-          return response;
-        }),
-    ),
-  );
+  // Навигация и HTML — всегда пробуем сеть, иначе после обновления
+  // приложения остаётся старая страница со ссылками на удалённые файлы.
+  if (request.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  event.respondWith(cacheFirst(request));
 });
