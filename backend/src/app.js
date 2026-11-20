@@ -6,7 +6,12 @@
  * калькулятор мощности блока питания.
  */
 
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import express from 'express';
+
 import helloRouter from './routes/hello.js';
 import authRouter from './routes/auth.js';
 import commerceRouter from './routes/commerce.js';
@@ -17,6 +22,12 @@ import psuRouter from './routes/psu.js';
 
 // Момент запуска — чтобы в ответе /api/v1/hello показывать время работы процесса.
 const STARTED_AT = Date.now();
+
+// Собранный веб-клиент. В обычном API-режиме статика не раздаётся:
+// её отдают Vite в разработке или nginx в Docker. Флаг SERVE_WEB=1
+// включает «один сервер» для desktop-версии и локальной проверки.
+const CURRENT_DIR = dirname(fileURLToPath(import.meta.url));
+const FRONTEND_DIST = resolve(CURRENT_DIR, '../../frontend/dist');
 
 /**
  * Создаёт и настраивает Express-приложение.
@@ -78,6 +89,16 @@ export function createApp() {
 
   // Защищённый админ-модуль: доступ проверяет middleware выше по цепочке.
   app.use('/api/v1/admin', adminRouter);
+
+  // --- Статика веб-клиента для desktop-версии ---
+  // Включается только по флагу, чтобы тесты и чистый API не получали HTML.
+  if (process.env.SERVE_WEB === '1' && existsSync(FRONTEND_DIST)) {
+    app.use(express.static(FRONTEND_DIST));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api/')) return next();
+      return res.sendFile(join(FRONTEND_DIST, 'index.html'));
+    });
+  }
 
   // --- Корневой маршрут ---
   // Без него GET / возвращает 404, и при первом открытии адреса
