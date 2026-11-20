@@ -42,6 +42,7 @@ function toLocal(item) {
     name: item.name,
     price: Number(item.price),
     imageUrl: item.imageUrl || null,
+    stock: item.stock == null ? undefined : Number(item.stock),
     qty: Number(item.qty || 1),
   };
 }

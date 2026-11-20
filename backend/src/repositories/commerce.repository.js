@@ -30,6 +30,12 @@ const FIELD_BY_CATEGORY = {
   storage: 'накопитель_id',
   case: 'корпус_id',
   cooling: 'охлаждение_id',
+  prebuilt: 'готовая_конфигурация_id',
+};
+
+/** Таблица остатков для позиции корзины. */
+const TABLE_BY_CATEGORY = {
+  prebuilt: 'ГотовыеКонфигурации',
 };
 
 /** Обратное соответствие поля категории. */
@@ -129,6 +135,8 @@ async function mapPosition(row) {
     productId: found.productId,
     name: product?.name || 'Товар',
     price: Number(row['цена'] || 0),
+    imageUrl: product?.imageUrl || null,
+    stock: Number(product?.stock ?? 0),
     qty: Number(row['количество'] || 1),
   };
 }
@@ -224,6 +232,7 @@ export async function addItem(userId, product) {
         .eq('id', cartId);
       return getCart(userId);
     } catch (error) {
+      if (error.status) throw error;
       throw databaseFailure('добавить товар в корзину', error);
     }
   }
@@ -475,15 +484,17 @@ export async function createOrder(userId, data) {
         console.error('[commerce] история заказа:', history.error.message);
       }
 
-      // Списываем проданные комплектующие со склада. Ошибку списания
-      // не скрываем, но заказ уже создан: пишем её в журнал.
+      // Списываем проданные товары со склада. Готовая сборка — отдельная
+      // позиция со своим количеством, комплектующие списываются поштучно.
+      // Ошибку списания не скрываем, но заказ уже создан: пишем в журнал.
       for (const item of items) {
-        const category = CATEGORY_BY_ID.get(item.category);
-        if (!category) continue;
+        const table =
+          TABLE_BY_CATEGORY[item.category] || CATEGORY_BY_ID.get(item.category)?.table;
+        if (!table) continue;
         const product = await getProduct(item.id);
         const nextStock = Math.max(0, Number(product?.stock ?? 0) - Number(item.qty));
         const stockUpdate = await supabase
-          .from(category.table)
+          .from(table)
           .update({ количество: nextStock })
           .eq('id', Number(item.productId));
         if (stockUpdate.error) {

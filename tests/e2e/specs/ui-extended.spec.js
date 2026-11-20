@@ -156,10 +156,17 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
 
   test('сборка добавляется в корзину', async ({ page }) => {
     await page.goto('/prebuilt');
-    await page.locator('.product-grid .product-card button').first().click();
+    const card = page
+      .locator('.product-grid .product-card:has(button:not([disabled]))')
+      .first();
+    if (await card.count()) {
+      await card.locator('button').click();
+    } else {
+      await page.locator('.product-grid .product-card button').first().click();
+    }
     await page.goto('/cart');
-    // Готовая сборка раскладывается на комплектующие: 8 позиций.
-    await expect(page.locator('.cart-row')).toHaveCount(8);
+    // Готовая сборка — одна позиция, а не набор комплектующих.
+    await expect(page.locator('.cart-row')).toHaveCount(1);
   });
 
   test('неизвестный адрес открывает 404', async ({ page }) => {

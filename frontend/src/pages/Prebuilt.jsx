@@ -39,23 +39,14 @@ export default function Prebuilt() {
       setNotice('Этой сборки нет на складе');
       return;
     }
-    const parts = build.components.filter(
-      (component) => component.category && Number.isInteger(component.productId),
-    );
-    if (!parts.length) {
-      setNotice('Состав сборки не загрузился, попробуйте обновить страницу');
-      return;
-    }
-
-    for (const component of parts) {
-      addToCart({
-        id: `${component.category}:${component.productId}`,
-        name: component.name,
-        price: component.price,
-        imageUrl: component.imageUrl,
-      });
-    }
-    setNotice(`Сборка «${build.name}» добавлена в корзину: ${parts.length} позиций`);
+    addToCart({
+      id: `prebuilt:${build.id}`,
+      name: build.name,
+      price: build.price,
+      imageUrl: build.imageUrl,
+      stock: Number(build.stock ?? 0),
+    });
+    setNotice(`Сборка «${build.name}» добавлена в корзину`);
     setTimeout(() => setNotice(''), 2500);
   }
 

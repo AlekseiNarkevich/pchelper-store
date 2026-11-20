@@ -45,7 +45,7 @@ async function logEmail(data) {
   if (!isDatabaseConnected()) return;
   try {
     await supabase.from('Письма').insert({
-      заказ_id: Number(data.orderId),
+      заказ_id: data.orderId ? Number(data.orderId) : null,
       email: data.to,
       тема: data.subject,
       текст: data.text,
@@ -127,6 +127,7 @@ async function deliver({ to, subject, text, orderId }) {
   }
 
   await logEmail({ orderId, to, subject, text, sent, error });
+  return { sent, error };
 }
 
 /**
@@ -168,6 +169,32 @@ export async function sendOrderStatusEmail({ to, order, status, comment }) {
     to,
     orderId: order.id,
     subject: `PCHelper: заказ ${order.number} — ${status}`,
+    text,
+  });
+}
+
+/**
+ * Сообщает покупателю, что товар снова появился на складе.
+ *
+ * @param {{to: string, product: object}} data Получатель и товар.
+ * @returns {Promise<{sent: boolean, error: string}>}
+ */
+export async function sendRestockEmail({ to, product }) {
+  const text = [
+    'Здравствуйте!',
+    '',
+    `Товар «${product.name}» снова появился на складе.`,
+    `Цена: ${product.price} BYN.`,
+    '',
+    'Заказ можно оформить на сайте PCHelper.',
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  return await deliver({
+    to,
+    orderId: null,
+    subject: `PCHelper: «${product.name}» снова в наличии`,
     text,
   });
 }

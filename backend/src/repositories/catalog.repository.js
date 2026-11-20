@@ -160,6 +160,8 @@ export async function listProducts(params = {}) {
  */
 export async function getProduct(productId) {
   const [categoryId, rawId] = String(productId).split(':');
+  if (categoryId === 'prebuilt') return getPrebuiltById(rawId);
+
   const category = CATEGORY_BY_ID.get(categoryId);
   if (!category || !rawId) return null;
 
@@ -264,4 +266,35 @@ export async function listPrebuilt() {
   });
 
   return { items, total: items.length };
+}
+
+/**
+ * Находит готовую сборку по номеру и приводит её к виду товара.
+ *
+ * Сборка в корзине — одна позиция: цена считается по комплектующим,
+ * а остаток берётся из «ГотовыеКонфигурации».
+ *
+ * @param {string} rawId Номер сборки.
+ * @returns {Promise<object|null>}
+ */
+async function getPrebuiltById(rawId) {
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+
+  const { items } = await listPrebuilt();
+  const build = items.find((item) => Number(item.id) === id);
+  if (!build) return null;
+
+  return {
+    id: `prebuilt:${id}`,
+    category: 'prebuilt',
+    productId: id,
+    name: build.name,
+    price: build.price,
+    stock: Number(build.stock ?? 0),
+    imageUrl: build.imageUrl || null,
+    categoryName: 'Готовый ПК',
+    specs: [],
+    components: build.components,
+  };
 }

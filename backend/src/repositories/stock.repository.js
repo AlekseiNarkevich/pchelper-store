@@ -6,6 +6,7 @@
  */
 
 import { apiError } from '../domain/errors.js';
+import { sendRestockEmail } from '../services/mail.service.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 import { getProduct } from './catalog.repository.js';
 
@@ -122,4 +123,51 @@ export async function updateRequest(requestId, status) {
   }
   if (!row) throw apiError(404, 'REQUEST_NOT_FOUND', 'Запрос не найден');
   return { id: String(row.id), status: row['статус'] };
+}
+
+/**
+ * Письма тем, кто просил сообщить о поступлении.
+ *
+ * Вызывается, когда администратор поднимает остаток с нуля. Запрос
+ * помечается обработанным только после реальной отправки: если SMTP
+ * не настроен, письмо остаётся в журнале, а запрос — в списке новых.
+ *
+ * @param {string} category Категория товара.
+ * @param {number} productId Номер товара.
+ * @returns {Promise<number>} Сколько писем отправлено.
+ */
+export async function notifyPendingRequests(category, productId) {
+  if (!isDatabaseConnected()) return 0;
+
+  try {
+    const { data, error } = await supabase
+      .from('ЗапросыНаПоступление')
+      .select('id,email')
+      .eq('товар_категория', category)
+      .eq('товар_id', Number(productId))
+      .eq('статус', 'новый')
+      .not('email', 'is', null);
+    if (error) throw error;
+    if (!data?.length) return 0;
+
+    const product = await getProduct(`${category}:${productId}`);
+    if (!product) return 0;
+
+    let sent = 0;
+    for (const row of data) {
+      if (!row.email) continue;
+      const result = await sendRestockEmail({ to: row.email, product });
+      if (!result.sent) continue;
+      const updated = await supabase
+        .from('ЗапросыНаПоступление')
+        .update({ статус: 'обработан' })
+        .eq('id', row.id);
+      if (updated.error) throw updated.error;
+      sent += 1;
+    }
+    return sent;
+  } catch (error) {
+    console.error('[stock] уведомление о поступлении:', error?.message || error);
+    return 0;
+  }
 }

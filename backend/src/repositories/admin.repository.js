@@ -9,6 +9,7 @@
 import { CATEGORY_BY_ID, CATEGORIES } from '../domain/catalog.js';
 import { apiError } from '../domain/errors.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
+import { notifyPendingRequests } from './stock.repository.js';
 
 /** Допустимые статусы заказа. */
 export const ORDER_STATUSES = [
@@ -382,6 +383,13 @@ export async function updateProduct(category, productId, data) {
     throw apiError(400, 'VALIDATION_ERROR', 'Нет полей для изменения');
   }
 
+  const previous = await supabase
+    .from(found.table)
+    .select('id,количество')
+    .eq('id', Number(productId))
+    .maybeSingle();
+  if (previous.error) throw databaseError('прочитать товар', previous.error);
+
   const { data: row, error } = await supabase
     .from(found.table)
     .update(clean)
@@ -390,6 +398,15 @@ export async function updateProduct(category, productId, data) {
     .maybeSingle();
   if (error) throw databaseError('обновить товар', error);
   if (!row) throw apiError(404, 'PRODUCT_NOT_FOUND', 'Товар не найден');
+
+  // Товар снова появился: сообщаем тем, кто оставил запрос. Ошибка
+  // уведомления не отменяет сохранение остатка.
+  const wasOut = Number(previous.data?.['количество'] ?? 0) <= 0;
+  const isIn = Number(row['количество'] ?? 0) > 0;
+  if (wasOut && isIn) {
+    await notifyPendingRequests(category, productId);
+  }
+
   return row;
 }
 
@@ -452,6 +469,15 @@ export async function updatePrebuiltStock(id, stock) {
   if (!Number.isInteger(quantity) || quantity < 0) {
     throw apiError(400, 'VALIDATION_ERROR', 'Количество должно быть неотрицательным');
   }
+
+  const previous = await supabase
+    .from('ГотовыеКонфигурации')
+    .select('id,количество')
+    .eq('id', Number(id))
+    .maybeSingle();
+  if (previous.error)
+    throw databaseError('прочитать остаток готового ПК', previous.error);
+
   const { data: row, error } = await supabase
     .from('ГотовыеКонфигурации')
     .update({ количество: quantity })
@@ -460,6 +486,11 @@ export async function updatePrebuiltStock(id, stock) {
     .maybeSingle();
   if (error) throw databaseError('обновить остаток готового ПК', error);
   if (!row) throw apiError(404, 'PREBUILT_NOT_FOUND', 'Сборка не найдена');
+
+  if (Number(previous.data?.['количество'] ?? 0) <= 0 && quantity > 0) {
+    await notifyPendingRequests('prebuilt', id);
+  }
+
   return {
     id: String(row.id),
     name: row['название'],

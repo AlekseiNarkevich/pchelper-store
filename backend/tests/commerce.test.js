@@ -86,6 +86,37 @@ test('добавление, изменение и удаление позици�
   assert.equal(removed.body.items.length, 0);
 });
 
+test('готовая сборка добавляется одной позицией', async () => {
+  const builds = await request('/api/v1/prebuilt');
+  const build = builds.body.items.find((item) => Number(item.stock) > 0);
+  assert.ok(build, 'нужна хотя бы одна сборка в наличии');
+
+  const id = `prebuilt:${build.id}`;
+  const added = await request('/api/v1/cart/items', {
+    method: 'POST',
+    body: { id, qty: 1 },
+  });
+  assert.equal(added.status, 201);
+  assert.equal(added.body.items.length, 1);
+  assert.equal(added.body.items[0].id, id);
+  assert.equal(added.body.items[0].name, build.name);
+  assert.equal(added.body.items[0].price, build.price);
+  assert.equal(added.body.items[0].qty, 1);
+
+  const tooMany = await request('/api/v1/cart/items', {
+    method: 'POST',
+    body: { id, qty: 10 },
+  });
+  assert.equal(tooMany.status, 400);
+  assert.equal(tooMany.body.error.code, 'OUT_OF_STOCK');
+
+  const removed = await request(`/api/v1/cart/items/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.items.length, 0);
+});
+
 test('оформление заказа очищает корзину и создаёт позиции', async () => {
   await request('/api/v1/cart/items', {
     method: 'POST',
@@ -168,4 +199,25 @@ test('нельзя оформить пустую корзину', async () => {
   });
   assert.equal(order.status, 400);
   assert.equal(order.body.error.code, 'EMPTY_CART');
+});
+
+test('заказ готовой сборки содержит одну позицию', async () => {
+  const builds = await request('/api/v1/prebuilt');
+  const build = builds.body.items.find((item) => Number(item.stock) > 0);
+  assert.ok(build, 'нужна хотя бы одна сборка в наличии');
+
+  const added = await request('/api/v1/cart/items', {
+    method: 'POST',
+    body: { id: `prebuilt:${build.id}`, qty: 1 },
+  });
+  assert.equal(added.status, 201);
+
+  const order = await request('/api/v1/orders', {
+    method: 'POST',
+    body: { deliveryMethod: 'pickup', phone: '+375291234567', paymentMethod: 'cash' },
+  });
+  assert.equal(order.status, 201);
+  assert.equal(order.body.items.length, 1);
+  assert.equal(order.body.items[0].name, build.name);
+  assert.equal(order.body.total, build.price);
 });
