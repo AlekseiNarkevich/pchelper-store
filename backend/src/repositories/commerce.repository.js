@@ -314,9 +314,23 @@ export async function createOrder(userId, data) {
   }
 
   const delivery = String(data.deliveryMethod || 'pickup');
+  if (!['pickup', 'courier'].includes(delivery)) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Неизвестный способ доставки');
+  }
+
+  const payment = String(data.paymentMethod || 'card');
+  if (!['card', 'cash', 'invoice'].includes(payment)) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Неизвестный способ оплаты');
+  }
+
   const address = String(data.address || '').trim();
   if (delivery === 'courier' && !address) {
     throw apiError(400, 'VALIDATION_ERROR', 'Укажите адрес доставки');
+  }
+
+  const phone = String(data.phone || '').trim();
+  if (phone.length < 7) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Укажите телефон для связи');
   }
 
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -332,8 +346,8 @@ export async function createOrder(userId, data) {
           статус: 'Новый',
           способ_доставки: delivery,
           адрес_доставки: address || null,
-          телефон: String(data.phone || ''),
-          способ_оплаты: String(data.paymentMethod || 'card'),
+          телефон: phone,
+          способ_оплаты: payment,
           итоговая_сумма: total,
         })
         .select('*')
@@ -372,8 +386,8 @@ export async function createOrder(userId, data) {
     status: 'Новый',
     deliveryMethod: delivery,
     address: address || null,
-    phone: String(data.phone || ''),
-    paymentMethod: String(data.paymentMethod || 'card'),
+    phone,
+    paymentMethod: payment,
     total,
     comment: String(data.comment || ''),
     createdAt: new Date().toISOString(),

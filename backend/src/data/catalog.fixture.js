@@ -799,3 +799,45 @@ export const FIXTURE_PREBUILT = [
     componentCount: 9,
   },
 ];
+
+/**
+ * Идентификаторы комплектующих готовых сборок демонстрационного каталога.
+ *
+ * Нужны, чтобы готовую сборку можно было положить в корзину и оформить
+ * заказ так же, как отдельные детали: корзина хранит «категория:id».
+ * В боевом режиме эти идентификаторы приходят из Supabase.
+ */
+const PREBUILT_PRODUCT_IDS = {
+  '1stPlayer ACK Bronze 650W': 3,
+  '1stPlayer FK 600W': 1,
+  'AMD Ryzen 5 5600G': 2,
+  'AMD Ryzen 7 9800X3D': 6,
+  'ASRock B450 Pro4 R2.0': 1,
+  'ASRock B760 Pro RS/D4': 12,
+  'Arctic Liquid Freezer III Pro 360': 8,
+  'Cougar Airface RGB': 5,
+  'DeepCool PX1200G': 10,
+  'Gigabyte GeForce RTX 5060 Eagle OC 8G': 1,
+  'ID-Cooling SE-214-XT ARGB': 1,
+  'Intel Core i5-12400F': 10,
+  'Kingston FURY Beast 2x32GB DDR5 6000MHz': 10,
+  'Kingston FURY Beast Black 2x8GB DDR4 3200MHz': 1,
+  'Kingston NV3 1TB': 1,
+  'Lian Li Lancool III': 7,
+  'MSI MAG X870E Tomahawk WiFi': 11,
+  'Netac Shadow S 2x8GB DDR4 3200MHz': 2,
+  'Palit GeForce RTX 5090 GameRock OC': 6,
+  'Patriot Burst Elite 480GB': 9,
+  'Samsung 9100 Pro 2TB': 8,
+  'Seagate Barracuda 6TB HDD': 17,
+  'WD Blue 1TB HDD': 13,
+  'XASTRA A407 4ARGB': 4,
+};
+
+for (const build of FIXTURE_PREBUILT) {
+  for (const component of build.components) {
+    component.productId = PREBUILT_PRODUCT_IDS[component.name];
+    const product = FIXTURE_PRODUCTS.find((item) => item.name === component.name);
+    if (product) component.imageUrl = product.imageUrl;
+  }
+}

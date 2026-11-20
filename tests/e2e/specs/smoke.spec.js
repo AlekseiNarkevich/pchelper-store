@@ -12,7 +12,8 @@ test.describe('PCHelper — критические пользовательск�
     await home.goto('/');
 
     await expect(home.categoryCards()).toHaveCount(8);
-    await expect(home.productCards()).toHaveCount(9);
+    // 8 недорогих товаров + 3 готовые сборки в демонстрационном каталоге.
+    await expect(home.productCards()).toHaveCount(11);
   });
 
   test('каталог показывает карточки и чипы категорий', async ({ page }) => {

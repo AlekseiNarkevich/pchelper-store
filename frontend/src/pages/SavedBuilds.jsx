@@ -196,8 +196,8 @@ export default function SavedBuilds() {
               >
                 {openId === build.id ? 'Свернуть' : 'Состав и совместимость'}
               </button>
-              <Link className="btn btn-secondary" to="/builder">
-                Собрать похожую
+              <Link className="btn btn-secondary" to={`/builder?build=${build.id}`}>
+                Открыть в конфигураторе
               </Link>
               <button
                 className="btn btn-secondary"

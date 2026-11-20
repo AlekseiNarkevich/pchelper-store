@@ -26,14 +26,14 @@ export default function Home() {
 
     Promise.all([
       getCategories(),
-      getProducts({ limit: 6, sort: 'price_asc' }),
+      getProducts({ limit: 8, sort: 'price_asc' }),
       getPrebuilt(),
     ])
       .then(([categoryData, productData, prebuiltData]) => {
         if (!alive) return;
         setCategories(categoryData.items);
         setProducts(productData.items);
-        setPrebuilt(prebuiltData.items.slice(0, 3));
+        setPrebuilt(prebuiltData.items.slice(0, 4));
       })
       .catch((reason) => {
         if (alive) setError(reason.message);

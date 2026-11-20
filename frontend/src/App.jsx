@@ -6,10 +6,12 @@ import Header from './components/Header.jsx';
 import Builder from './pages/Builder.jsx';
 import Cart from './pages/Cart.jsx';
 import Catalog from './pages/Catalog.jsx';
+import Checkout from './pages/Checkout.jsx';
 import Diagnostics from './pages/Diagnostics.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import NotFound from './pages/NotFound.jsx';
+import Orders from './pages/Orders.jsx';
 import Prebuilt from './pages/Prebuilt.jsx';
 import Product from './pages/Product.jsx';
 import Profile from './pages/Profile.jsx';
@@ -36,6 +38,22 @@ export default function App() {
           <Route path="/product/:id" element={<Product />} />
           <Route path="/prebuilt" element={<Prebuilt />} />
           <Route path="/cart" element={<Cart />} />
+          <Route
+            path="/checkout"
+            element={
+              <RequireAuth>
+                <Checkout />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <RequireAuth>
+                <Orders />
+              </RequireAuth>
+            }
+          />
           <Route path="/builder" element={<Builder />} />
           <Route path="/psu" element={<PsuCalculator />} />
           <Route path="/diagnostics" element={<Diagnostics />} />

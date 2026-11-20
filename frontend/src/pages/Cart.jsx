@@ -14,7 +14,6 @@ import React from 'react';
  */
 export default function Cart() {
   const [items, setItems] = useState(readCart);
-  const [notice, setNotice] = useState('');
 
   useEffect(() => onCartChange(() => setItems(readCart())), []);
 
@@ -72,17 +71,11 @@ export default function Cart() {
         </button>
       </div>
 
-      {notice && <div className="state">{notice}</div>}
-
       <div className="cart-page">
         {items.map((item) => (
           <div className="cart-row" key={item.id}>
             <div className="thumb">
-              {item.imageUrl ? (
-                <img alt={item.name} src={item.imageUrl} />
-              ) : (
-                <span>фото</span>
-              )}
+              <img alt={item.name} src={item.imageUrl || '/placeholder.jpg'} />
             </div>
             <div className="cart-name">
               <Link
@@ -128,16 +121,10 @@ export default function Cart() {
           <span>{money(total)}</span>
         </div>
         <div className="cart-checkout">
-          <button
-            className="btn"
-            onClick={() => setNotice('Оформление заказа появится в следующей версии')}
-            type="button"
-          >
+          <Link className="btn" to="/checkout">
             Оформить заказ
-          </button>
-          <span className="small faint">
-            Оформление и оплата — следующий этап курсовой работы
-          </span>
+          </Link>
+          <span className="small faint">Доставка и оплата — на следующем шаге</span>
         </div>
       </div>
     </div>

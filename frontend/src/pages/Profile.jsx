@@ -197,6 +197,9 @@ export default function Profile() {
             <section className="profile-panel">
               <h2>Быстрые действия</h2>
               <div className="profile-actions">
+                <Link className="btn btn-secondary" to="/orders">
+                  Мои заказы
+                </Link>
                 <Link className="btn btn-secondary" to="/psu">
                   Калькулятор БП
                 </Link>

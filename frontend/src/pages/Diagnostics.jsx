@@ -51,11 +51,9 @@ export default function Diagnostics() {
             <p className="problem">{item.problem}</p>
             <h3>Что проверить</h3>
             <ol className="diagnostics-steps">
-              {item.steps.map((step, index) => (
+              {item.steps.map((step) => (
                 <li key={step.title}>
-                  <strong>
-                    {index + 1}. {step.title}
-                  </strong>
+                  <strong>{step.title}</strong>
                   <ul>
                     {step.bullets.map((bullet) => (
                       <li key={bullet}>{bullet}</li>

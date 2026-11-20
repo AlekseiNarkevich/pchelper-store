@@ -186,7 +186,7 @@ export default function Header() {
           )}
 
           <Link className="icon-btn" to="/cart">
-            🛒 <span className="badge">{count}</span>
+            🛒 {count > 0 && <span className="badge">{count}</span>}
             <span className="visually-hidden">Корзина</span>
           </Link>
         </div>

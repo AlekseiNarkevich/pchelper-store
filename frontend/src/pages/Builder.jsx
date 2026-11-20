@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
 import { readAuth } from '../auth.js';
-import { checkCompatibility, saveBuild } from '../builds.js';
+import { checkCompatibility, getBuild, saveBuild } from '../builds.js';
 import {
   booleanOf,
   formRank,
@@ -250,6 +250,9 @@ export default function Builder() {
   const [saving, setSaving] = useState(false);
   const [draft] = useState(readDraft);
   const [hydrated, setHydrated] = useState(false);
+  const [searchParams] = useSearchParams();
+  const buildId = searchParams.get('build');
+  const loadedBuildRef = useRef(false);
 
   // Загрузка каталога и восстановление черновика.
   useEffect(() => {
@@ -279,7 +282,7 @@ export default function Builder() {
         });
         setLists(next);
 
-        if (draft) {
+        if (draft && !buildId) {
           const find = (category, id) =>
             id ? next[category].find((product) => product.id === id) || null : null;
           setSelection({
@@ -309,7 +312,7 @@ export default function Builder() {
     return () => {
       alive = false;
     };
-  }, [draft]);
+  }, [draft, buildId]);
 
   // Черновик хранится в localStorage: только идентификаторы, без секретов.
   useEffect(() => {
@@ -435,6 +438,48 @@ export default function Builder() {
       return true;
     });
   }, [lists.case, selection.motherboard, selection.cooling, selection.gpu, skipGpu]);
+
+  // Открытие сохранённой сборки: /builder?build=42.
+  useEffect(() => {
+    if (!buildId || loading || loadedBuildRef.current) return undefined;
+    loadedBuildRef.current = true;
+    let alive = true;
+
+    getBuild(buildId)
+      .then(({ build }) => {
+        if (!alive) return;
+        const next = {
+          cpu: null,
+          motherboard: null,
+          ram: null,
+          cooling: null,
+          gpu: null,
+          storage: [],
+          psu: null,
+          case: null,
+        };
+        for (const component of build.components) {
+          if (component.category === 'storage') {
+            next.storage.push(component.product);
+          } else {
+            next[component.category] = component.product;
+          }
+        }
+        setSelection(next);
+        setSkipGpu(!next.gpu);
+        setBuildName(build.name);
+        setNote(build.note || '');
+        setStep(8);
+        setHydrated(true);
+      })
+      .catch((reason) => {
+        if (alive) setError(reason.message);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [buildId, loading]);
 
   // Встроенной графики нет — режим «без видеокарты» недоступен.
   useEffect(() => {
@@ -628,12 +673,6 @@ export default function Builder() {
             </Link>
           </div>
 
-          {error && (
-            <div className="state error" role="alert">
-              {error} {!readAuth().accessToken && <Link to="/login">Войти</Link>}
-            </div>
-          )}
-
           {check && (
             <div className="compat-result" aria-live="polite">
               <strong>
@@ -776,6 +815,12 @@ export default function Builder() {
           Калькулятор БП
         </Link>
       </div>
+
+      {error && (
+        <div className="state error" role="alert">
+          {error} {!readAuth().accessToken && <Link to="/login">Войти</Link>}
+        </div>
+      )}
 
       <div className="step-strip" role="list">
         {STEPS.map((item, index) => (

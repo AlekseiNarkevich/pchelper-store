@@ -47,7 +47,7 @@ export default function Product() {
   useEffect(() => {
     if (!product) return undefined;
     let alive = true;
-    getProducts({ category: product.category, limit: 4 })
+    getProducts({ category: product.category, limit: 5 })
       .then((data) => {
         if (alive) setRelated(data.items.filter((item) => item.id !== product.id));
       })
@@ -150,7 +150,7 @@ export default function Product() {
             С этой категорией смотрят
           </div>
           <div className="product-grid">
-            {related.slice(0, 3).map((item) => (
+            {related.slice(0, 4).map((item) => (
               <ProductCard key={item.id} product={item} />
             ))}
           </div>

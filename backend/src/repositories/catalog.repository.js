@@ -191,11 +191,13 @@ export async function listPrebuilt() {
 
   const names = new Map();
   const prices = new Map();
+  const images = new Map();
   for (const [category, list] of tables) {
     for (const row of list) {
       const key = `${category.id}:${row.id}`;
       names.set(key, row['название']);
       prices.set(key, Number(row['цена'] ?? 0));
+      images.set(key, row['фото_url'] || null);
     }
   }
 
@@ -214,8 +216,10 @@ export async function listPrebuilt() {
       .filter(([, field]) => row[field] !== null && row[field] !== undefined)
       .map(([category, field]) => ({
         category,
+        productId: Number(row[field]),
         name: names.get(`${category}:${row[field]}`) || '—',
         price: prices.get(`${category}:${row[field]}`) ?? 0,
+        imageUrl: images.get(`${category}:${row[field]}`) || null,
       }));
 
     // Накопителей у сборки может быть несколько — они лежат в отдельной
@@ -225,8 +229,10 @@ export async function listPrebuilt() {
       const key = `storage:${link['накопитель_id']}`;
       components.push({
         category: 'storage',
+        productId: Number(link['накопитель_id']),
         name: names.get(key) || '—',
         price: prices.get(key) ?? 0,
+        imageUrl: images.get(key) || null,
       });
     }
 

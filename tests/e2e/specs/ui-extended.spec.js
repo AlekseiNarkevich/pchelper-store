@@ -158,7 +158,8 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     await page.goto('/prebuilt');
     await page.locator('.product-grid .product-card button').first().click();
     await page.goto('/cart');
-    await expect(page.locator('.cart-row')).toHaveCount(1);
+    // Готовая сборка раскладывается на комплектующие: 8 позиций.
+    await expect(page.locator('.cart-row')).toHaveCount(8);
   });
 
   test('неизвестный адрес открывает 404', async ({ page }) => {
