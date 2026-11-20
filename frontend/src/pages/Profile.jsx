@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { fetchMe, logout, onAuthChange, readAuth, updateProfile } from '../auth.js';
 
@@ -86,6 +86,15 @@ export default function Profile() {
             <p className="muted">
               Роль: {ROLE_LABELS[user.role] || user.role}
             </p>
+
+            <div className="profile-actions">
+              <Link className="btn btn-secondary" to="/builds">
+                Мои сохранённые сборки
+              </Link>
+              <Link className="btn btn-secondary" to="/builder">
+                Собрать новый ПК
+              </Link>
+            </div>
 
             <form className="auth-form" onSubmit={handleSave}>
               <label className="field">

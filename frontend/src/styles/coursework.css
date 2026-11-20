@@ -4,33 +4,6 @@
  * Переменные (--surface, --border, --primary и т. д.) заданы в app.css.
  */
 
-/* --- Подменю сервисов в шапке --- */
-.subnav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-bottom: 8px;
-}
-
-.subnav-link {
-  padding: 4px 10px;
-  border-radius: 999px;
-  color: var(--text-muted, #555);
-  font-size: 13px;
-  transition: 0.15s;
-}
-
-.subnav-link:hover {
-  background: var(--surface-2, #f2f4f7);
-  color: var(--text, #111);
-}
-
-.subnav-link.is-active {
-  background: var(--primary-soft, #e3f0ff);
-  color: var(--primary, #1976d2);
-  font-weight: 600;
-}
-
 /* --- Общая шапка страниц подбора --- */
 .builder-head {
   display: flex;
@@ -104,6 +77,11 @@
   align-items: start;
 }
 
+.builder-main,
+.builder-side {
+  min-width: 0;
+}
+
 .builder-side {
   position: sticky;
   top: 118px;
@@ -174,6 +152,14 @@
   color: var(--text-muted, #555);
   font-size: 13px;
   line-height: 1.45;
+}
+
+/* --- Профиль: быстрые ссылки --- */
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 4px;
 }
 
 /* --- Поля форм --- */
@@ -474,9 +460,57 @@
   color: #1e7a34;
 }
 
+/* --- Широкие мониторы: используем площадь, а не узкую колонку --- */
+@media (min-width: 1200px) {
+  .feature-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1400px) {
+  .product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .search {
+    width: 300px;
+  }
+}
+
+/* Меню центрируется в шапке на широких экранах, а на средних и узких
+   переходит на отдельную строку и тоже выравнивается по центру. */
+.header-inner {
+  position: relative;
+}
+
+.main-nav {
+  position: absolute;
+  left: 50%;
+  margin-left: 0;
+  transform: translateX(-50%);
+}
+
+@media (max-width: 1800px) {
+  .header-inner {
+    flex-wrap: wrap;
+  }
+
+  .main-nav {
+    position: static;
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+    transform: none;
+  }
+}
+
 /* --- Адаптив --- */
 @media (max-width: 980px) {
-  .builder-layout,
+  .builder-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .diagnostics-layout {
     grid-template-columns: 1fr;
   }
@@ -495,6 +529,12 @@
 /* На узком экране сводка превращается в компактную строку с итогом,
    чтобы список комплектующих оставался первым на странице. */
 @media (max-width: 680px) {
+  .main-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+    overflow: visible;
+  }
+
   .builder-side {
     padding: 10px 12px;
   }
@@ -506,6 +546,8 @@
   }
 
   .build-total {
+    flex-wrap: wrap;
+    gap: 4px 10px;
     margin-top: 0;
     padding-top: 0;
     border-top: 0;

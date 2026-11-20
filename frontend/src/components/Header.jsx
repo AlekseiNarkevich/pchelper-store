@@ -98,6 +98,24 @@ export default function Header() {
           >
             Готовые ПК
           </NavLink>
+          <NavLink
+            className={({ isActive }) => `nav-pill${isActive ? ' is-active' : ''}`}
+            to="/builder"
+          >
+            Конфигуратор
+          </NavLink>
+          <NavLink
+            className={({ isActive }) => `nav-pill${isActive ? ' is-active' : ''}`}
+            to="/psu"
+          >
+            Калькулятор БП
+          </NavLink>
+          <NavLink
+            className={({ isActive }) => `nav-pill${isActive ? ' is-active' : ''}`}
+            to="/diagnostics"
+          >
+            Диагностика
+          </NavLink>
         </nav>
 
         <div className="header-tools">
@@ -173,33 +191,6 @@ export default function Header() {
           </Link>
         </div>
       </div>
-
-      <nav className="container subnav" aria-label="Сервисы подбора">
-        <NavLink
-          className={({ isActive }) => `subnav-link${isActive ? ' is-active' : ''}`}
-          to="/builder"
-        >
-          Конфигуратор
-        </NavLink>
-        <NavLink
-          className={({ isActive }) => `subnav-link${isActive ? ' is-active' : ''}`}
-          to="/psu"
-        >
-          Калькулятор БП
-        </NavLink>
-        <NavLink
-          className={({ isActive }) => `subnav-link${isActive ? ' is-active' : ''}`}
-          to="/diagnostics"
-        >
-          Диагностика
-        </NavLink>
-        <NavLink
-          className={({ isActive }) => `subnav-link${isActive ? ' is-active' : ''}`}
-          to="/builds"
-        >
-          Мои сборки
-        </NavLink>
-      </nav>
     </header>
   );
 }
