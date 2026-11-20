@@ -14,8 +14,10 @@ export default function ProductCard({ product, onAdded }) {
   const vendor =
     product.specs?.find((spec) => spec.label === 'Производитель')?.value ||
     product.categoryName;
+  const stock = Number(product.stock ?? 0);
 
   function add() {
+    if (stock <= 0) return;
     addToCart(product);
     if (onAdded) onAdded(product);
   }
@@ -33,12 +35,20 @@ export default function ProductCard({ product, onAdded }) {
         {product.name}
       </Link>
       <div className="vendor">{vendor}</div>
+      <div className={`stock-line${stock <= 0 ? ' is-out' : ''}`}>
+        {stock > 0 ? `В наличии: ${stock}` : 'Нет в наличии'}
+      </div>
       <div className="bottom">
         <div className="price">
           {money(product.price)} <small />
         </div>
-        <button className="btn btn-sm" onClick={add} type="button">
-          + В корзину
+        <button
+          className="btn btn-sm"
+          disabled={stock <= 0}
+          onClick={add}
+          type="button"
+        >
+          {stock > 0 ? '+ В корзину' : 'Нет в наличии'}
         </button>
       </div>
     </article>

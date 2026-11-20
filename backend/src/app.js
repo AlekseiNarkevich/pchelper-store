@@ -20,6 +20,7 @@ import buildsRouter from './routes/builds.js';
 import catalogRouter from './routes/catalog.js';
 import psuRouter from './routes/psu.js';
 import reviewsRouter from './routes/reviews.js';
+import stockRouter from './routes/stock.js';
 
 // Момент запуска — чтобы в ответе /api/v1/hello показывать время работы процесса.
 const STARTED_AT = Date.now();
@@ -69,6 +70,7 @@ export function createApp() {
   app.use('/api/v1', buildsRouter);
   app.use('/api/v1', psuRouter);
   app.use('/api/v1', reviewsRouter);
+  app.use('/api/v1', stockRouter);
 
   // --- Каталог ---
   // Товары, категории и готовые сборки. Данные берутся из Supabase,

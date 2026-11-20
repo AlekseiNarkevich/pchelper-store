@@ -79,6 +79,20 @@ export const deleteProduct = (category, id) =>
     method: 'DELETE',
   });
 
+export const getPrebuiltStock = () => request('/admin/prebuilt-stock');
+export const updatePrebuiltStock = (id, stock) =>
+  request(`/admin/prebuilt-stock/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { stock },
+  });
+
+export const getStockRequests = () => request('/admin/stock-requests');
+export const updateStockRequest = (id, status) =>
+  request(`/admin/stock-requests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { status },
+  });
+
 export const getReviews = (status = '') =>
   request(`/admin/reviews${status ? `?status=${encodeURIComponent(status)}` : ''}`);
 export const moderateReview = (id, status) =>

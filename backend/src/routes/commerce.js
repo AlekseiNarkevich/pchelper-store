@@ -81,6 +81,7 @@ router.post(
       productId: Number(rawId),
       name: product.name,
       price: product.price,
+      stock: product.stock,
       qty: body.qty || 1,
     });
     return res.status(201).json({ items });

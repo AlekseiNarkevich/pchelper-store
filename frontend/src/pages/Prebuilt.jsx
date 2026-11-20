@@ -35,6 +35,10 @@ export default function Prebuilt() {
   }, []);
 
   function add(build) {
+    if (Number(build.stock ?? 0) <= 0) {
+      setNotice('Этой сборки нет на складе');
+      return;
+    }
     const parts = build.components.filter(
       (component) => component.category && Number.isInteger(component.productId),
     );
@@ -107,10 +111,22 @@ export default function Prebuilt() {
                   </li>
                 ))}
               </ul>
+              <div
+                className={`stock-line${Number(build.stock ?? 0) <= 0 ? ' is-out' : ''}`}
+              >
+                {Number(build.stock ?? 0) > 0
+                  ? `В наличии: ${build.stock}`
+                  : 'Нет в наличии'}
+              </div>
               <div className="bottom">
                 <div className="price">{money(build.price)}</div>
-                <button className="btn btn-sm" onClick={() => add(build)} type="button">
-                  В корзину
+                <button
+                  className="btn btn-sm"
+                  disabled={Number(build.stock ?? 0) <= 0}
+                  onClick={() => add(build)}
+                  type="button"
+                >
+                  {Number(build.stock ?? 0) > 0 ? 'В корзину' : 'Нет в наличии'}
                 </button>
               </div>
             </article>

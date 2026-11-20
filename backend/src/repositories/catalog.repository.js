@@ -20,7 +20,9 @@ import { fetchTable, isDatabaseConnected } from '../services/supabase.service.js
  */
 async function loadCategory(category) {
   if (!isDatabaseConnected()) {
-    return FIXTURE_PRODUCTS.filter((p) => p.category === category.id);
+    return FIXTURE_PRODUCTS.filter((p) => p.category === category.id).map(
+      (product) => ({ ...product, stock: Number(product.stock ?? 5) }),
+    );
   }
   const rows = await fetchTable(category.table);
   return rows.map((row) => mapRowToProduct(category.id, row));
@@ -32,7 +34,12 @@ async function loadCategory(category) {
  * @returns {Promise<object[]>} Плоский список товаров.
  */
 async function loadAllProducts() {
-  if (!isDatabaseConnected()) return [...FIXTURE_PRODUCTS];
+  if (!isDatabaseConnected()) {
+    return FIXTURE_PRODUCTS.map((product) => ({
+      ...product,
+      stock: Number(product.stock ?? 5),
+    }));
+  }
   const groups = await Promise.all(CATEGORIES.map(loadCategory));
   return groups.flat();
 }
@@ -160,7 +167,8 @@ export async function getProduct(productId) {
   if (!Number.isInteger(id) || id <= 0) return null;
 
   if (!isDatabaseConnected()) {
-    return FIXTURE_PRODUCTS.find((p) => p.id === `${categoryId}:${id}`) || null;
+    const found = FIXTURE_PRODUCTS.find((p) => p.id === `${categoryId}:${id}`);
+    return found ? { ...found, stock: Number(found.stock ?? 5) } : null;
   }
 
   const rows = await fetchTable(category.table);
@@ -180,7 +188,11 @@ export async function getProduct(productId) {
  */
 export async function listPrebuilt() {
   if (!isDatabaseConnected()) {
-    return { items: FIXTURE_PREBUILT, total: FIXTURE_PREBUILT.length };
+    const items = FIXTURE_PREBUILT.map((build) => ({
+      ...build,
+      stock: Number(build.stock ?? 3),
+    }));
+    return { items, total: items.length };
   }
 
   const rows = await fetchTable('ГотовыеКонфигурации');
@@ -243,6 +255,7 @@ export async function listPrebuilt() {
       name: row['название'] || 'Без названия',
       task: row['задачи'] || '',
       price,
+      stock: Number(row['количество'] ?? 0),
       currency: 'BYN',
       imageUrl: row['фото_url'] || null,
       components,

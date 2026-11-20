@@ -26,13 +26,19 @@ import {
   listOrderHistory,
   listOrderPositions,
   listOrders,
+  listPrebuiltStock,
   listProducts,
   listUsers,
+  updatePrebuiltStock,
   updateOrder,
   updateProduct,
   updateUser,
 } from '../repositories/admin.repository.js';
 import { listAll, moderate } from '../repositories/reviews.repository.js';
+import {
+  listRequests as listStockRequests,
+  updateRequest as updateStockRequest,
+} from '../repositories/stock.repository.js';
 import { sendOrderStatusEmail } from '../services/mail.service.js';
 import { requireAdmin } from './auth.js';
 
@@ -163,6 +169,37 @@ router.delete(
   asyncHandler(async (req, res) => {
     await deleteProduct(req.params.category, req.params.id);
     res.status(204).end();
+  }),
+);
+
+router.get(
+  '/prebuilt-stock',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listPrebuiltStock());
+  }),
+);
+
+router.patch(
+  '/prebuilt-stock/:id',
+  asyncHandler(async (req, res) => {
+    res
+      .status(200)
+      .json(await updatePrebuiltStock(req.params.id, (req.body || {}).stock));
+  }),
+);
+
+router.get(
+  '/stock-requests',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listStockRequests());
+  }),
+);
+
+router.patch(
+  '/stock-requests/:id',
+  asyncHandler(async (req, res) => {
+    const status = String((req.body || {}).status || '');
+    res.status(200).json(await updateStockRequest(req.params.id, status));
   }),
 );
 

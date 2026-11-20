@@ -1,0 +1,125 @@
+/**
+ * PCHelper — запросы на поступление товара.
+ *
+ * Покупатель может оставить e-mail или телефон, если товара нет на складе.
+ * Запросы видит администратор в разделе «Запросы».
+ */
+
+import { apiError } from '../domain/errors.js';
+import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
+import { getProduct } from './catalog.repository.js';
+
+/**
+ * Создаёт запрос на поступление.
+ *
+ * @param {string} productId Идентификатор «cpu:1».
+ * @param {{email?: string, phone?: string}} data Контакты.
+ * @returns {Promise<object>}
+ */
+export async function createRequest(productId, data) {
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
+  }
+
+  const [category, rawId] = String(productId || '').split(':');
+  const id = Number(rawId);
+  if (!category || !Number.isInteger(id) || id <= 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Некорректный идентификатор товара');
+  }
+
+  const email = String(data.email || '').trim();
+  const phone = String(data.phone || '').trim();
+  if (!email && !phone) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Оставьте e-mail или телефон');
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Некорректный e-mail');
+  }
+
+  const { data: row, error } = await supabase
+    .from('ЗапросыНаПоступление')
+    .insert({
+      товар_категория: category,
+      товар_id: id,
+      email: email || null,
+      телефон: phone || null,
+      статус: 'новый',
+    })
+    .select('id,статус,создан_в')
+    .single();
+  if (error) {
+    console.error('[stock] запрос на поступление:', error.message);
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось сохранить запрос');
+  }
+  return {
+    id: String(row.id),
+    status: row['статус'],
+    createdAt: row['создан_в'],
+  };
+}
+
+/**
+ * Список запросов для администратора.
+ *
+ * @returns {Promise<{items: object[], total: number, newCount: number}>}
+ */
+export async function listRequests() {
+  if (!isDatabaseConnected()) {
+    return { items: [], total: 0, newCount: 0 };
+  }
+  const { data, error } = await supabase
+    .from('ЗапросыНаПоступление')
+    .select('*')
+    .order('создан_в', { ascending: false });
+  if (error) {
+    console.error('[stock] список запросов:', error.message);
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось получить запросы');
+  }
+
+  const items = [];
+  for (const row of data || []) {
+    const product = await getProduct(`${row['товар_категория']}:${row['товар_id']}`);
+    items.push({
+      id: String(row.id),
+      productId: `${row['товар_категория']}:${row['товар_id']}`,
+      productName: product?.name || 'Товар удалён',
+      email: row.email || '',
+      phone: row['телефон'] || '',
+      status: row['статус'],
+      createdAt: row['создан_в'],
+    });
+  }
+
+  return {
+    items,
+    total: items.length,
+    newCount: items.filter((item) => item.status === 'новый').length,
+  };
+}
+
+/**
+ * Меняет статус запроса.
+ *
+ * @param {string} requestId Идентификатор.
+ * @param {string} status Новый статус.
+ * @returns {Promise<object>}
+ */
+export async function updateRequest(requestId, status) {
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
+  }
+  if (!['новый', 'обработан'].includes(status)) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Неизвестный статус запроса');
+  }
+  const { data: row, error } = await supabase
+    .from('ЗапросыНаПоступление')
+    .update({ статус: status })
+    .eq('id', Number(requestId))
+    .select('id,статус')
+    .maybeSingle();
+  if (error) {
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось обновить запрос');
+  }
+  if (!row) throw apiError(404, 'REQUEST_NOT_FOUND', 'Запрос не найден');
+  return { id: String(row.id), status: row['статус'] };
+}

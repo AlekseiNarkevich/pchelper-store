@@ -6,6 +6,7 @@ import ProductCard from '../components/ProductCard.jsx';
 import { readAuth } from '../auth.js';
 import { addToCart } from '../cart.js';
 import { createReview, getReviews } from '../reviews.js';
+import { requestStock } from '../stock.js';
 import React from 'react';
 
 /**
@@ -44,6 +45,10 @@ export default function Product() {
   const [reviewNotice, setReviewNotice] = useState('');
   const [reviewError, setReviewError] = useState('');
   const [reviewsLoadError, setReviewsLoadError] = useState('');
+  const [stockForm, setStockForm] = useState({ email: '', phone: '' });
+  const [stockNotice, setStockNotice] = useState('');
+  const [stockError, setStockError] = useState('');
+  const stock = Number(product?.stock ?? 0);
 
   useEffect(() => {
     let alive = true;
@@ -102,9 +107,23 @@ export default function Product() {
   }, [id]);
 
   function add() {
+    if (stock <= 0) return;
     addToCart(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
+  }
+
+  async function submitStockRequest(event) {
+    event.preventDefault();
+    setStockNotice('');
+    setStockError('');
+    try {
+      await requestStock(id, stockForm);
+      setStockNotice('Сообщим, когда товар появится на складе');
+      setStockForm({ email: '', phone: '' });
+    } catch (reason) {
+      setStockError(reason.message);
+    }
   }
 
   async function submitReview(event) {
@@ -176,17 +195,65 @@ export default function Product() {
           <div className="price-block">
             <span className="value">{money(product.price)}</span>
           </div>
+          <div className={`stock-line${stock <= 0 ? ' is-out' : ''}`}>
+            {stock > 0 ? `В наличии: ${stock} шт.` : 'Нет в наличии'}
+          </div>
           <p className="muted" style={{ fontSize: 14 }}>
             {product.description}
           </p>
           <div style={{ display: 'flex', gap: 10, margin: '16px 0 22px' }}>
-            <button className="btn" onClick={add} type="button">
-              {added ? 'Добавлено ✓' : 'Добавить в корзину'}
+            <button className="btn" disabled={stock <= 0} onClick={add} type="button">
+              {stock <= 0
+                ? 'Нет в наличии'
+                : added
+                  ? 'Добавлено ✓'
+                  : 'Добавить в корзину'}
             </button>
             <Link className="btn btn-secondary" to="/catalog">
               Продолжить покупки
             </Link>
           </div>
+
+          {stock <= 0 && (
+            <form className="stock-request" onSubmit={submitStockRequest}>
+              <div className="h3">Сообщить о поступлении</div>
+              <p className="muted">
+                Оставьте контакт — администратор увидит запрос и сообщит, когда товар
+                появится.
+              </p>
+              <label className="field">
+                <span>E-mail</span>
+                <input
+                  onChange={(event) =>
+                    setStockForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  type="email"
+                  value={stockForm.email}
+                />
+              </label>
+              <label className="field">
+                <span>Телефон</span>
+                <input
+                  onChange={(event) =>
+                    setStockForm((current) => ({
+                      ...current,
+                      phone: event.target.value,
+                    }))
+                  }
+                  type="tel"
+                  value={stockForm.phone}
+                />
+              </label>
+              {stockNotice && <div className="state success">{stockNotice}</div>}
+              {stockError && <div className="state error">{stockError}</div>}
+              <button className="btn" type="submit">
+                Отправить запрос
+              </button>
+            </form>
+          )}
 
           <div className="h3" style={{ marginBottom: 12 }}>
             Характеристики

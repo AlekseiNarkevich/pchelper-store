@@ -5,6 +5,7 @@
  * хранятся там. В CI (без ключей) и до накатки миграции используется
  * память процесса — контракт API от этого не меняется.
  */
+import { CATEGORY_BY_ID } from '../domain/catalog.js';
 import { getProduct } from './catalog.repository.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 
@@ -169,6 +170,11 @@ export async function addItem(userId, product) {
     throw apiError(400, 'VALIDATION_ERROR', 'Количество должно быть от 1 до 10');
   }
 
+  const stock = Number(product.stock ?? 10);
+  if (stock <= 0) {
+    throw apiError(400, 'OUT_OF_STOCK', `Товара «${product.name}» нет на складе`);
+  }
+
   if (useSupabase()) {
     try {
       const field = FIELD_BY_CATEGORY[product.category];
@@ -183,13 +189,27 @@ export async function addItem(userId, product) {
       if (existing.error) throw existing.error;
 
       if (existing.data) {
-        const next = Math.min(10, Number(existing.data['количество']) + qty);
+        const next = Number(existing.data['количество']) + qty;
+        if (next > stock) {
+          throw apiError(
+            400,
+            'OUT_OF_STOCK',
+            `На складе только ${stock} шт. товара «${product.name}»`,
+          );
+        }
         const updated = await supabase
           .from('Корзина_Позиции')
           .update({ количество: next })
           .eq('id', existing.data.id);
         if (updated.error) throw updated.error;
       } else {
+        if (qty > stock) {
+          throw apiError(
+            400,
+            'OUT_OF_STOCK',
+            `На складе только ${stock} шт. товара «${product.name}»`,
+          );
+        }
         const inserted = await supabase.from('Корзина_Позиции').insert({
           корзина_id: cartId,
           количество: qty,
@@ -212,7 +232,14 @@ export async function addItem(userId, product) {
   const id = `${product.category}:${product.productId}`;
   const found = items.find((item) => item.id === id);
   if (found) {
-    found.qty = Math.min(10, found.qty + qty);
+    if (found.qty + qty > stock) {
+      throw apiError(
+        400,
+        'OUT_OF_STOCK',
+        `На складе только ${stock} шт. товара «${product.name}»`,
+      );
+    }
+    found.qty += qty;
   } else {
     items.push({
       id,
@@ -220,6 +247,7 @@ export async function addItem(userId, product) {
       productId: Number(product.productId),
       name: product.name,
       price: Number(product.price),
+      stock,
       qty,
     });
   }
@@ -242,6 +270,15 @@ export async function updateItem(userId, itemId, qty) {
   }
   const [category, rawId] = String(itemId).split(':');
   const field = FIELD_BY_CATEGORY[category];
+  const product = await getProduct(itemId);
+  if (!product) throw apiError(404, 'ITEM_NOT_FOUND', 'Товар не найден');
+  if (amount > Number(product.stock ?? 10)) {
+    throw apiError(
+      400,
+      'OUT_OF_STOCK',
+      `На складе только ${product.stock} шт. товара «${product.name}»`,
+    );
+  }
 
   if (useSupabase() && field) {
     try {
@@ -344,6 +381,20 @@ export async function createOrder(userId, data) {
     throw apiError(400, 'VALIDATION_ERROR', 'Укажите телефон для связи');
   }
 
+  for (const item of items) {
+    const product = await getProduct(item.id);
+    if (!product) {
+      throw apiError(400, 'PRODUCT_NOT_FOUND', `Товар «${item.name}» не найден`);
+    }
+    if (item.qty > Number(product.stock ?? 10)) {
+      throw apiError(
+        400,
+        'OUT_OF_STOCK',
+        `На складе только ${product.stock} шт. товара «${item.name}»`,
+      );
+    }
+  }
+
   const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
 
   // Доставка: самовывоз бесплатен; по Минску бесплатно от 500 BYN,
@@ -422,6 +473,22 @@ export async function createOrder(userId, data) {
       });
       if (history.error) {
         console.error('[commerce] история заказа:', history.error.message);
+      }
+
+      // Списываем проданные комплектующие со склада. Ошибку списания
+      // не скрываем, но заказ уже создан: пишем её в журнал.
+      for (const item of items) {
+        const category = CATEGORY_BY_ID.get(item.category);
+        if (!category) continue;
+        const product = await getProduct(item.id);
+        const nextStock = Math.max(0, Number(product?.stock ?? 0) - Number(item.qty));
+        const stockUpdate = await supabase
+          .from(category.table)
+          .update({ количество: nextStock })
+          .eq('id', Number(item.productId));
+        if (stockUpdate.error) {
+          console.error(`[commerce] списание ${item.id}:`, stockUpdate.error.message);
+        }
       }
 
       await clearCart(userId);

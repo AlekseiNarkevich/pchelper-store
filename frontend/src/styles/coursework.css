@@ -786,6 +786,30 @@
   }
 }
 
+/* --- Наличие на складе --- */
+.stock-line {
+  margin: 4px 0 10px;
+  color: var(--ok, #2e7d32);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stock-line.is-out {
+  color: var(--danger, #c62828);
+}
+
+.stock-request {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  margin: 8px 0 18px;
+  padding: 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
 /* --- Отзывы товара --- */
 .reviews-section {
   padding-top: 8px;

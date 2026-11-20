@@ -73,9 +73,19 @@ async function pushToServer(action) {
 
 /** Добавляет товар или увеличивает количество уже выбранного. */
 export function addToCart(product) {
+  const stock = product.stock == null ? 99 : Number(product.stock);
+  if (stock <= 0) {
+    reportError(`Товара «${product.name}» нет на складе`);
+    return;
+  }
+
   const items = readCart();
   const found = items.find((item) => item.id === product.id);
   if (found) {
+    if (found.qty >= stock) {
+      reportError(`На складе только ${stock} шт. товара «${product.name}»`);
+      return;
+    }
     found.qty += 1;
   } else {
     items.push({
@@ -83,6 +93,7 @@ export function addToCart(product) {
       name: product.name,
       price: product.price,
       imageUrl: product.imageUrl || null,
+      stock,
       qty: 1,
     });
   }
@@ -103,7 +114,11 @@ export function cartTotal() {
 /** Меняет количество позиции; ноль удаляет её из корзины. */
 export function setQty(id, qty) {
   const items = readCart()
-    .map((item) => (item.id === id ? { ...item, qty } : item))
+    .map((item) => {
+      if (item.id !== id) return item;
+      const max = Number(item.stock ?? 99);
+      return { ...item, qty: Math.min(qty, max) };
+    })
     .filter((item) => item.qty > 0);
   writeCart(items);
   void pushToServer((commerce) =>

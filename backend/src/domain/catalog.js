@@ -259,6 +259,7 @@ export function mapRowToProduct(categoryId, row) {
     categoryName: category.name,
     name: row['название'] || 'Без названия',
     price: Number(row['цена'] ?? 0),
+    stock: Number(row['количество'] ?? row.stock ?? 5),
     currency: 'BYN',
     imageUrl: row['фото_url'] || null,
     description: category.description,

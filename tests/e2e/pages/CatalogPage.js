@@ -19,10 +19,22 @@ export default class CatalogPage extends BasePage {
   }
 
   async openFirstProduct() {
+    // Для сценариев покупки берём товар, который есть на складе:
+    // у отсутствующего кнопка «В корзину» отключена.
+    const available = this.page.locator(
+      '.product-card:has(button:not([disabled])) a.name',
+    );
+    if (await available.count()) {
+      await available.first().click();
+      return;
+    }
     await this.productCards().first().locator('a.name').click();
   }
 
   async addFirstToCart() {
-    await this.productCards().first().getByRole('button').last().click();
+    await this.page
+      .locator('.product-card button:not([disabled])')
+      .first()
+      .click();
   }
 }

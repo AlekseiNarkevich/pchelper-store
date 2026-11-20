@@ -333,6 +333,10 @@ function cleanProductData(data) {
   const clean = {};
   for (const [key, value] of Object.entries(data || {})) {
     if (key === 'id' || key === 'создан_в') continue;
+    if (key === 'количество' && (value === '' || value == null)) {
+      clean[key] = 0;
+      continue;
+    }
     clean[key] = value === '' ? null : value;
   }
   return clean;
@@ -413,6 +417,54 @@ export async function deleteProduct(category, productId) {
   if (!(data || []).length) {
     throw apiError(404, 'PRODUCT_NOT_FOUND', 'Товар не найден');
   }
+}
+
+/**
+ * Остатки готовых конфигураций.
+ *
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export async function listPrebuiltStock() {
+  if (!isDatabaseConnected()) return { items: [], total: 0 };
+  const { data, error } = await supabase
+    .from('ГотовыеКонфигурации')
+    .select('id,название,количество')
+    .order('id');
+  if (error) throw databaseError('получить остатки готовых ПК', error);
+  const items = (data || []).map((row) => ({
+    id: String(row.id),
+    name: row['название'],
+    stock: Number(row['количество'] || 0),
+  }));
+  return { items, total: items.length };
+}
+
+/**
+ * Меняет остаток готовой конфигурации.
+ *
+ * @param {string} id Идентификатор.
+ * @param {number} stock Количество.
+ * @returns {Promise<object>}
+ */
+export async function updatePrebuiltStock(id, stock) {
+  requireDatabase();
+  const quantity = Number(stock);
+  if (!Number.isInteger(quantity) || quantity < 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Количество должно быть неотрицательным');
+  }
+  const { data: row, error } = await supabase
+    .from('ГотовыеКонфигурации')
+    .update({ количество: quantity })
+    .eq('id', Number(id))
+    .select('id,название,количество')
+    .maybeSingle();
+  if (error) throw databaseError('обновить остаток готового ПК', error);
+  if (!row) throw apiError(404, 'PREBUILT_NOT_FOUND', 'Сборка не найдена');
+  return {
+    id: String(row.id),
+    name: row['название'],
+    stock: Number(row['количество']),
+  };
 }
 
 /**

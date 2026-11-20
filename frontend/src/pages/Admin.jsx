@@ -8,13 +8,17 @@ import {
   deleteProduct,
   getOrderPositions,
   getOrders,
+  getPrebuiltStock,
   getProducts,
   getReviews,
+  getStockRequests,
   getSummary,
   getUsers,
   moderateReview,
   updateOrder,
+  updatePrebuiltStock,
   updateProduct,
+  updateStockRequest,
   updateUser,
 } from '../admin.js';
 
@@ -193,6 +197,8 @@ export default function Admin() {
         {[
           ['orders', 'Заказы'],
           ['products', 'Товары'],
+          ['prebuilt', 'Готовые ПК'],
+          ['requests', 'Запросы'],
           ['users', 'Пользователи'],
           ['reviews', 'Отзывы'],
         ].map(([key, label]) => (
@@ -211,6 +217,8 @@ export default function Admin() {
 
       {tab === 'orders' && <OrdersPanel onError={setError} onFlash={flash} />}
       {tab === 'products' && <ProductsPanel onError={setError} onFlash={flash} />}
+      {tab === 'prebuilt' && <PrebuiltStockPanel onError={setError} onFlash={flash} />}
+      {tab === 'requests' && <StockRequestsPanel onError={setError} onFlash={flash} />}
       {tab === 'users' && <UsersPanel onError={setError} onFlash={flash} />}
       {tab === 'reviews' && <ReviewsPanel onError={setError} onFlash={flash} />}
     </div>
@@ -417,7 +425,10 @@ function ProductsPanel({ onError, onFlash }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
-  const fields = useMemo(() => PRODUCT_FIELDS[category] || [], [category]);
+  const fields = useMemo(
+    () => [...(PRODUCT_FIELDS[category] || []), ['количество', 'number']],
+    [category],
+  );
 
   function startCreate() {
     setEditingId(null);
@@ -595,6 +606,137 @@ function ProductsPanel({ onError, onFlash }) {
           </button>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** Остатки готовых компьютеров. */
+function PrebuiltStockPanel({ onError, onFlash }) {
+  const [items, setItems] = useState([]);
+  const [values, setValues] = useState({});
+
+  function load() {
+    getPrebuiltStock()
+      .then((data) => {
+        setItems(data.items);
+        setValues(Object.fromEntries(data.items.map((item) => [item.id, item.stock])));
+      })
+      .catch((reason) => onError(reason.message));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, []);
+
+  async function save(item) {
+    try {
+      await updatePrebuiltStock(item.id, Number(values[item.id]));
+      onFlash(`Остаток «${item.name}» обновлён`);
+      load();
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
+  return (
+    <div className="picker-wrap">
+      <table className="picker">
+        <thead>
+          <tr>
+            <th>Готовая сборка</th>
+            <th>На складе</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td className="picker-name">{item.name}</td>
+              <td>
+                <input
+                  className="input-price"
+                  min="0"
+                  onChange={(event) =>
+                    setValues((current) => ({
+                      ...current,
+                      [item.id]: event.target.value,
+                    }))
+                  }
+                  type="number"
+                  value={values[item.id] ?? 0}
+                />
+              </td>
+              <td>
+                <button
+                  className="link-button"
+                  onClick={() => save(item)}
+                  type="button"
+                >
+                  Сохранить
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Запросы на поступление товара. */
+function StockRequestsPanel({ onError, onFlash }) {
+  const [items, setItems] = useState([]);
+
+  function load() {
+    getStockRequests()
+      .then((data) => setItems(data.items))
+      .catch((reason) => onError(reason.message));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, []);
+
+  async function mark(request) {
+    try {
+      await updateStockRequest(request.id, 'обработан');
+      load();
+      onFlash('Запрос отмечен обработанным');
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
+  if (!items.length) return <div className="state">Запросов нет.</div>;
+
+  return (
+    <div className="admin-list">
+      {items.map((request) => (
+        <article className="admin-order" key={request.id}>
+          <header>
+            <div>
+              <h3>{request.productName}</h3>
+              <div className="small faint">
+                {request.productId} · {request.email || 'без e-mail'} ·{' '}
+                {request.phone || 'без телефона'}
+              </div>
+              <div className="small faint">
+                {new Date(request.createdAt).toLocaleString('ru-RU')}
+              </div>
+            </div>
+            <span
+              className={`status-badge ${
+                request.status === 'обработан' ? 'is-done' : 'is-progress'
+              }`}
+            >
+              {request.status}
+            </span>
+          </header>
+          {request.status === 'новый' && (
+            <button className="btn btn-sm" onClick={() => mark(request)} type="button">
+              Отметить обработанным
+            </button>
+          )}
+        </article>
+      ))}
     </div>
   );
 }

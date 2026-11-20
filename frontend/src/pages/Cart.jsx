@@ -98,6 +98,7 @@ export default function Cart() {
               <span>{item.qty}</span>
               <button
                 aria-label="Увеличить количество"
+                disabled={item.stock != null && item.qty >= item.stock}
                 onClick={() => changeQty(item.id, 1)}
                 type="button"
               >
