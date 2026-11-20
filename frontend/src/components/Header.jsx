@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
-import { cartCount, onCartChange } from '../cart.js';
+import { cartCount, clearLocalCart, onCartChange } from '../cart.js';
 import { logout, onAuthChange, readAuth } from '../auth.js';
 import React from 'react';
 
@@ -165,6 +165,11 @@ export default function Header() {
 
           {user ? (
             <>
+              {user.role === 'admin' && (
+                <Link className="nav-pill" to="/admin">
+                  Админка
+                </Link>
+              )}
               <Link className="nav-pill" to="/profile">
                 {user.name || user.email}
               </Link>
@@ -172,6 +177,7 @@ export default function Header() {
                 className="link-button"
                 onClick={async () => {
                   await logout();
+                  clearLocalCart();
                   navigate('/');
                 }}
                 type="button"

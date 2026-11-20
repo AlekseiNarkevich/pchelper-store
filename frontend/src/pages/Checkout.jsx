@@ -6,17 +6,22 @@ import { fetchMe, readAuth } from '../auth.js';
 import { readCart, clearCart } from '../cart.js';
 import { createOrder, syncCart } from '../commerce.js';
 
+/** Адрес пункта самовывоза. */
+const PICKUP_ADDRESS = 'Г. Минск, пер. Корженевского, 6, пом. 1';
+
 /**
  * Оформление заказа.
  *
- * Локальная корзина переносится в серверную, заказ сохраняется в Supabase,
- * после успеха локальная корзина очищается.
+ * Доставка: самовывоз бесплатен; курьер по Минску — бесплатно от 500 BYN,
+ * иначе 10 BYN; за МКАД — 15 BYN + 3 BYN за километр.
  */
 export default function Checkout() {
   const [items] = useState(readCart);
   const user = readAuth().user;
   const [form, setForm] = useState({
     deliveryMethod: 'courier',
+    deliveryZone: 'minsk',
+    distanceKm: '',
     paymentMethod: 'card',
     phone: user?.phone || '',
     address: user?.address || '',
@@ -25,7 +30,17 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const distance = Number(form.distanceKm) || 0;
+  const deliveryCost =
+    form.deliveryMethod === 'pickup'
+      ? 0
+      : form.deliveryZone === 'outside'
+        ? 15 + 3 * Math.ceil(Math.max(0, distance))
+        : itemsTotal >= 500
+          ? 0
+          : 10;
+  const total = itemsTotal + deliveryCost;
 
   useEffect(() => {
     fetchMe()
@@ -60,15 +75,26 @@ export default function Checkout() {
       setError('Для доставки курьером нужен адрес');
       return;
     }
+    if (
+      form.deliveryMethod === 'courier' &&
+      form.deliveryZone === 'outside' &&
+      distance <= 0
+    ) {
+      setError('Укажите расстояние за МКАД в километрах');
+      return;
+    }
 
     setLoading(true);
     try {
       await syncCart(items);
       const order = await createOrder({
         deliveryMethod: form.deliveryMethod,
+        deliveryZone: form.deliveryZone,
+        distanceKm: form.deliveryZone === 'outside' ? distance : null,
         paymentMethod: form.paymentMethod,
         phone,
         address: form.address.trim(),
+        email: user?.email || '',
       });
       clearCart();
       navigate('/orders', { replace: true, state: { order } });
@@ -108,7 +134,7 @@ export default function Checkout() {
           </div>
           <div className="sub">
             {items.reduce((sum, item) => sum + item.qty, 0)} единиц товара на{' '}
-            {money(total)}
+            {money(itemsTotal)}
           </div>
         </div>
         <Link className="btn btn-secondary" to="/cart">
@@ -132,18 +158,6 @@ export default function Checkout() {
                 value={form.phone}
               />
             </label>
-            <label className="field">
-              <span>Адрес доставки</span>
-              <input
-                autoComplete="street-address"
-                disabled={form.deliveryMethod === 'pickup'}
-                name="address"
-                onChange={changeField}
-                placeholder="Минск, ул. Примерная, 1"
-                type="text"
-                value={form.address}
-              />
-            </label>
           </section>
 
           <section className="profile-panel">
@@ -161,7 +175,10 @@ export default function Checkout() {
                 />
                 <span>
                   <strong>Курьером</strong>
-                  <small>по Минску, стоимость уточнит менеджер</small>
+                  <small>
+                    по Минску бесплатно от 500 BYN, иначе 10 BYN; за МКАД — 15 BYN + 3
+                    BYN/км
+                  </small>
                 </span>
               </label>
               <label
@@ -175,11 +192,75 @@ export default function Checkout() {
                   value="pickup"
                 />
                 <span>
-                  <strong>Самовывоз</strong>
-                  <small>со склада после подтверждения заказа</small>
+                  <strong>Самовывоз — бесплатно</strong>
+                  <small>{PICKUP_ADDRESS}</small>
                 </span>
               </label>
             </div>
+
+            {form.deliveryMethod === 'courier' && (
+              <div className="delivery-fields">
+                <label className="field">
+                  <span>Адрес доставки</span>
+                  <input
+                    autoComplete="street-address"
+                    name="address"
+                    onChange={changeField}
+                    placeholder="Минск, ул. Примерная, 1"
+                    type="text"
+                    value={form.address}
+                  />
+                </label>
+
+                <div className="choice-list">
+                  <label
+                    className={`choice${form.deliveryZone === 'minsk' ? ' is-on' : ''}`}
+                  >
+                    <input
+                      checked={form.deliveryZone === 'minsk'}
+                      name="deliveryZone"
+                      onChange={changeField}
+                      type="radio"
+                      value="minsk"
+                    />
+                    <span>
+                      <strong>В пределах МКАД</strong>
+                      <small>бесплатно от 500 BYN, иначе 10 BYN</small>
+                    </span>
+                  </label>
+                  <label
+                    className={`choice${form.deliveryZone === 'outside' ? ' is-on' : ''}`}
+                  >
+                    <input
+                      checked={form.deliveryZone === 'outside'}
+                      name="deliveryZone"
+                      onChange={changeField}
+                      type="radio"
+                      value="outside"
+                    />
+                    <span>
+                      <strong>За МКАД</strong>
+                      <small>15 BYN + 3 BYN за каждый километр</small>
+                    </span>
+                  </label>
+                </div>
+
+                {form.deliveryZone === 'outside' && (
+                  <label className="field">
+                    <span>Расстояние от МКАД, км</span>
+                    <input
+                      min="0"
+                      name="distanceKm"
+                      onChange={changeField}
+                      placeholder="Например, 8"
+                      step="0.1"
+                      type="number"
+                      value={form.distanceKm}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="profile-panel">
@@ -223,12 +304,27 @@ export default function Checkout() {
               </li>
             ))}
           </ul>
+          <div className="checkout-line">
+            <span>Товары</span>
+            <strong>{money(itemsTotal)}</strong>
+          </div>
+          <div className="checkout-line">
+            <span>
+              Доставка
+              {form.deliveryMethod === 'courier' &&
+                form.deliveryZone === 'minsk' &&
+                itemsTotal < 500 &&
+                ' (до 500 BYN)'}
+            </span>
+            <strong>{deliveryCost === 0 ? 'бесплатно' : money(deliveryCost)}</strong>
+          </div>
           <div className="checkout-total">
             <span>Итого</span>
             <strong>{money(total)}</strong>
           </div>
           <p className="hint">
-            Стоимость доставки и итоговую сумму подтвердит менеджер.
+            Оплата демонстрационная: менеджер подтвердит заказ и пришлёт ссылку или
+            примет оплату при получении.
           </p>
           {error && (
             <div className="state error" role="alert">

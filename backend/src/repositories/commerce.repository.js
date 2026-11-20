@@ -15,7 +15,9 @@ const carts = new Map();
 const orders = new Map();
 
 let nextOrderId = 1;
-let supabaseUnavailable = false;
+
+/** Адрес пункта самовывоза. */
+export const PICKUP_ADDRESS = 'Г. Минск, пер. Корженевского, 6, пом. 1';
 
 /** Поле ссылки на компонент в таблицах корзины. */
 const FIELD_BY_CATEGORY = {
@@ -40,14 +42,23 @@ const CATEGORY_BY_FIELD = Object.fromEntries(
  * @returns {boolean}
  */
 function useSupabase() {
-  return isDatabaseConnected() && !supabaseUnavailable;
+  return isDatabaseConnected();
 }
 
 /**
- * Отмечает, что таблицы commerce в Supabase недоступны.
+ * Превращает ошибку Supabase в понятную ошибку API.
+ *
+ * @param {string} action Действие.
+ * @param {object} error Ошибка.
+ * @returns {Error & {status: number, code: string}}
  */
-function disableSupabase() {
-  supabaseUnavailable = true;
+function databaseFailure(action, error) {
+  console.error(`[commerce] ${action}:`, error?.message || error);
+  return apiError(
+    502,
+    'DATABASE_ERROR',
+    `Не удалось ${action}: ${error?.message || 'ошибка базы данных'}`,
+  );
 }
 
 /**
@@ -138,8 +149,8 @@ export async function getCart(userId) {
         .eq('корзина_id', cartId);
       if (error) throw error;
       return (await Promise.all(data.map(mapPosition))).filter(Boolean);
-    } catch {
-      disableSupabase();
+    } catch (error) {
+      throw databaseFailure('загрузить корзину', error);
     }
   }
   return carts.get(key(userId)) || [];
@@ -192,8 +203,8 @@ export async function addItem(userId, product) {
         .update({ обновлена: new Date().toISOString() })
         .eq('id', cartId);
       return getCart(userId);
-    } catch {
-      disableSupabase();
+    } catch (error) {
+      throw databaseFailure('добавить товар в корзину', error);
     }
   }
 
@@ -248,8 +259,8 @@ export async function updateItem(userId, itemId, qty) {
         if (updated.error) throw updated.error;
       }
       return getCart(userId);
-    } catch {
-      disableSupabase();
+    } catch (error) {
+      throw databaseFailure('изменить количество в корзине', error);
     }
   }
 
@@ -293,8 +304,8 @@ export async function clearCart(userId) {
         if (removed.error) throw removed.error;
       }
       return;
-    } catch {
-      disableSupabase();
+    } catch (error) {
+      throw databaseFailure('очистить корзину', error);
     }
   }
   carts.set(key(userId), []);
@@ -333,7 +344,33 @@ export async function createOrder(userId, data) {
     throw apiError(400, 'VALIDATION_ERROR', 'Укажите телефон для связи');
   }
 
-  const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  // Доставка: самовывоз бесплатен; по Минску бесплатно от 500 BYN,
+  // иначе 10 BYN; за МКАД — 15 BYN + 3 BYN за километр.
+  let deliveryCost = 0;
+  let deliveryZone = 'pickup';
+  let distanceKm = null;
+  if (delivery === 'courier') {
+    deliveryZone = String(data.deliveryZone || 'minsk');
+    if (deliveryZone === 'outside') {
+      distanceKm = Number(data.distanceKm);
+      if (!Number.isFinite(distanceKm) || distanceKm <= 0) {
+        throw apiError(
+          400,
+          'VALIDATION_ERROR',
+          'Укажите расстояние за МКАД в километрах',
+        );
+      }
+      distanceKm = Math.round(distanceKm * 10) / 10;
+      deliveryCost = 15 + 3 * Math.ceil(distanceKm);
+    } else {
+      deliveryCost = itemsTotal >= 500 ? 0 : 10;
+    }
+  }
+
+  const total = itemsTotal + deliveryCost;
+  const orderAddress = delivery === 'pickup' ? PICKUP_ADDRESS : address;
   const orderNumber = `PCH-2026-${Date.now().toString().slice(-6)}`;
 
   if (useSupabase()) {
@@ -345,10 +382,14 @@ export async function createOrder(userId, data) {
           пользователь_id: Number(userId),
           статус: 'Новый',
           способ_доставки: delivery,
-          адрес_доставки: address || null,
+          адрес_доставки: orderAddress || null,
           телефон: phone,
           способ_оплаты: payment,
           итоговая_сумма: total,
+          стоимость_доставки: deliveryCost,
+          зона_доставки: deliveryZone,
+          расстояние_км: distanceKm,
+          эл_почта: String(data.email || '') || null,
         })
         .select('*')
         .single();
@@ -370,12 +411,23 @@ export async function createOrder(userId, data) {
         id: String(created.data.id),
         number: created.data.номер,
         status: created.data.статус,
+        deliveryMethod: delivery,
+        deliveryZone,
+        address: orderAddress || null,
+        itemsTotal,
+        deliveryCost,
+        distanceKm,
         total,
         items,
         createdAt: created.data.создан_в,
       };
-    } catch {
-      disableSupabase();
+    } catch (error) {
+      console.error('[commerce] сохранить заказ:', error?.message || error);
+      throw apiError(
+        502,
+        'DATABASE_ERROR',
+        `Не удалось сохранить заказ: ${error?.message || 'ошибка базы данных'}`,
+      );
     }
   }
 
@@ -385,7 +437,11 @@ export async function createOrder(userId, data) {
     userId: String(userId),
     status: 'Новый',
     deliveryMethod: delivery,
-    address: address || null,
+    deliveryZone,
+    distanceKm,
+    deliveryCost,
+    itemsTotal,
+    address: orderAddress || null,
     phone,
     paymentMethod: payment,
     total,
@@ -423,15 +479,22 @@ export async function listOrders(userId) {
         .eq('пользователь_id', Number(userId))
         .order('создан_в', { ascending: false });
       if (error) throw error;
-      return data.map((row) => ({
-        id: String(row.id),
-        number: row.номер,
-        status: row.статус,
-        total: Number(row.итоговая_сумма || 0),
-        createdAt: row.создан_в,
-      }));
-    } catch {
-      disableSupabase();
+      return data.map((row) => {
+        const deliveryCost = Number(row.стоимость_доставки || 0);
+        return {
+          id: String(row.id),
+          number: row.номер,
+          status: row.статус,
+          total: Number(row.итоговая_сумма || 0),
+          itemsTotal: Number(row.итоговая_сумма || 0) - deliveryCost,
+          deliveryCost,
+          deliveryZone: row.зона_доставки || '',
+          distanceKm: row.расстояние_км != null ? Number(row.расстояние_км) : null,
+          createdAt: row.создан_в,
+        };
+      });
+    } catch (error) {
+      throw databaseFailure('загрузить заказы', error);
     }
   }
   return orders.get(key(userId)) || [];

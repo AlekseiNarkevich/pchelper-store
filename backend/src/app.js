@@ -19,6 +19,7 @@ import adminRouter from './routes/admin.js';
 import buildsRouter from './routes/builds.js';
 import catalogRouter from './routes/catalog.js';
 import psuRouter from './routes/psu.js';
+import reviewsRouter from './routes/reviews.js';
 
 // Момент запуска — чтобы в ответе /api/v1/hello показывать время работы процесса.
 const STARTED_AT = Date.now();
@@ -44,20 +45,6 @@ export function createApp() {
   // --- Базовая обвязка ---
   app.use(express.json()); // разбор тела запроса в JSON
 
-  // --- Разграничение доступа по ролям ---
-  // Админ-маршруты защищены отдельным токеном: это позволяет проверить
-  // оба сценария, 200 и 403, не выдавая пользовательский JWT.
-  app.use('/api/v1/admin', (req, res, next) => {
-    const expected = process.env.ADMIN_TOKEN || 'dev-admin-token';
-    const provided = (req.headers.authorization || '').replace('Bearer ', '');
-    if (provided !== expected) {
-      return res.status(403).json({
-        error: { code: 'FORBIDDEN', message: 'Требуется роль manager' },
-      });
-    }
-    return next();
-  });
-
   // --- Маршруты ---
   // Служебный маршрут проверки работоспособности.
   app.get('/api/v1/health', (req, res) => {
@@ -78,9 +65,10 @@ export function createApp() {
   // --- Серверная корзина и заказы ---
   app.use('/api/v1', commerceRouter);
 
-  // --- Сохранённые сборки и калькулятор БП ---
+  // --- Сохранённые сборки, калькулятор БП и отзывы ---
   app.use('/api/v1', buildsRouter);
   app.use('/api/v1', psuRouter);
+  app.use('/api/v1', reviewsRouter);
 
   // --- Каталог ---
   // Товары, категории и готовые сборки. Данные берутся из Supabase,

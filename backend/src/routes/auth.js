@@ -56,11 +56,53 @@ export async function requireAuth(req, res, next) {
     if (!user) {
       throw new Error('Пользователь не найден');
     }
+    if (user.blocked) {
+      return res.status(403).json({
+        error: {
+          code: 'USER_BLOCKED',
+          message: user.blockReason
+            ? `Аккаунт заблокирован: ${user.blockReason}`
+            : 'Аккаунт заблокирован администратором',
+        },
+      });
+    }
     req.user = user;
     return next();
   } catch {
     return res.status(401).json({
       error: { code: 'UNAUTHORIZED', message: 'Токен недействителен или истёк' },
+    });
+  }
+}
+
+/**
+ * Проверяет access-токен и роль администратора.
+ *
+ * @param {object} req Запрос.
+ * @param {object} res Ответ.
+ * @param {Function} next Следующий middleware.
+ */
+export async function requireAdmin(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.replace(/^Bearer\s+/i, '');
+  if (!token) {
+    return res.status(403).json({
+      error: { code: 'FORBIDDEN', message: 'Требуется роль администратора' },
+    });
+  }
+
+  try {
+    const user = await userFromAccess(token);
+    if (!user || user.role !== 'admin' || user.blocked) {
+      return res.status(403).json({
+        error: { code: 'FORBIDDEN', message: 'Требуется роль администратора' },
+      });
+    }
+    req.user = user;
+    return next();
+  } catch {
+    return res.status(403).json({
+      error: { code: 'FORBIDDEN', message: 'Требуется роль администратора' },
     });
   }
 }

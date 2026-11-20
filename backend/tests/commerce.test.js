@@ -115,6 +115,52 @@ test('оформление заказа очищает корзину и соз�
   assert.equal(orders.body.items.length, 1);
 });
 
+test('доставка за МКАД считается по километрам', async () => {
+  const email = `delivery-${Date.now()}@example.com`;
+  const registered = await request('/api/v1/auth/register', {
+    method: 'POST',
+    auth: false,
+    body: { email, password: 'secret123', name: 'Доставка' },
+  });
+  const userToken = registered.body.accessToken;
+  const headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${userToken}`,
+  };
+
+  const catalog = await request('/api/v1/products?category=cpu&limit=1', {
+    auth: false,
+  });
+  const product = catalog.body.items[0];
+
+  await fetch(`${BASE}/api/v1/cart/items`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ id: product.id, qty: 1 }),
+  });
+
+  const response = await fetch(`${BASE}/api/v1/orders`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      deliveryMethod: 'courier',
+      deliveryZone: 'outside',
+      distanceKm: 10,
+      address: 'Минский район, 10 км от МКАД',
+      phone: '+375291234567',
+      paymentMethod: 'card',
+    }),
+  });
+  const order = await response.json();
+
+  assert.equal(response.status, 201);
+  assert.equal(order.deliveryCost, 45);
+  assert.equal(order.total, product.price + 45);
+  assert.equal(order.deliveryZone, 'outside');
+  assert.equal(order.distanceKm, 10);
+});
+
 test('нельзя оформить пустую корзину', async () => {
   const order = await request('/api/v1/orders', {
     method: 'POST',

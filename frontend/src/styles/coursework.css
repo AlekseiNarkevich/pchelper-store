@@ -756,6 +756,284 @@
   }
 }
 
+/* --- Отзывы товара --- */
+.reviews-section {
+  padding-top: 8px;
+}
+
+.reviews-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.reviews-head h3 {
+  margin: 0;
+}
+
+.reviews-rating {
+  color: var(--text-muted, #555);
+  font-size: 13px;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.review {
+  padding: 14px 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
+.review header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.review p {
+  margin: 8px 0 0;
+  color: var(--text-muted, #555);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.review-stars {
+  color: var(--accent-strong, #f9a825);
+  letter-spacing: 1px;
+}
+
+.review-form {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
+/* --- Ошибки фоновых операций --- */
+.error-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 420px;
+  padding: 14px 16px;
+  border: 1px solid #f0b8b8;
+  border-radius: var(--radius, 10px);
+  background: #fdecea;
+  color: #8a1c1c;
+  box-shadow: var(--shadow-pop, 0 8px 24px rgba(0, 0, 0, 0.12));
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.error-toast button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* --- Доставка в оформлении --- */
+.delivery-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.checkout-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  color: var(--text-muted, #555);
+  font-size: 13px;
+}
+
+.checkout-line strong {
+  color: var(--text, #111);
+  white-space: nowrap;
+}
+
+.checkout-total {
+  margin-top: 8px;
+}
+
+/* --- Административная панель --- */
+.admin-page {
+  padding-top: 24px;
+  padding-bottom: 40px;
+}
+
+.admin-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
+.admin-summary span {
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.admin-summary strong {
+  font-size: 22px;
+}
+
+.admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 16px 0;
+}
+
+.admin-tab {
+  padding: 7px 14px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--text-muted, #555);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin-tab.is-on {
+  border-color: var(--primary, #1976d2);
+  background: var(--primary, #1976d2);
+  color: #fff;
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-order {
+  padding: 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow-card, none);
+}
+
+.admin-order header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-order h3 {
+  margin: 0 0 2px;
+  font-size: 17px;
+}
+
+.admin-order-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.admin-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.admin-products .link-button + .link-button {
+  margin-left: 10px;
+}
+
+.admin-products-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  align-items: start;
+  gap: 20px;
+}
+
+.admin-editor {
+  padding: 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
+.admin-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.admin-fields .field:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1200px) {
+  .admin-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-order-grid,
+  .admin-products-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .admin-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* --- Уведомления --- */
 .state.success {
   border-color: #b7dfc1;
@@ -784,32 +1062,18 @@
   }
 }
 
-/* Меню центрируется в шапке на широких экранах, а на средних и узких
-   переходит на отдельную строку и тоже выравнивается по центру. */
+/* Меню всегда на отдельной строке и центрируется: так оно не наезжает
+   на поиск и не обрезает пункты на широких мониторах. */
 .header-inner {
-  position: relative;
+  flex-wrap: wrap;
 }
 
 .main-nav {
-  position: absolute;
-  left: 50%;
+  order: 3;
+  width: 100%;
   margin-left: 0;
-  transform: translateX(-50%);
-}
-
-@media (max-width: 1800px) {
-  .header-inner {
-    flex-wrap: wrap;
-  }
-
-  .main-nav {
-    position: static;
-    order: 3;
-    width: 100%;
-    justify-content: center;
-    overflow-x: auto;
-    transform: none;
-  }
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* --- Адаптив --- */

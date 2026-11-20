@@ -78,6 +78,32 @@ export function addServerItem(id, qty = 1) {
 }
 
 /**
+ * Меняет количество позиции в серверной корзине.
+ *
+ * @param {string} id Идентификатор вида «cpu:1».
+ * @param {number} qty Новое количество.
+ * @returns {Promise<object>}
+ */
+export function updateServerItem(id, qty) {
+  return request(`/cart/items/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { qty },
+  });
+}
+
+/**
+ * Удаляет позицию из серверной корзины.
+ *
+ * @param {string} id Идентификатор вида «cpu:1».
+ * @returns {Promise<object>}
+ */
+export function removeServerItem(id) {
+  return request(`/cart/items/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
  * Переносит локальную корзину на сервер.
  *
  * Серверная корзина предварительно очищается: иначе после нескольких

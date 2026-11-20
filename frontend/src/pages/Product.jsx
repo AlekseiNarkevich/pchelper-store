@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 
 import { getProduct, getProducts, money } from '../api.js';
 import ProductCard from '../components/ProductCard.jsx';
+import { readAuth } from '../auth.js';
 import { addToCart } from '../cart.js';
+import { createReview, getReviews } from '../reviews.js';
 import React from 'react';
 
 /**
@@ -13,6 +15,22 @@ import React from 'react';
  * (/product/cpu:1). Если такого товара нет, показывается понятное
  * сообщение, а не пустой экран.
  */
+/**
+ * Склоняет слово «отзыв».
+ *
+ * @param {number} count Количество.
+ * @returns {string}
+ */
+function reviewsWord(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'отзыв';
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) {
+    return 'отзыва';
+  }
+  return 'отзывов';
+}
+
 export default function Product() {
   const { id } = useParams();
   const [product, setProduct] = useState(null);
@@ -20,6 +38,12 @@ export default function Product() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [added, setAdded] = useState(false);
+  const [reviews, setReviews] = useState({ items: [], average: 0, count: 0 });
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewNotice, setReviewNotice] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [reviewsLoadError, setReviewsLoadError] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -59,10 +83,44 @@ export default function Product() {
     };
   }, [product]);
 
+  useEffect(() => {
+    let alive = true;
+    setReviewsLoadError('');
+    getReviews(id)
+      .then((data) => {
+        if (alive) setReviews(data);
+      })
+      .catch((reason) => {
+        if (alive) {
+          setReviews({ items: [], average: 0, count: 0 });
+          setReviewsLoadError(reason.message);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
   function add() {
     addToCart(product);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
+  }
+
+  async function submitReview(event) {
+    event.preventDefault();
+    setReviewNotice('');
+    setReviewError('');
+    try {
+      await createReview(id, {
+        rating: Number(reviewRating),
+        text: reviewText,
+      });
+      setReviewNotice('Спасибо! Отзыв отправлен на модерацию.');
+      setReviewText('');
+    } catch (reason) {
+      setReviewError(reason.message);
+    }
   }
 
   if (loading) {
@@ -143,6 +201,78 @@ export default function Product() {
           </dl>
         </div>
       </div>
+
+      <section className="section reviews-section">
+        <div className="reviews-head">
+          <h3>Отзывы покупателей</h3>
+          <div className="reviews-rating">
+            {reviews.count > 0
+              ? `${reviews.average} из 5 · ${reviews.count} ${reviewsWord(reviews.count)}`
+              : 'Пока нет оценок'}
+          </div>
+        </div>
+
+        {reviewsLoadError && (
+          <div className="state error">
+            Не удалось загрузить отзывы: {reviewsLoadError}
+          </div>
+        )}
+
+        {reviews.items.length > 0 && (
+          <div className="reviews-list">
+            {reviews.items.map((item) => (
+              <article className="review" key={item.id}>
+                <header>
+                  <strong>{item.author}</strong>
+                  <span className="review-stars">{'★'.repeat(item.rating)}</span>
+                  <span className="small faint">
+                    {new Date(item.createdAt).toLocaleDateString('ru-RU')}
+                  </span>
+                </header>
+                {item.text && <p>{item.text}</p>}
+              </article>
+            ))}
+          </div>
+        )}
+
+        {readAuth().accessToken ? (
+          <form className="review-form" onSubmit={submitReview}>
+            <div className="h3">Оставить отзыв</div>
+            <label className="field">
+              <span>Оценка</span>
+              <select
+                onChange={(event) => setReviewRating(event.target.value)}
+                value={reviewRating}
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value} — {'★'.repeat(value)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Комментарий</span>
+              <textarea
+                maxLength={2000}
+                onChange={(event) => setReviewText(event.target.value)}
+                placeholder="Что понравилось или не понравилось"
+                rows={3}
+                value={reviewText}
+              />
+            </label>
+            {reviewNotice && <div className="state success">{reviewNotice}</div>}
+            {reviewError && <div className="state error">{reviewError}</div>}
+            <button className="btn" type="submit">
+              Отправить на модерацию
+            </button>
+          </form>
+        ) : (
+          <p className="muted">
+            <Link to="/login">Войдите</Link>, чтобы оставить отзыв.
+          </p>
+        )}
+      </section>
 
       {related.length > 0 && (
         <section className="section">

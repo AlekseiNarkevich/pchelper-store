@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { login, readAuth, register } from '../auth.js';
+import { mergeCartWithServer } from '../cart.js';
 
 /**
  * Страница входа и регистрации.
@@ -25,8 +26,9 @@ export default function Login() {
 
   // Авторизованному пользователю не показываем форму входа (дефект LR9-03).
   useEffect(() => {
-    if (readAuth().accessToken) {
-      navigate(from, { replace: true });
+    const auth = readAuth();
+    if (auth.accessToken) {
+      navigate(auth.user?.role === 'admin' ? '/admin' : from, { replace: true });
     }
   }, [from, navigate]);
 
@@ -35,12 +37,15 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      if (mode === 'register') {
-        await register({ email, password, name, phone, address });
-      } else {
-        await login({ email, password });
-      }
-      navigate(from, { replace: true });
+      const result =
+        mode === 'register'
+          ? await register({ email, password, name, phone, address })
+          : await login({ email, password });
+
+      void mergeCartWithServer();
+      navigate(result.user.role === 'admin' ? '/admin' : from, {
+        replace: true,
+      });
     } catch (reason) {
       setError(reason.message);
     } finally {

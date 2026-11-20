@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { money } from '../api.js';
 import { fetchMe, logout, onAuthChange, readAuth, updateProfile } from '../auth.js';
 import { listBuilds } from '../builds.js';
+import { clearLocalCart } from '../cart.js';
 
 /** Подписи ролей для интерфейса. */
 const ROLE_LABELS = {
@@ -72,6 +73,7 @@ export default function Profile() {
 
   async function handleLogout() {
     await logout();
+    clearLocalCart();
     navigate('/');
   }
 

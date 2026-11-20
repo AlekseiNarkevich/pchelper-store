@@ -22,6 +22,22 @@ const memoryBuilds = new Map();
 let nextBuildId = 1;
 
 /**
+ * Ошибка базы данных для сборок.
+ *
+ * @param {string} action Действие.
+ * @param {object} error Ошибка.
+ * @returns {Error & {status: number, code: string}}
+ */
+function databaseFailure(action, error) {
+  console.error(`[builds] ${action}:`, error?.message || error);
+  return apiError(
+    502,
+    'DATABASE_ERROR',
+    `Не удалось ${action}: ${error?.message || 'ошибка базы данных'}`,
+  );
+}
+
+/**
  * Ключ локального хранилища.
  *
  * @param {string} userId Идентификатор.
@@ -205,8 +221,8 @@ export async function listBuilds(userId) {
         .order('создан_в', { ascending: false });
       if (error) throw error;
       return { items: data.map(buildFromRow), total: data.length };
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('работа со сборкой', error);
     }
   }
 
@@ -241,8 +257,8 @@ export async function getBuild(userId, buildId) {
         .eq('сборка_id', Number(buildId));
       if (components.error) throw components.error;
       return expandBuild(data, components.data || []);
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('работа со сборкой', error);
     }
   }
 
@@ -292,8 +308,8 @@ export async function createBuild(userId, data) {
       if (inserted.error) throw inserted.error;
 
       return getBuild(userId, row.id);
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('работа со сборкой', error);
     }
   }
 
@@ -366,8 +382,8 @@ export async function updateBuild(userId, buildId, data) {
       if (inserted.error) throw inserted.error;
 
       return getBuild(userId, buildId);
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('работа со сборкой', error);
     }
   }
 
@@ -400,8 +416,8 @@ export async function deleteBuild(userId, buildId) {
         .select('id');
       if (error) throw error;
       return (data || []).length > 0;
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('работа со сборкой', error);
     }
   }
 

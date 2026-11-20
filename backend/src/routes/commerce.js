@@ -11,6 +11,7 @@
  */
 import { Router } from 'express';
 
+import { sendOrderConfirmation } from '../services/mail.service.js';
 import { requireAuth } from './auth.js';
 import { getProduct } from '../repositories/catalog.repository.js';
 import {
@@ -119,7 +120,12 @@ router.get(
 router.post(
   '/orders',
   asyncHandler(async (req, res) => {
-    const order = await createOrder(req.user.id, req.body || {});
+    const order = await createOrder(req.user.id, {
+      ...(req.body || {}),
+      email: req.user.email,
+    });
+    // Письмо не должно задерживать ответ и не отменяет заказ при ошибке.
+    void sendOrderConfirmation({ to: req.user.email, order });
     res.status(201).json(order);
   }),
 );

@@ -100,8 +100,23 @@ export default function Orders() {
                 {order.status}
               </span>
             </header>
+            <div className="checkout-line">
+              <span>Товары</span>
+              <strong>{money(order.itemsTotal ?? order.total)}</strong>
+            </div>
+            <div className="checkout-line">
+              <span>
+                Доставка
+                {order.deliveryZone === 'outside' && order.distanceKm
+                  ? `, ${order.distanceKm} км за МКАД`
+                  : ''}
+              </span>
+              <strong>
+                {order.deliveryCost > 0 ? money(order.deliveryCost) : 'бесплатно'}
+              </strong>
+            </div>
             <div className="order-total">
-              <span>Сумма заказа</span>
+              <span>Итого</span>
               <strong>{money(order.total)}</strong>
             </div>
           </article>

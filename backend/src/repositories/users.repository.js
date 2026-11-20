@@ -13,7 +13,8 @@ import { apiError } from '../domain/errors.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 import { hashPassword } from '../services/password.js';
 
-const USER_COLUMNS = 'id,email,password_hash,имя,телефон,адрес_доставки,роль,создан_в';
+const USER_COLUMNS =
+  'id,email,password_hash,имя,телефон,адрес_доставки,роль,заблокирован,причина_блокировки,создан_в';
 
 /** Соответствие ролей базы и API. */
 const ROLE_FROM_DB = { customer: 'user', manager: 'manager', admin: 'admin' };
@@ -43,6 +44,8 @@ function fromRow(row) {
     phone: row['телефон'] || '',
     address: row['адрес_доставки'] || '',
     role: ROLE_FROM_DB[row['роль']] || 'user',
+    blocked: Boolean(row['заблокирован']),
+    blockReason: row['причина_блокировки'] || '',
     passwordHash: row.password_hash || null,
     createdAt: row['создан_в'] || null,
   };
@@ -56,6 +59,8 @@ memoryUsers.set('demo@pchelper.by', {
   phone: '',
   address: '',
   role: 'user',
+  blocked: false,
+  blockReason: '',
   passwordHash: hashPassword('demo1234'),
   createdAt: null,
 });
@@ -68,6 +73,22 @@ memoryUsers.set('demo@pchelper.by', {
  */
 function tokenHash(token) {
   return createHash('sha256').update(String(token)).digest('hex');
+}
+
+/**
+ * Ошибка базы данных для пользовательских операций.
+ *
+ * @param {string} action Действие.
+ * @param {object} error Ошибка.
+ * @returns {Error & {status: number, code: string}}
+ */
+function databaseFailure(action, error) {
+  console.error(`[users] ${action}:`, error?.message || error);
+  return apiError(
+    502,
+    'DATABASE_ERROR',
+    `Не удалось ${action}: ${error?.message || 'ошибка базы данных'}`,
+  );
 }
 
 /**
@@ -86,8 +107,8 @@ export async function findByEmail(email) {
         .maybeSingle();
       if (error) throw error;
       return data ? fromRow(data) : null;
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('найти пользователя', error);
     }
   }
   return memoryUsers.get(email) || null;
@@ -113,8 +134,8 @@ export async function findById(id) {
         if (data) return fromRow(data);
         return null;
       }
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('найти пользователя', error);
     }
   }
   for (const user of memoryUsers.values()) {
@@ -158,7 +179,7 @@ export async function createUser(data) {
       return fromRow(row);
     } catch (error) {
       if (error.code === 'EMAIL_EXISTS') throw error;
-      /* база недоступна — используем память процесса */
+      throw databaseFailure('создать пользователя', error);
     }
   }
 
@@ -172,6 +193,8 @@ export async function createUser(data) {
     phone: data.phone || '',
     address: data.address || '',
     role: 'user',
+    blocked: false,
+    blockReason: '',
     passwordHash: data.passwordHash,
     createdAt: new Date().toISOString(),
   };
@@ -202,8 +225,8 @@ export async function updateUser(id, data) {
         .maybeSingle();
       if (error) throw error;
       return row ? fromRow(row) : null;
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('обновить профиль', error);
     }
   }
 
@@ -237,8 +260,9 @@ export async function storeRefreshToken(userId, token, expiresAt) {
         истекает_в: new Date(expiresAt).toISOString(),
       });
       if (!error) return;
-    } catch {
-      /* база недоступна — используем память процесса */
+      throw error;
+    } catch (error) {
+      throw databaseFailure('сохранить refresh-токен', error);
     }
   }
 
@@ -269,8 +293,8 @@ export async function isRefreshTokenActive(token) {
       if (!data) return false;
       if (data['отозван']) return false;
       return new Date(data['истекает_в']).getTime() > Date.now();
-    } catch {
-      /* база недоступна — используем память процесса */
+    } catch (error) {
+      throw databaseFailure('проверить refresh-токен', error);
     }
   }
 

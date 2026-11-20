@@ -124,6 +124,15 @@ export async function login(data) {
   if (!user || !verifyPassword(password, user.passwordHash)) {
     throw apiError(401, 'INVALID_CREDENTIALS', 'Неверный e-mail или пароль');
   }
+  if (user.blocked) {
+    throw apiError(
+      403,
+      'USER_BLOCKED',
+      user.blockReason
+        ? `Аккаунт заблокирован: ${user.blockReason}`
+        : 'Аккаунт заблокирован администратором',
+    );
+  }
   return issueTokens(user);
 }
 
@@ -178,6 +187,9 @@ export async function refresh(token) {
   const user = await findById(payload.sub);
   if (!user) {
     throw apiError(401, 'REFRESH_INVALID', 'Пользователь не найден');
+  }
+  if (user.blocked) {
+    throw apiError(403, 'USER_BLOCKED', 'Аккаунт заблокирован администратором');
   }
   return issueTokens(user);
 }
