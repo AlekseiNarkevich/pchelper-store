@@ -86,8 +86,8 @@ export async function requireAdmin(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.replace(/^Bearer\s+/i, '');
   if (!token) {
-    return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: 'Требуется роль администратора' },
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Требуется access-токен' },
     });
   }
 
@@ -101,8 +101,8 @@ export async function requireAdmin(req, res, next) {
     req.user = user;
     return next();
   } catch {
-    return res.status(403).json({
-      error: { code: 'FORBIDDEN', message: 'Требуется роль администратора' },
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Токен недействителен или истёк' },
     });
   }
 }
