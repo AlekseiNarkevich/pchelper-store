@@ -714,6 +714,36 @@
   font-size: 16px;
 }
 
+.order-comment {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--accent-soft, #fff8e1);
+  color: var(--text-muted, #555);
+  font-size: 13px;
+}
+
+.order-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.order-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.order-history .small {
+  display: block;
+}
+
 .status-badge {
   padding: 4px 10px;
   border-radius: 999px;

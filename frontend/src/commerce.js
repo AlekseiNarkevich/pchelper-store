@@ -137,3 +137,25 @@ export function createOrder(data) {
 export function listOrders() {
   return request('/orders');
 }
+
+/**
+ * История статусов заказа.
+ *
+ * @param {string} id Идентификатор заказа.
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export function getOrderHistory(id) {
+  return request(`/orders/${encodeURIComponent(id)}/history`);
+}
+
+/**
+ * Подтвердить получение заказа.
+ *
+ * @param {string} id Идентификатор заказа.
+ * @returns {Promise<object>}
+ */
+export function completeOrder(id) {
+  return request(`/orders/${encodeURIComponent(id)}/complete`, {
+    method: 'POST',
+  });
+}

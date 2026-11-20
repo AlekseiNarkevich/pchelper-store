@@ -83,6 +83,14 @@ export default function Checkout() {
       setError('Укажите расстояние за МКАД в километрах');
       return;
     }
+    if (
+      form.deliveryMethod === 'courier' &&
+      form.deliveryZone === 'outside' &&
+      distance > 50
+    ) {
+      setError('Доставка только по Минскому району: не более 50 км от МКАД');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -249,6 +257,7 @@ export default function Checkout() {
                   <label className="field">
                     <span>Расстояние от МКАД, км</span>
                     <input
+                      max="50"
                       min="0"
                       name="distanceKm"
                       onChange={changeField}

@@ -23,6 +23,7 @@ import {
   createProduct,
   deleteProduct,
   getSummary,
+  listOrderHistory,
   listOrderPositions,
   listOrders,
   listProducts,
@@ -32,6 +33,7 @@ import {
   updateUser,
 } from '../repositories/admin.repository.js';
 import { listAll, moderate } from '../repositories/reviews.repository.js';
+import { sendOrderStatusEmail } from '../services/mail.service.js';
 import { requireAdmin } from './auth.js';
 
 const router = Router();
@@ -89,10 +91,26 @@ router.get(
   }),
 );
 
+router.get(
+  '/orders/:id/history',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listOrderHistory(req.params.id));
+  }),
+);
+
 router.patch(
   '/orders/:id',
   asyncHandler(async (req, res) => {
-    res.status(200).json(await updateOrder(req.params.id, req.body || {}));
+    const order = await updateOrder(req.params.id, req.body || {}, req.user?.id);
+    if (order.email) {
+      void sendOrderStatusEmail({
+        to: order.email,
+        order,
+        status: order.status,
+        comment: order.comment,
+      });
+    }
+    res.status(200).json(order);
   }),
 );
 

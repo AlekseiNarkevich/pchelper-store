@@ -17,8 +17,10 @@ import { getProduct } from '../repositories/catalog.repository.js';
 import {
   addItem,
   clearCart,
+  completeOrder,
   createOrder,
   getCart,
+  listOrderHistory,
   listOrders,
   removeItem,
   updateItem,
@@ -114,6 +116,20 @@ router.get(
   asyncHandler(async (req, res) => {
     const items = await listOrders(req.user.id);
     res.status(200).json({ items, total: items.length });
+  }),
+);
+
+router.get(
+  '/orders/:id/history',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listOrderHistory(req.user.id, req.params.id));
+  }),
+);
+
+router.post(
+  '/orders/:id/complete',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await completeOrder(req.user.id, req.params.id));
   }),
 );
 

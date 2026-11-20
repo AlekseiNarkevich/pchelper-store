@@ -119,8 +119,10 @@ const ORDER_STATUSES = [
   'Новый',
   'В обработке',
   'Собран',
+  'Готов к выдаче',
   'Отправлен',
   'Доставлен',
+  'Завершён',
   'Отменён',
 ];
 
@@ -255,6 +257,20 @@ function OrdersPanel({ onError, onFlash }) {
     }
   }
 
+  async function confirmOrder(order) {
+    try {
+      await updateOrder(order.id, {
+        status: 'В обработке',
+        comment: 'Заказ подтверждён администратором',
+      });
+      const data = await getOrders();
+      setOrders(data.items);
+      onFlash(`Заказ ${order.number} подтверждён`);
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
   async function togglePositions(order) {
     if (positions[order.id]) {
       setPositions((current) => ({ ...current, [order.id]: null }));
@@ -319,6 +335,15 @@ function OrdersPanel({ onError, onFlash }) {
               />
             </label>
             <div className="admin-actions">
+              {order.status === 'Новый' && (
+                <button
+                  className="btn"
+                  onClick={() => confirmOrder(order)}
+                  type="button"
+                >
+                  Подтвердить заказ
+                </button>
+              )}
               <button className="btn" onClick={() => save(order)} type="button">
                 Сохранить
               </button>

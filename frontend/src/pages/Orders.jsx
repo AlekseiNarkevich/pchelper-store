@@ -2,13 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { money } from '../api.js';
-import { listOrders } from '../commerce.js';
+import { completeOrder, getOrderHistory, listOrders } from '../commerce.js';
 
 /** Класс значка по статусу заказа. */
 function statusClass(status) {
   if (status === 'Новый') return 'is-new';
   if (status === 'Отменён') return 'is-cancel';
-  if (status === 'Отправлен' || status === 'Доставлен') return 'is-done';
+  if (
+    status === 'Отправлен' ||
+    status === 'Доставлен' ||
+    status === 'Готов к выдаче' ||
+    status === 'Завершён'
+  ) {
+    return 'is-done';
+  }
   return 'is-progress';
 }
 
@@ -19,8 +26,48 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [openHistory, setOpenHistory] = useState(null);
+  const [history, setHistory] = useState({});
+  const [notice, setNotice] = useState('');
   const location = useLocation();
   const created = location.state?.order || null;
+
+  async function complete(order) {
+    if (!window.confirm(`Подтвердить получение заказа ${order.number}?`)) return;
+    try {
+      await completeOrder(order.id);
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                status: 'Завершён',
+                managerComment: 'Получение подтверждено покупателем',
+              }
+            : item,
+        ),
+      );
+      setHistory((current) => ({ ...current, [order.id]: null }));
+      setNotice(`Заказ ${order.number} завершён`);
+    } catch (reason) {
+      setError(reason.message);
+    }
+  }
+
+  async function toggleHistory(order) {
+    if (openHistory === order.id) {
+      setOpenHistory(null);
+      return;
+    }
+    setOpenHistory(order.id);
+    if (history[order.id]) return;
+    try {
+      const data = await getOrderHistory(order.id);
+      setHistory((current) => ({ ...current, [order.id]: data.items }));
+    } catch (reason) {
+      setError(reason.message);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -59,6 +106,7 @@ export default function Orders() {
         </Link>
       </div>
 
+      {notice && <div className="state success">{notice}</div>}
       {created && (
         <div className="state success" role="status">
           Заказ <strong>{created.number}</strong> оформлен. Мы свяжемся с вами для
@@ -115,10 +163,46 @@ export default function Orders() {
                 {order.deliveryCost > 0 ? money(order.deliveryCost) : 'бесплатно'}
               </strong>
             </div>
+            {order.managerComment && (
+              <p className="order-comment">
+                Комментарий менеджера: {order.managerComment}
+              </p>
+            )}
             <div className="order-total">
               <span>Итого</span>
               <strong>{money(order.total)}</strong>
             </div>
+            <div className="order-actions">
+              {['Готов к выдаче', 'Доставлен'].includes(order.status) && (
+                <button
+                  className="btn btn-sm"
+                  onClick={() => complete(order)}
+                  type="button"
+                >
+                  Подтвердить получение
+                </button>
+              )}
+              <button
+                className="link-button"
+                onClick={() => toggleHistory(order)}
+                type="button"
+              >
+                {openHistory === order.id ? 'Скрыть историю' : 'История статусов'}
+              </button>
+            </div>
+            {openHistory === order.id && history[order.id] && (
+              <ol className="order-history">
+                {history[order.id].map((item) => (
+                  <li key={item.id}>
+                    <strong>{item.status}</strong>
+                    {item.comment ? ` — ${item.comment}` : ''}
+                    <span className="small faint">
+                      {new Date(item.createdAt).toLocaleString('ru-RU')}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
           </article>
         ))}
       </div>

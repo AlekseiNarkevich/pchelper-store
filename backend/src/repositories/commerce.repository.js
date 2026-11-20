@@ -362,6 +362,13 @@ export async function createOrder(userId, data) {
           'Укажите расстояние за МКАД в километрах',
         );
       }
+      if (distanceKm > 50) {
+        throw apiError(
+          400,
+          'VALIDATION_ERROR',
+          'Доставка только по Минскому району: не более 50 км от МКАД',
+        );
+      }
       distanceKm = Math.round(distanceKm * 10) / 10;
       deliveryCost = 15 + 3 * Math.ceil(distanceKm);
     } else {
@@ -395,7 +402,7 @@ export async function createOrder(userId, data) {
         .single();
       if (created.error) throw created.error;
 
-      await supabase.from('Заказ_Позиции').insert(
+      const positions = await supabase.from('Заказ_Позиции').insert(
         items.map((item) => ({
           заказ_id: created.data.id,
           тип_компонента: item.category,
@@ -406,6 +413,17 @@ export async function createOrder(userId, data) {
           сумма: item.price * item.qty,
         })),
       );
+      if (positions.error) throw positions.error;
+
+      const history = await supabase.from('ИсторияЗаказов').insert({
+        заказ_id: created.data.id,
+        статус: 'Новый',
+        комментарий: 'Заказ создан',
+      });
+      if (history.error) {
+        console.error('[commerce] история заказа:', history.error.message);
+      }
+
       await clearCart(userId);
       return {
         id: String(created.data.id),
@@ -470,6 +488,105 @@ export async function createOrder(userId, data) {
  * @param {string} userId Идентификатор.
  * @returns {Promise<Array<object>>}
  */
+export async function listOrderHistory(userId, orderId) {
+  if (!useSupabase()) {
+    return { items: [], total: 0 };
+  }
+  try {
+    const owner = await supabase
+      .from('Заказы')
+      .select('id')
+      .eq('id', Number(orderId))
+      .eq('пользователь_id', Number(userId))
+      .maybeSingle();
+    if (owner.error) throw owner.error;
+    if (!owner.data) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+
+    const { data, error } = await supabase
+      .from('ИсторияЗаказов')
+      .select('id,статус,комментарий,создан_в')
+      .eq('заказ_id', Number(orderId))
+      .order('создан_в', { ascending: false });
+    if (error) throw error;
+    const items = (data || []).map((row) => ({
+      id: String(row.id),
+      status: row['статус'],
+      comment: row['комментарий'] || '',
+      createdAt: row['создан_в'],
+    }));
+    return { items, total: items.length };
+  } catch (error) {
+    if (error.code === 'ORDER_NOT_FOUND') throw error;
+    throw databaseFailure('загрузить историю заказа', error);
+  }
+}
+
+/**
+ * Покупатель подтверждает получение заказа.
+ *
+ * Завершить можно только заказ, готовый к выдаче или уже доставленный.
+ *
+ * @param {string} userId Пользователь.
+ * @param {string} orderId Заказ.
+ * @returns {Promise<object>}
+ */
+export async function completeOrder(userId, orderId) {
+  if (useSupabase()) {
+    try {
+      const { data: row, error } = await supabase
+        .from('Заказы')
+        .select('*')
+        .eq('id', Number(orderId))
+        .eq('пользователь_id', Number(userId))
+        .maybeSingle();
+      if (error) throw error;
+      if (!row) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+      if (!['Готов к выдаче', 'Доставлен'].includes(row.статус)) {
+        throw apiError(400, 'ORDER_NOT_READY', 'Заказ ещё не готов к получению');
+      }
+
+      const updated = await supabase
+        .from('Заказы')
+        .update({
+          статус: 'Завершён',
+          обновлён_в: new Date().toISOString(),
+        })
+        .eq('id', Number(orderId))
+        .select('*')
+        .single();
+      if (updated.error) throw updated.error;
+
+      const history = await supabase.from('ИсторияЗаказов').insert({
+        заказ_id: Number(orderId),
+        статус: 'Завершён',
+        комментарий: 'Получение подтверждено покупателем',
+      });
+      if (history.error) {
+        console.error('[commerce] история завершения:', history.error.message);
+      }
+
+      return {
+        id: String(updated.data.id),
+        number: updated.data.номер,
+        status: updated.data.статус,
+      };
+    } catch (error) {
+      if (error.status) throw error;
+      throw databaseFailure('завершить заказ', error);
+    }
+  }
+
+  const list = orders.get(key(userId)) || [];
+  const order = list.find((item) => item.id === String(orderId));
+  if (!order) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+  if (!['Готов к выдаче', 'Доставлен'].includes(order.status)) {
+    throw apiError(400, 'ORDER_NOT_READY', 'Заказ ещё не готов к получению');
+  }
+  order.status = 'Завершён';
+  order.comment = 'Получение подтверждено покупателем';
+  return { id: order.id, number: order.number, status: order.status };
+}
+
 export async function listOrders(userId) {
   if (useSupabase()) {
     try {
@@ -490,6 +607,7 @@ export async function listOrders(userId) {
           deliveryCost,
           deliveryZone: row.зона_доставки || '',
           distanceKm: row.расстояние_км != null ? Number(row.расстояние_км) : null,
+          managerComment: row.комментарий_менеджера || '',
           createdAt: row.создан_в,
         };
       });

@@ -15,8 +15,10 @@ export const ORDER_STATUSES = [
   'Новый',
   'В обработке',
   'Собран',
+  'Готов к выдаче',
   'Отправлен',
   'Доставлен',
+  'Завершён',
   'Отменён',
 ];
 
@@ -112,6 +114,7 @@ export async function listOrders() {
       distanceKm: row['расстояние_км'] != null ? Number(row['расстояние_км']) : null,
       track: row['трек_номер'] || '',
       managerComment: row['комментарий_менеджера'] || '',
+      email: row['эл_почта'] || user.email || '',
       positionsCount: counts.get(Number(row.id)) || 0,
       createdAt: row['создан_в'],
     };
@@ -152,7 +155,7 @@ export async function listOrderPositions(orderId) {
  * @param {{status?: string, track?: string, comment?: string}} data Данные.
  * @returns {Promise<object>}
  */
-export async function updateOrder(orderId, data) {
+export async function updateOrder(orderId, data, adminId) {
   requireDatabase();
   const updates = { обновлён_в: new Date().toISOString() };
 
@@ -175,7 +178,58 @@ export async function updateOrder(orderId, data) {
     .maybeSingle();
   if (error) throw databaseError('обновить заказ', error);
   if (!row) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
-  return { id: String(row.id), status: row['статус'], number: row['номер'] };
+
+  const comment = String(data.comment || '').trim();
+  const history = await supabase.from('ИсторияЗаказов').insert({
+    заказ_id: Number(orderId),
+    статус: row['статус'],
+    комментарий: comment || null,
+    администратор_id: Number(adminId) || null,
+  });
+  if (history.error) {
+    console.error('[admin] история заказа:', history.error.message);
+  }
+
+  const user = await supabase
+    .from('Пользователи')
+    .select('email')
+    .eq('id', Number(row['пользователь_id']))
+    .maybeSingle();
+  if (user.error) {
+    console.error('[admin] email заказа:', user.error.message);
+  }
+
+  return {
+    id: String(row.id),
+    number: row['номер'],
+    status: row['статус'],
+    comment: row['комментарий_менеджера'] || '',
+    email: row['эл_почта'] || user.data?.email || '',
+    total: Number(row['итоговая_сумма'] || 0),
+  };
+}
+
+/**
+ * История статусов заказа.
+ *
+ * @param {string} orderId Идентификатор.
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export async function listOrderHistory(orderId) {
+  if (!isDatabaseConnected()) return { items: [], total: 0 };
+  const { data, error } = await supabase
+    .from('ИсторияЗаказов')
+    .select('*')
+    .eq('заказ_id', Number(orderId))
+    .order('создан_в', { ascending: false });
+  if (error) throw databaseError('получить историю заказа', error);
+  const items = (data || []).map((row) => ({
+    id: String(row.id),
+    status: row['статус'],
+    comment: row['комментарий'] || '',
+    createdAt: row['создан_в'],
+  }));
+  return { items, total: items.length };
 }
 
 /**

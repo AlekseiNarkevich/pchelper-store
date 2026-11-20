@@ -100,14 +100,12 @@ function orderText(order) {
 }
 
 /**
- * Отправляет подтверждение заказа.
+ * Отправляет письмо и пишет его в журнал.
  *
- * @param {{to: string, order: object}} data Получатель и заказ.
+ * @param {{to: string, subject: string, text: string, orderId: string}} data Письмо.
  * @returns {Promise<void>}
  */
-export async function sendOrderConfirmation({ to, order }) {
-  const subject = `PCHelper: заказ ${order.number} оформлен`;
-  const text = orderText(order);
+async function deliver({ to, subject, text, orderId }) {
   let sent = false;
   let error = '';
 
@@ -128,12 +126,48 @@ export async function sendOrderConfirmation({ to, order }) {
     error = 'SMTP не настроен';
   }
 
-  await logEmail({
-    orderId: order.id,
+  await logEmail({ orderId, to, subject, text, sent, error });
+}
+
+/**
+ * Отправляет подтверждение заказа.
+ *
+ * @param {{to: string, order: object}} data Получатель и заказ.
+ * @returns {Promise<void>}
+ */
+export async function sendOrderConfirmation({ to, order }) {
+  await deliver({
     to,
-    subject,
+    orderId: order.id,
+    subject: `PCHelper: заказ ${order.number} оформлен`,
+    text: orderText(order),
+  });
+}
+
+/**
+ * Отправляет письмо о смене статуса заказа.
+ *
+ * @param {{to: string, order: object, status: string, comment?: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendOrderStatusEmail({ to, order, status, comment }) {
+  const text = [
+    'Здравствуйте!',
+    '',
+    `Статус заказа ${order.number} изменён: ${status}.`,
+    comment ? `Комментарий менеджера: ${comment}` : '',
+    '',
+    `Сумма заказа: ${order.total} BYN`,
+    '',
+    'Подробности — в личном кабинете.',
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({
+    to,
+    orderId: order.id,
+    subject: `PCHelper: заказ ${order.number} — ${status}`,
     text,
-    sent,
-    error,
   });
 }
