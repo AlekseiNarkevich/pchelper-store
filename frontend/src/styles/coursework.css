@@ -154,12 +154,127 @@
   line-height: 1.45;
 }
 
-/* --- Профиль: быстрые ссылки --- */
+/* --- Личный кабинет: две колонки вместо узкой карточки --- */
+.profile-page {
+  padding-top: 24px;
+  padding-bottom: 40px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.profile-card {
+  width: 100%;
+  max-width: none;
+}
+
+.profile-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 16px;
+}
+
+.profile-panel {
+  padding: 20px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow-card, none);
+}
+
+.profile-panel h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.profile-panel .btn {
+  margin-top: 8px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.profile-builds {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-builds li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border, #e8e8e8);
+}
+
+.profile-builds li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.profile-builds a {
+  font-weight: 600;
+}
+
+.profile-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .profile-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 14px 0 4px;
+}
+
+.profile-data {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.profile-data dt {
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.profile-data dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+@media (max-width: 1200px) {
+  .profile-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .profile-panels {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* --- Поля форм --- */
