@@ -2,7 +2,7 @@
   "name": "pchelper-web",
   "version": "1.0.0",
   "private": true,
-  "description": "PCHelper — веб-витрина интернет-магазина комплектующих (ЛР7)",
+  "description": "PCHelper — веб-клиент интернет-магазина комплектующих",
   "type": "module",
   "scripts": {
     "dev": "vite",

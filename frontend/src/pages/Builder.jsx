@@ -12,7 +12,32 @@ import {
   textOf,
 } from '../productFields.js';
 
-const DRAFT_KEY = 'pchelper_builder_v2';
+/**
+ * Ключ черновика привязан к пользователю: сборка одного аккаунта
+ * не должна всплывать в конфигураторе другого.
+ *
+ * @returns {string}
+ */
+function draftKey() {
+  const user = readAuth().user;
+  return `pchelper_builder_v2:${user?.id || 'guest'}`;
+}
+
+/**
+ * Читает черновик синхронно при первом рендере.
+ *
+ * Если читать его внутри эффекта загрузки, эффект автосохранения успевает
+ * записать пустой черновик раньше — и сборка теряется при перезагрузке.
+ *
+ * @returns {object|null}
+ */
+function readDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(draftKey()) || 'null');
+  } catch {
+    return null;
+  }
+}
 
 /** Восемь шагов конфигуратора и итоговый экран. */
 const STEPS = [
@@ -223,6 +248,8 @@ export default function Builder() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [draft] = useState(readDraft);
+  const [hydrated, setHydrated] = useState(false);
 
   // Загрузка каталога и восстановление черновика.
   useEffect(() => {
@@ -252,7 +279,6 @@ export default function Builder() {
         });
         setLists(next);
 
-        const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
         if (draft) {
           const find = (category, id) =>
             id ? next[category].find((product) => product.id === id) || null : null;
@@ -273,6 +299,7 @@ export default function Builder() {
           setBuildName(draft.name || '');
           setNote(draft.note || '');
         }
+        setHydrated(true);
       } catch (reason) {
         if (alive) setLoadError(reason.message);
       } finally {
@@ -282,13 +309,14 @@ export default function Builder() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [draft]);
 
   // Черновик хранится в localStorage: только идентификаторы, без секретов.
   useEffect(() => {
+    if (!hydrated) return;
     try {
       localStorage.setItem(
-        DRAFT_KEY,
+        draftKey(),
         JSON.stringify({
           step,
           cpu: selection.cpu?.id || null,
@@ -307,7 +335,7 @@ export default function Builder() {
     } catch {
       /* приватный режим браузера */
     }
-  }, [step, selection, skipGpu, buildName, note]);
+  }, [step, selection, skipGpu, buildName, note, hydrated]);
 
   const socket = textOf(selection.cpu, 'сокет', 'Сокет');
   const memoryType = textOf(selection.motherboard, 'тип_памяти', 'Тип памяти');

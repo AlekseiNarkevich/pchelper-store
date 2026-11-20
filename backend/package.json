@@ -2,7 +2,7 @@
   "name": "pchelper-store-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "PCHelper — backend интернет-магазина комплектующих (ЛР7)",
+  "description": "PCHelper — REST API интернет-магазина комплектующих",
   "type": "module",
   "main": "src/server.js",
   "scripts": {

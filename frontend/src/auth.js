@@ -52,30 +52,73 @@ export function onAuthChange(listener) {
   };
 }
 
+/** Общий запрос обновления, чтобы параллельные вызовы не вращали токен дважды. */
+let refreshPromise = null;
+
+/**
+ * Отправляет запрос и возвращает Response.
+ *
+ * @param {string} path Путь относительно BASE.
+ * @param {{method?: string, body?: object, token?: string}} options Параметры.
+ * @returns {Promise<Response>}
+ */
+function send(path, options = {}) {
+  const { method = 'GET', body, token } = options;
+  const headers = { Accept: 'application/json' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  return fetch(`${BASE}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
 /**
  * Выполняет запрос к API аутентификации.
+ *
+ * Если access-токен истёк, один раз обновляет пару токенов и повторяет
+ * запрос: иначе через 15 минут работы профиль и сборки «отваливались» бы.
  *
  * @param {string} path Путь относительно BASE.
  * @param {object} options Тело и метод.
  * @returns {Promise<object>}
  */
 async function request(path, options = {}) {
-  const { method = 'GET', body, token } = options;
-  const headers = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (token) headers.Authorization = `Bearer ${token}`;
+  let response = await send(path, options);
 
-  const response = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  if (response.status === 401 && options.token) {
+    try {
+      const refreshed = await refreshAccessToken();
+      if (refreshed?.accessToken) {
+        response = await send(path, { ...options, token: refreshed.accessToken });
+      }
+    } catch {
+      writeAuth({ accessToken: null, refreshToken: null, user: null });
+    }
+  }
+
   const text = await response.text();
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) {
     throw new Error(data?.error?.message || `Ошибка сервера ${response.status}`);
   }
   return data;
+}
+
+/**
+ * Обновляет access-токен, если есть refresh-токен.
+ *
+ * @returns {Promise<object|null>}
+ */
+export function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = refresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
 }
 
 /**

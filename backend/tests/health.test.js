@@ -107,7 +107,7 @@ test('требование FR-08: админ-маршрут с верным то
 test('корневой адрес отдаёт визитку со списком маршрутов, а не 404', async () => {
   const { status, body } = await get('/');
   assert.equal(status, 200);
-  assert.equal(body.service, 'PCHelper Infrastructure API');
+  assert.equal(body.service, 'PCHelper API');
   assert.equal(typeof body.endpoints.health, 'string');
 });
 
