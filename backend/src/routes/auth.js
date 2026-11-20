@@ -1,11 +1,12 @@
 /**
- * PCHelper (ЛР8) — маршруты аутентификации.
+ * PCHelper (курсовая) — маршруты аутентификации и профиля.
  *
- *   POST /api/v1/auth/register  регистрация
- *   POST /api/v1/auth/login     вход
- *   POST /api/v1/auth/refresh   обновление токенов
- *   POST /api/v1/auth/logout    выход
- *   GET  /api/v1/auth/me        профиль по access-токену
+ *   POST  /api/v1/auth/register  регистрация
+ *   POST  /api/v1/auth/login     вход
+ *   POST  /api/v1/auth/refresh   обновление токенов
+ *   POST  /api/v1/auth/logout    выход
+ *   GET   /api/v1/auth/me        профиль по access-токену
+ *   PATCH /api/v1/auth/profile   изменение имени, телефона и адреса
  */
 import { Router } from 'express';
 
@@ -15,24 +16,22 @@ import {
   publicUser,
   refresh,
   register,
+  updateProfile,
   userFromAccess,
 } from '../services/auth.service.js';
 
 const router = Router();
 
 /**
- * Оборачивает обработчик, чтобы ошибка попала в middleware Express.
+ * Оборачивает обработчик, чтобы ошибка (в том числе из Promise)
+ * попала в middleware Express.
  *
  * @param {Function} handler Обработчик.
  * @returns {Function}
  */
 function handle(handler) {
   return (req, res, next) => {
-    try {
-      handler(req, res);
-    } catch (error) {
-      next(error);
-    }
+    Promise.resolve(handler(req, res)).catch(next);
   };
 }
 
@@ -43,7 +42,7 @@ function handle(handler) {
  * @param {object} res Ответ.
  * @param {Function} next Следующий middleware.
  */
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.replace(/^Bearer\s+/i, '');
   if (!token) {
@@ -53,7 +52,7 @@ export function requireAuth(req, res, next) {
   }
 
   try {
-    const user = userFromAccess(token);
+    const user = await userFromAccess(token);
     if (!user) {
       throw new Error('Пользователь не найден');
     }
@@ -68,37 +67,37 @@ export function requireAuth(req, res, next) {
 
 router.post(
   '/auth/register',
-  handle((req, res) => {
-    const result = register(req.body || {});
+  handle(async (req, res) => {
+    const result = await register(req.body || {});
     res.status(201).json(result);
   }),
 );
 
 router.post(
   '/auth/login',
-  handle((req, res) => {
-    res.status(200).json(login(req.body || {}));
+  handle(async (req, res) => {
+    res.status(200).json(await login(req.body || {}));
   }),
 );
 
 router.post(
   '/auth/refresh',
-  handle((req, res) => {
+  handle(async (req, res) => {
     const token = String((req.body || {}).refreshToken || '');
     if (!token) {
       return res.status(400).json({
         error: { code: 'VALIDATION_ERROR', message: 'Требуется refreshToken' },
       });
     }
-    return res.status(200).json(refresh(token));
+    return res.status(200).json(await refresh(token));
   }),
 );
 
 router.post(
   '/auth/logout',
-  handle((req, res) => {
+  handle(async (req, res) => {
     const token = String((req.body || {}).refreshToken || '');
-    if (token) logout(token);
+    if (token) await logout(token);
     res.status(204).end();
   }),
 );
@@ -106,5 +105,14 @@ router.post(
 router.get('/auth/me', requireAuth, (req, res) => {
   res.status(200).json({ user: publicUser(req.user) });
 });
+
+router.patch(
+  '/auth/profile',
+  requireAuth,
+  handle(async (req, res) => {
+    const user = await updateProfile(req.user.id, req.body || {});
+    res.status(200).json({ user });
+  }),
+);
 
 export default router;

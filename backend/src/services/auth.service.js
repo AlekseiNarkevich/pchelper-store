@@ -1,62 +1,32 @@
 /**
- * PCHelper (ЛР8) — сервис аутентификации.
+ * PCHelper (курсовая) — сервис аутентификации.
  *
- * Пока пользователи хранятся в памяти процесса: этого достаточно для
- * демонстрации JWT/сессий и герметичных тестов без реальных секретов.
- * В курсовой работе хранилище заменяется на таблицу `Пользователи`
- * Supabase — контракт API от этого не меняется.
+ * Пользователи хранятся в Supabase (таблица «Пользователи»), refresh-токены —
+ * в «ОбновительныхТокенах». Без переменных окружения сервис переходит на
+ * память процесса: этого достаточно для герметичных тестов и CI.
+ * Контракт API от источника данных не зависит.
+ *
+ * @version 2.0
  */
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 
 import jwt from 'jsonwebtoken';
+
+import { apiError, validation } from '../domain/errors.js';
+import {
+  createUser,
+  findByEmail,
+  findById,
+  isRefreshTokenActive,
+  revokeRefreshToken,
+  storeRefreshToken,
+  updateUser,
+} from '../repositories/users.repository.js';
+import { hashPassword, verifyPassword } from './password.js';
 
 const SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me';
 const ACCESS_TTL = '15m';
 const REFRESH_TTL = '7d';
-
-/** Пользователи демонстрационного режима. */
-const users = new Map();
-
-/** Действующие refresh-токены (в курсовой — таблица `ОбновительныеТокены`). */
-const refreshTokens = new Set();
-
-/**
- * Хэширует пароль через scrypt: соль и хэш разделены двоеточием.
- *
- * @param {string} password Пароль.
- * @returns {string} Строка «соль:хэш».
- */
-function hashPassword(password) {
-  const salt = randomBytes(16).toString('hex');
-  const derived = scryptSync(password, salt, 64).toString('hex');
-  return `${salt}:${derived}`;
-}
-
-/**
- * Проверяет пароль против сохранённого хэша.
- *
- * @param {string} password Пароль из запроса.
- * @param {string} stored Хэш из хранилища.
- * @returns {boolean}
- */
-function verifyPassword(password, stored) {
-  const [salt, key] = String(stored || '').split(':');
-  if (!salt || !key) return false;
-  const expected = Buffer.from(key, 'hex');
-  const actual = scryptSync(password, salt, expected.length || 64);
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
-}
-
-let nextUserId = 2;
-
-/** Демо-пользователь для локальной проверки и тестов. */
-users.set('demo@pchelper.by', {
-  id: '1',
-  email: 'demo@pchelper.by',
-  name: 'Демо-пользователь',
-  role: 'user',
-  passwordHash: hashPassword('demo1234'),
-});
 
 /**
  * Приводит e-mail к нижнему регистру.
@@ -71,22 +41,51 @@ function normalizeEmail(value) {
 }
 
 /**
- * Публичный вид пользователя — без хэша пароля.
+ * Публичный вид пользователя — без хэша пароля и служебных полей.
  *
  * @param {object} user Пользователь.
  * @returns {object}
  */
 export function publicUser(user) {
-  return { id: user.id, email: user.email, name: user.name, role: user.role };
+  return {
+    id: String(user.id),
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    phone: user.phone || '',
+    address: user.address || '',
+  };
+}
+
+/**
+ * Проверяет поля профиля.
+ *
+ * @param {{name?: unknown, phone?: unknown, address?: unknown}} data Данные формы.
+ * @returns {{name: string, phone: string, address: string}}
+ */
+function profileFields(data) {
+  const name = String(data.name ?? '').trim();
+  if (!name) throw validation('Укажите имя');
+  if (name.length > 100) throw validation('Имя длиннее 100 символов');
+
+  const phone = String(data.phone ?? '').trim();
+  if (phone && !/^[+()\d\s-]{7,30}$/.test(phone)) {
+    throw validation('Телефон содержит недопустимые символы');
+  }
+
+  const address = String(data.address ?? '').trim();
+  if (address.length > 300) throw validation('Адрес длиннее 300 символов');
+
+  return { name, phone, address };
 }
 
 /**
  * Регистрирует пользователя.
  *
- * @param {{email: string, password: string, name?: string}} data Данные формы.
- * @returns {{user: object, accessToken: string, refreshToken: string}}
+ * @param {{email: string, password: string, name?: string, phone?: string, address?: string}} data Данные формы.
+ * @returns {Promise<{user: object, accessToken: string, refreshToken: string}>}
  */
-export function register(data) {
+export async function register(data) {
   const email = normalizeEmail(data.email);
   const password = String(data.password || '');
 
@@ -96,18 +95,18 @@ export function register(data) {
   if (password.length < 6) {
     throw validation('Пароль должен содержать не менее 6 символов');
   }
-  if (users.has(email)) {
-    throw apiError(409, 'EMAIL_EXISTS', 'Пользователь с таким e-mail уже существует');
-  }
 
-  const user = {
-    id: String(nextUserId++),
+  const profile = profileFields({
+    name: data.name || email.split('@')[0],
+    phone: data.phone,
+    address: data.address,
+  });
+
+  const user = await createUser({
     email,
-    name: String(data.name || '').trim() || email.split('@')[0],
-    role: 'user',
     passwordHash: hashPassword(password),
-  };
-  users.set(email, user);
+    ...profile,
+  });
   return issueTokens(user);
 }
 
@@ -115,12 +114,12 @@ export function register(data) {
  * Проверяет логин и пароль.
  *
  * @param {{email: string, password: string}} data Данные формы.
- * @returns {{user: object, accessToken: string, refreshToken: string}}
+ * @returns {Promise<{user: object, accessToken: string, refreshToken: string}>}
  */
-export function login(data) {
+export async function login(data) {
   const email = normalizeEmail(data.email);
   const password = String(data.password || '');
-  const user = users.get(email);
+  const user = await findByEmail(email);
 
   if (!user || !verifyPassword(password, user.passwordHash)) {
     throw apiError(401, 'INVALID_CREDENTIALS', 'Неверный e-mail или пароль');
@@ -129,12 +128,12 @@ export function login(data) {
 }
 
 /**
- * Выдаёт access- и refresh-токены.
+ * Выдаёт access- и refresh-токены и сохраняет refresh в хранилище.
  *
  * @param {object} user Пользователь.
- * @returns {{user: object, accessToken: string, refreshToken: string}}
+ * @returns {Promise<{user: object, accessToken: string, refreshToken: string}>}
  */
-function issueTokens(user) {
+async function issueTokens(user) {
   const accessToken = jwt.sign(
     {
       sub: user.id,
@@ -156,7 +155,10 @@ function issueTokens(user) {
     SECRET,
     { expiresIn: REFRESH_TTL },
   );
-  refreshTokens.add(refreshToken);
+
+  const payload = jwt.decode(refreshToken);
+  await storeRefreshToken(user.id, refreshToken, Number(payload.exp) * 1000);
+
   return { user: publicUser(user), accessToken, refreshToken };
 }
 
@@ -164,16 +166,16 @@ function issueTokens(user) {
  * Обновляет пару токенов по refresh-токену.
  *
  * @param {string} token Refresh-токен.
- * @returns {{user: object, accessToken: string, refreshToken: string}}
+ * @returns {Promise<{user: object, accessToken: string, refreshToken: string}>}
  */
-export function refresh(token) {
+export async function refresh(token) {
   const payload = verify(token, 'refresh');
-  if (!refreshTokens.has(token)) {
+  if (!(await isRefreshTokenActive(token))) {
     throw apiError(401, 'REFRESH_INVALID', 'Refresh-токен не найден или отозван');
   }
 
-  refreshTokens.delete(token);
-  const user = findUserById(payload.sub);
+  await revokeRefreshToken(token);
+  const user = await findById(payload.sub);
   if (!user) {
     throw apiError(401, 'REFRESH_INVALID', 'Пользователь не найден');
   }
@@ -184,33 +186,37 @@ export function refresh(token) {
  * Отзывает refresh-токен при выходе.
  *
  * @param {string} token Refresh-токен.
+ * @returns {Promise<void>}
  */
-export function logout(token) {
-  refreshTokens.delete(token);
+export async function logout(token) {
+  await revokeRefreshToken(token);
 }
 
 /**
  * Проверяет access-токен и возвращает пользователя.
  *
  * @param {string} token Access-токен.
- * @returns {object|null}
+ * @returns {Promise<object|null>}
  */
 export function userFromAccess(token) {
   const payload = verify(token, 'access');
-  return findUserById(payload.sub);
+  return findById(payload.sub);
 }
 
 /**
- * Находит пользователя по идентификатору.
+ * Обновляет профиль по идентификатору пользователя.
  *
- * @param {string} id Идентификатор.
- * @returns {object|null}
+ * @param {string} userId Идентификатор.
+ * @param {{name: string, phone: string, address: string}} data Поля.
+ * @returns {Promise<object>}
  */
-export function findUserById(id) {
-  for (const user of users.values()) {
-    if (user.id === id) return user;
+export async function updateProfile(userId, data) {
+  const profile = profileFields(data);
+  const user = await updateUser(userId, profile);
+  if (!user) {
+    throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
   }
-  return null;
+  return publicUser(user);
 }
 
 /**
@@ -230,29 +236,4 @@ function verify(token, expectedType) {
   } catch {
     throw apiError(401, 'UNAUTHORIZED', 'Токен недействителен или истёк');
   }
-}
-
-/**
- * Ошибка валидации формы.
- *
- * @param {string} message Сообщение.
- * @returns {Error & {status: number, code: string}}
- */
-function validation(message) {
-  return apiError(400, 'VALIDATION_ERROR', message);
-}
-
-/**
- * Ошибка API с заданным статусом.
- *
- * @param {number} status HTTP-статус.
- * @param {string} code Машиночитаемый код.
- * @param {string} message Сообщение.
- * @returns {Error & {status: number, code: string}}
- */
-function apiError(status, code, message) {
-  const error = new Error(message);
-  error.status = status;
-  error.code = code;
-  return error;
 }

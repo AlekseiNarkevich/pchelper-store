@@ -1,0 +1,309 @@
+/**
+ * PCHelper (курсовая) — репозиторий пользователей.
+ *
+ * Единственное место, которое знает, где лежат пользователи и их токены:
+ * в Supabase (таблицы «Пользователи» и «ОбновительныеТокены») или в памяти
+ * процесса, когда переменные окружения не заданы (CI, локальные тесты).
+ * Контракт для сервиса аутентификации от этого не меняется.
+ */
+
+import { createHash } from 'node:crypto';
+
+import { apiError } from '../domain/errors.js';
+import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
+import { hashPassword } from '../services/password.js';
+
+const USER_COLUMNS =
+  'id,email,password_hash,имя,телефон,адрес_доставки,роль,создан_в';
+
+/** Соответствие ролей базы и API. */
+const ROLE_FROM_DB = { customer: 'user', manager: 'manager', admin: 'admin' };
+
+/** Обратное соответствие ролей API и базы. */
+const ROLE_TO_DB = { user: 'customer', manager: 'manager', admin: 'admin' };
+
+/** Пользователи демонстрационного режима. */
+const memoryUsers = new Map();
+
+/** Действующие refresh-токены демонстрационного режима. */
+const memoryTokens = new Map();
+
+let nextUserId = 2;
+
+/**
+ * Приводит строку Supabase к внутреннему виду пользователя.
+ *
+ * @param {object} row Строка таблицы.
+ * @returns {object}
+ */
+function fromRow(row) {
+  return {
+    id: String(row.id),
+    email: row.email,
+    name: row['имя'] || row.email,
+    phone: row['телефон'] || '',
+    address: row['адрес_доставки'] || '',
+    role: ROLE_FROM_DB[row['роль']] || 'user',
+    passwordHash: row.password_hash || null,
+    createdAt: row['создан_в'] || null,
+  };
+}
+
+// Демо-пользователь доступен и без базы: он нужен тестам и локальному запуску.
+memoryUsers.set('demo@pchelper.by', {
+  id: '1',
+  email: 'demo@pchelper.by',
+  name: 'Демо-пользователь',
+  phone: '',
+  address: '',
+  role: 'user',
+  passwordHash: hashPassword('demo1234'),
+  createdAt: null,
+});
+
+/**
+ * Хэширует refresh-токен: в базе хранится только SHA-256.
+ *
+ * @param {string} token Токен.
+ * @returns {string}
+ */
+function tokenHash(token) {
+  return createHash('sha256').update(String(token)).digest('hex');
+}
+
+/**
+ * Находит пользователя по e-mail.
+ *
+ * @param {string} email Адрес в нижнем регистре.
+ * @returns {Promise<object|null>}
+ */
+export async function findByEmail(email) {
+  if (isDatabaseConnected()) {
+    try {
+      const { data, error } = await supabase
+        .from('Пользователи')
+        .select(USER_COLUMNS)
+        .eq('email', email)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? fromRow(data) : null;
+    } catch {
+      /* база недоступна — используем память процесса */
+    }
+  }
+  return memoryUsers.get(email) || null;
+}
+
+/**
+ * Находит пользователя по идентификатору.
+ *
+ * @param {string} id Идентификатор.
+ * @returns {Promise<object|null>}
+ */
+export async function findById(id) {
+  if (isDatabaseConnected()) {
+    try {
+      const numericId = Number(id);
+      if (Number.isInteger(numericId) && numericId > 0) {
+        const { data, error } = await supabase
+          .from('Пользователи')
+          .select(USER_COLUMNS)
+          .eq('id', numericId)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) return fromRow(data);
+        return null;
+      }
+    } catch {
+      /* база недоступна — используем память процесса */
+    }
+  }
+  for (const user of memoryUsers.values()) {
+    if (user.id === String(id)) return user;
+  }
+  return null;
+}
+
+/**
+ * Создаёт пользователя.
+ *
+ * @param {{email: string, passwordHash: string, name: string, phone?: string, address?: string}} data Данные.
+ * @returns {Promise<object>}
+ */
+export async function createUser(data) {
+  if (isDatabaseConnected()) {
+    try {
+      const { data: row, error } = await supabase
+        .from('Пользователи')
+        .insert({
+          email: data.email,
+          password_hash: data.passwordHash,
+          имя: data.name,
+          телефон: data.phone || null,
+          адрес_доставки: data.address || null,
+          роль: ROLE_TO_DB.user,
+        })
+        .select(USER_COLUMNS)
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          throw apiError(
+            409,
+            'EMAIL_EXISTS',
+            'Пользователь с таким e-mail уже существует',
+          );
+        }
+        throw error;
+      }
+      return fromRow(row);
+    } catch (error) {
+      if (error.code === 'EMAIL_EXISTS') throw error;
+      /* база недоступна — используем память процесса */
+    }
+  }
+
+  if (memoryUsers.has(data.email)) {
+    throw apiError(
+      409,
+      'EMAIL_EXISTS',
+      'Пользователь с таким e-mail уже существует',
+    );
+  }
+  const user = {
+    id: String(nextUserId++),
+    email: data.email,
+    name: data.name,
+    phone: data.phone || '',
+    address: data.address || '',
+    role: 'user',
+    passwordHash: data.passwordHash,
+    createdAt: new Date().toISOString(),
+  };
+  memoryUsers.set(user.email, user);
+  return user;
+}
+
+/**
+ * Обновляет профиль пользователя.
+ *
+ * @param {string} id Идентификатор.
+ * @param {{name: string, phone: string, address: string}} data Поля профиля.
+ * @returns {Promise<object|null>}
+ */
+export async function updateUser(id, data) {
+  if (isDatabaseConnected()) {
+    try {
+      const { data: row, error } = await supabase
+        .from('Пользователи')
+        .update({
+          имя: data.name,
+          телефон: data.phone || null,
+          адрес_доставки: data.address || null,
+          обновлён_в: new Date().toISOString(),
+        })
+        .eq('id', Number(id))
+        .select(USER_COLUMNS)
+        .maybeSingle();
+      if (error) throw error;
+      return row ? fromRow(row) : null;
+    } catch {
+      /* база недоступна — используем память процесса */
+    }
+  }
+
+  for (const user of memoryUsers.values()) {
+    if (user.id === String(id)) {
+      user.name = data.name;
+      user.phone = data.phone || '';
+      user.address = data.address || '';
+      return user;
+    }
+  }
+  return null;
+}
+
+/**
+ * Сохраняет refresh-токен.
+ *
+ * @param {string} userId Идентификатор пользователя.
+ * @param {string} token Токен.
+ * @param {number} expiresAt Время истечения, мс.
+ * @returns {Promise<void>}
+ */
+export async function storeRefreshToken(userId, token, expiresAt) {
+  const hash = tokenHash(token);
+
+  if (isDatabaseConnected()) {
+    try {
+      const { error } = await supabase.from('ОбновительныеТокены').insert({
+        пользователь_id: Number(userId),
+        token_hash: hash,
+        истекает_в: new Date(expiresAt).toISOString(),
+      });
+      if (!error) return;
+    } catch {
+      /* база недоступна — используем память процесса */
+    }
+  }
+
+  memoryTokens.set(hash, {
+    userId: String(userId),
+    expiresAt,
+    revoked: false,
+  });
+}
+
+/**
+ * Проверяет, действует ли refresh-токен.
+ *
+ * @param {string} token Токен.
+ * @returns {Promise<boolean>}
+ */
+export async function isRefreshTokenActive(token) {
+  const hash = tokenHash(token);
+
+  if (isDatabaseConnected()) {
+    try {
+      const { data, error } = await supabase
+        .from('ОбновительныеТокены')
+        .select('id,отозван,истекает_в')
+        .eq('token_hash', hash)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return false;
+      if (data['отозван']) return false;
+      return new Date(data['истекает_в']).getTime() > Date.now();
+    } catch {
+      /* база недоступна — используем память процесса */
+    }
+  }
+
+  const record = memoryTokens.get(hash);
+  return Boolean(record && !record.revoked && record.expiresAt > Date.now());
+}
+
+/**
+ * Отзывает refresh-токен.
+ *
+ * @param {string} token Токен.
+ * @returns {Promise<void>}
+ */
+export async function revokeRefreshToken(token) {
+  const hash = tokenHash(token);
+
+  if (isDatabaseConnected()) {
+    try {
+      const { error } = await supabase
+        .from('ОбновительныеТокены')
+        .update({ отозван: true })
+        .eq('token_hash', hash);
+      if (!error) return;
+    } catch {
+      /* база недоступна — используем память процесса */
+    }
+  }
+
+  const record = memoryTokens.get(hash);
+  if (record) record.revoked = true;
+}

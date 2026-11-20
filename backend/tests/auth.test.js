@@ -135,6 +135,61 @@ test('профиль доступен только с access-токеном', as
   assert.equal(invalid.status, 401);
 });
 
+test('профиль обновляется и сохраняется между запросами', async () => {
+  const address = email();
+  const registered = await request('/api/v1/auth/register', {
+    method: 'POST',
+    body: { email: address, password: 'secret123', name: 'Профиль' },
+  });
+
+  const updated = await request('/api/v1/auth/profile', {
+    method: 'PATCH',
+    token: registered.body.accessToken,
+    body: {
+      name: 'Новое имя',
+      phone: '+375 29 111-22-33',
+      address: 'Минск, ул. Тестовая, 1',
+    },
+  });
+  assert.equal(updated.status, 200);
+  assert.equal(updated.body.user.name, 'Новое имя');
+  assert.equal(updated.body.user.phone, '+375 29 111-22-33');
+  assert.equal(updated.body.user.address, 'Минск, ул. Тестовая, 1');
+  assert.equal(updated.body.user.passwordHash, undefined);
+
+  const me = await request('/api/v1/auth/me', { token: registered.body.accessToken });
+  assert.equal(me.status, 200);
+  assert.equal(me.body.user.address, 'Минск, ул. Тестовая, 1');
+});
+
+test('профиль проверяет имя, телефон и токен', async () => {
+  const registered = await request('/api/v1/auth/register', {
+    method: 'POST',
+    body: { email: email(), password: 'secret123', name: 'Профиль' },
+  });
+
+  const emptyName = await request('/api/v1/auth/profile', {
+    method: 'PATCH',
+    token: registered.body.accessToken,
+    body: { name: '   ' },
+  });
+  assert.equal(emptyName.status, 400);
+  assert.equal(emptyName.body.error.code, 'VALIDATION_ERROR');
+
+  const badPhone = await request('/api/v1/auth/profile', {
+    method: 'PATCH',
+    token: registered.body.accessToken,
+    body: { name: 'Имя', phone: 'телефон' },
+  });
+  assert.equal(badPhone.status, 400);
+
+  const anonymous = await request('/api/v1/auth/profile', {
+    method: 'PATCH',
+    body: { name: 'Имя' },
+  });
+  assert.equal(anonymous.status, 401);
+});
+
 test('refresh обновляет пару токенов, access-токен не подходит', async () => {
   const login = await request('/api/v1/auth/login', {
     method: 'POST',

@@ -1,17 +1,21 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { login, readAuth, register } from '../auth.js';
 
 /**
- * Страница входа и регистрации (ЛР8).
+ * Страница входа и регистрации.
+ *
+ * При регистрации сразу запрашиваются имя, телефон и адрес доставки:
+ * они сохраняются в профиле Supabase и подставляются при оформлении заказа.
  */
 export default function Login() {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('demo@pchelper.by');
   const [password, setPassword] = useState('demo1234');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -32,7 +36,7 @@ export default function Login() {
     setLoading(true);
     try {
       if (mode === 'register') {
-        await register({ email, password, name });
+        await register({ email, password, name, phone, address });
       } else {
         await login({ email, password });
       }
@@ -45,8 +49,18 @@ export default function Login() {
   }
 
   function switchMode() {
-    setMode((current) => (current === 'login' ? 'register' : 'login'));
+    const next = mode === 'login' ? 'register' : 'login';
+    setMode(next);
     setError('');
+    // Демо-доступ относится только к входу: в регистрации он мешает,
+    // потому что e-mail уже занят.
+    if (next === 'register') {
+      setEmail('');
+      setPassword('');
+    } else {
+      setEmail('demo@pchelper.by');
+      setPassword('demo1234');
+    }
   }
 
   return (
@@ -56,7 +70,7 @@ export default function Login() {
         <p className="muted">
           {mode === 'login'
             ? 'Войдите, чтобы сохранять сборки и оформлять заказы.'
-            : 'Создайте аккаунт для оформления заказов.'}
+            : 'Создайте аккаунт: имя, телефон и адрес сохранятся в профиле.'}
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
@@ -100,6 +114,34 @@ export default function Login() {
               value={password}
             />
           </label>
+
+          {mode === 'register' && (
+            <>
+              <label className="field">
+                <span>Телефон</span>
+                <input
+                  autoComplete="tel"
+                  name="phone"
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder="+375 29 000-00-00"
+                  type="tel"
+                  value={phone}
+                />
+              </label>
+
+              <label className="field">
+                <span>Адрес доставки</span>
+                <input
+                  autoComplete="street-address"
+                  name="address"
+                  onChange={(event) => setAddress(event.target.value)}
+                  placeholder="Минск, ул. Примерная, 1"
+                  type="text"
+                  value={address}
+                />
+              </label>
+            </>
+          )}
 
           {error && (
             <div className="state error" role="alert">

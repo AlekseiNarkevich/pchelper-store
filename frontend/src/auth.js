@@ -130,6 +130,24 @@ export async function logout() {
 }
 
 /**
+ * Обновляет профиль пользователя.
+ *
+ * @param {{name: string, phone?: string, address?: string}} data Поля профиля.
+ */
+export async function updateProfile(data) {
+  const { accessToken } = readAuth();
+  if (!accessToken) throw new Error('Требуется вход');
+  const result = await request('/auth/profile', {
+    method: 'PATCH',
+    body: data,
+    token: accessToken,
+  });
+  const state = readAuth();
+  writeAuth({ ...state, user: result.user });
+  return result.user;
+}
+
+/**
  * Возвращает профиль по токену.
  */
 export async function fetchMe() {
