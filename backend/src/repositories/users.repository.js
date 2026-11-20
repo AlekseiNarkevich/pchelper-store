@@ -13,8 +13,7 @@ import { apiError } from '../domain/errors.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 import { hashPassword } from '../services/password.js';
 
-const USER_COLUMNS =
-  'id,email,password_hash,имя,телефон,адрес_доставки,роль,создан_в';
+const USER_COLUMNS = 'id,email,password_hash,имя,телефон,адрес_доставки,роль,создан_в';
 
 /** Соответствие ролей базы и API. */
 const ROLE_FROM_DB = { customer: 'user', manager: 'manager', admin: 'admin' };
@@ -164,11 +163,7 @@ export async function createUser(data) {
   }
 
   if (memoryUsers.has(data.email)) {
-    throw apiError(
-      409,
-      'EMAIL_EXISTS',
-      'Пользователь с таким e-mail уже существует',
-    );
+    throw apiError(409, 'EMAIL_EXISTS', 'Пользователь с таким e-mail уже существует');
   }
   const user = {
     id: String(nextUserId++),

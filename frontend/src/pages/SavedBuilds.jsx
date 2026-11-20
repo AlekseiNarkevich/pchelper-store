@@ -18,7 +18,11 @@ const LABELS = {
 
 /** Состав и результат проверки одной сборки. */
 function BuildDetails({ build }) {
-  const compatibility = build.compatibility || { compatible: true, errors: [], warnings: [] };
+  const compatibility = build.compatibility || {
+    compatible: true,
+    errors: [],
+    warnings: [],
+  };
 
   return (
     <div className="saved-detail">
@@ -185,7 +189,11 @@ export default function SavedBuilds() {
             {build.note && <p className="saved-note">{build.note}</p>}
 
             <div className="saved-actions">
-              <button className="btn btn-secondary" onClick={() => toggle(build)} type="button">
+              <button
+                className="btn btn-secondary"
+                onClick={() => toggle(build)}
+                type="button"
+              >
                 {openId === build.id ? 'Свернуть' : 'Состав и совместимость'}
               </button>
               <Link className="btn btn-secondary" to="/builder">

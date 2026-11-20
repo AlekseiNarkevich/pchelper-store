@@ -22,9 +22,7 @@ export default function Diagnostics() {
           <div className="h1" style={{ fontSize: 26 }}>
             Диагностика неисправностей
           </div>
-          <div className="sub">
-            Восемь типовых ситуаций и порядок проверки
-          </div>
+          <div className="sub">Восемь типовых ситуаций и порядок проверки</div>
         </div>
         <Link className="btn btn-secondary" to="/builder">
           Собрать ПК

@@ -268,7 +268,9 @@ export async function createBuild(userId, data) {
 
   const selection = await resolveSelection(components);
   const total = selectionTotal(selection);
-  const note = String(data.note || '').trim().slice(0, 1000);
+  const note = String(data.note || '')
+    .trim()
+    .slice(0, 1000);
 
   if (isDatabaseConnected()) {
     try {
@@ -334,7 +336,9 @@ export async function updateBuild(userId, buildId, data) {
 
   const selection = await resolveSelection(components);
   const total = selectionTotal(selection);
-  const note = String(data.note || '').trim().slice(0, 1000);
+  const note = String(data.note || '')
+    .trim()
+    .slice(0, 1000);
 
   if (isDatabaseConnected()) {
     try {

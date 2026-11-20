@@ -67,11 +67,7 @@ router.get(
         price: item.price,
         watts: numField(item, 'мощность_в_ваттах', 'Мощность'),
         standard: textField(item, 'стандарт_блока_питания', 'Стандарт'),
-        certificate: textField(
-          item,
-          'сертификат_80plus',
-          'Сертификат 80 PLUS',
-        ),
+        certificate: textField(item, 'сертификат_80plus', 'Сертификат 80 PLUS'),
         modular: boolField(item, 'модульный', 'Модульный'),
         pcieGen5: boolField(item, 'pcie_gen5', 'PCIe 5.0'),
       }))
@@ -79,9 +75,7 @@ router.get(
 
     res.status(200).json({
       cpu: { id: cpu.id, name: cpu.name, tdp: recommendation.cpuTdp },
-      gpu: gpu
-        ? { id: gpu.id, name: gpu.name, tdp: recommendation.gpuTdp }
-        : null,
+      gpu: gpu ? { id: gpu.id, name: gpu.name, tdp: recommendation.gpuTdp } : null,
       recommendation,
       items,
       total: items.length,

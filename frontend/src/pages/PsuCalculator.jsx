@@ -79,9 +79,7 @@ export default function PsuCalculator() {
           <div className="h1" style={{ fontSize: 26 }}>
             Калькулятор мощности БП
           </div>
-          <div className="sub">
-            Расчёт по TDP процессора и видеокарты с запасом 25%
-          </div>
+          <div className="sub">Расчёт по TDP процессора и видеокарты с запасом 25%</div>
         </div>
         <Link className="btn btn-secondary" to="/builder">
           Собрать ПК
@@ -168,9 +166,7 @@ export default function PsuCalculator() {
 
           <h3>Подходящие блоки питания</h3>
           {result.items.length === 0 ? (
-            <div className="state">
-              В каталоге нет блоков питания такой мощности.
-            </div>
+            <div className="state">В каталоге нет блоков питания такой мощности.</div>
           ) : (
             <div className="picker-wrap">
               <table className="picker">

@@ -357,9 +357,7 @@ export default function Builder() {
   const rams = useMemo(
     () =>
       memoryType
-        ? lists.ram.filter(
-            (product) => textOf(product, 'тип', 'Тип') === memoryType,
-          )
+        ? lists.ram.filter((product) => textOf(product, 'тип', 'Тип') === memoryType)
         : lists.ram,
     [lists.ram, memoryType],
   );
@@ -368,8 +366,7 @@ export default function Builder() {
     () =>
       cpuTdp
         ? lists.cooling.filter(
-            (product) =>
-              numberOf(product, 'tdp', 'Рассеиваемая мощность') >= cpuTdp,
+            (product) => numberOf(product, 'tdp', 'Рассеиваемая мощность') >= cpuTdp,
           )
         : lists.cooling,
     [lists.cooling, cpuTdp],
@@ -398,17 +395,11 @@ export default function Builder() {
       coolingType.includes('водян') ||
       coolingType.includes('сжо') ||
       coolingType.includes('aio');
-    const radiator = numberOf(
-      selection.cooling,
-      'длина_радиатора',
-      'Длина радиатора',
-    );
+    const radiator = numberOf(selection.cooling, 'длина_радиатора', 'Длина радиатора');
 
     return lists.case.filter((product) => {
       if (selection.motherboard) {
-        if (
-          formRank(textOf(product, 'форм_фактор', 'Форм-фактор')) < boardRank
-        ) {
+        if (formRank(textOf(product, 'форм_фактор', 'Форм-фактор')) < boardRank) {
           return false;
         }
       }
@@ -436,11 +427,7 @@ export default function Builder() {
             'макс_высота_кулера',
             'Максимальная высота кулера',
           );
-          if (
-            coolerHeight > 0 &&
-            maxCooler > 0 &&
-            coolerHeight > maxCooler
-          ) {
+          if (coolerHeight > 0 && maxCooler > 0 && coolerHeight > maxCooler) {
             return false;
           }
         }
@@ -588,8 +575,7 @@ export default function Builder() {
     setSaving(true);
     try {
       const name =
-        buildName.trim() ||
-        `Сборка от ${new Date().toLocaleDateString('ru-RU')}`;
+        buildName.trim() || `Сборка от ${new Date().toLocaleDateString('ru-RU')}`;
       const result = await saveBuild({ name, note, components: payload });
       setMessage(`Сборка «${result.build.name}» сохранена в профиле.`);
       setBuildName(result.build.name);
@@ -629,7 +615,12 @@ export default function Builder() {
             <button className="btn btn-secondary" onClick={handleCheck} type="button">
               Проверить совместимость
             </button>
-            <button className="btn" disabled={saving} onClick={handleSave} type="button">
+            <button
+              className="btn"
+              disabled={saving}
+              onClick={handleSave}
+              type="button"
+            >
               {saving ? 'Сохраняем…' : 'Сохранить сборку'}
             </button>
             <Link className="btn btn-secondary" to="/builds">
@@ -639,8 +630,7 @@ export default function Builder() {
 
           {error && (
             <div className="state error" role="alert">
-              {error}{' '}
-              {!readAuth().accessToken && <Link to="/login">Войти</Link>}
+              {error} {!readAuth().accessToken && <Link to="/login">Войти</Link>}
             </div>
           )}
 
@@ -715,8 +705,7 @@ export default function Builder() {
       <>
         {current.key === 'motherboard' && socket && (
           <p className="hint">
-            Показаны платы с сокетом <strong>{socket}</strong> под выбранный
-            процессор.
+            Показаны платы с сокетом <strong>{socket}</strong> под выбранный процессор.
           </p>
         )}
         {current.key === 'ram' && memoryType && (
@@ -726,15 +715,14 @@ export default function Builder() {
         )}
         {current.key === 'psu' && needWatts > 0 && (
           <p className="hint">
-            Рекомендуемая мощность с запасом 25%:{' '}
-            <strong>{needWatts} Вт</strong> (процессор {cpuTdp} Вт
+            Рекомендуемая мощность с запасом 25%: <strong>{needWatts} Вт</strong>{' '}
+            (процессор {cpuTdp} Вт
             {gpuTdp > 0 ? `, видеокарта ${gpuTdp} Вт` : ''}).
           </p>
         )}
         {current.key === 'storage' && (
           <p className="hint">
-            Нужен ровно один SSD; HDD можно добавить один. Повторный клик снимает
-            выбор.
+            Нужен ровно один SSD; HDD можно добавить один. Повторный клик снимает выбор.
           </p>
         )}
         <ProductTable
@@ -834,9 +822,7 @@ export default function Builder() {
             <strong>{money(total)}</strong>
           </div>
           {needWatts > 0 && (
-            <p className="hint">
-              Блок питания: не менее {needWatts} Вт с запасом 25%.
-            </p>
+            <p className="hint">Блок питания: не менее {needWatts} Вт с запасом 25%.</p>
           )}
         </aside>
       </div>

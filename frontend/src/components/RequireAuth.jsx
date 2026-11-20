@@ -16,10 +16,7 @@ export default function RequireAuth({ children }) {
   const location = useLocation();
   const [token, setToken] = useState(() => readAuth().accessToken);
 
-  useEffect(
-    () => onAuthChange(() => setToken(readAuth().accessToken)),
-    [],
-  );
+  useEffect(() => onAuthChange(() => setToken(readAuth().accessToken)), []);
 
   if (!token) {
     return <Navigate replace state={{ from: location }} to="/login" />;

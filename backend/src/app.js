@@ -107,8 +107,7 @@ export function createApp() {
   app.get('/', (req, res) => {
     res.status(200).json({
       service: 'PCHelper API',
-      description:
-        'Интернет-магазин комплектующих PCHelper: каталог, сборки, заказы',
+      description: 'Интернет-магазин комплектующих PCHelper: каталог, сборки, заказы',
       version: process.env.APP_VERSION || '1.0.0',
       environment: process.env.NODE_ENV || 'development',
       endpoints: {
@@ -118,7 +117,8 @@ export function createApp() {
         auth: 'POST /api/v1/auth/register, /login, /refresh, /logout; GET /auth/me',
         cart: 'GET /api/v1/cart; POST /cart/items; PATCH/DELETE /cart/items/:id',
         orders: 'GET /api/v1/orders; POST /orders',
-        builds: 'GET/POST /api/v1/builds; POST /builds/check; GET/PUT/DELETE /builds/:id',
+        builds:
+          'GET/POST /api/v1/builds; POST /builds/check; GET/PUT/DELETE /builds/:id',
         psu: 'GET /api/v1/psu?cpu=cpu:1&gpu=gpu:1',
         adminOrders: 'GET /api/v1/admin/orders (нужен токен)',
       },
