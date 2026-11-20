@@ -16,7 +16,9 @@ import helloRouter from './routes/hello.js';
 import authRouter from './routes/auth.js';
 import commerceRouter from './routes/commerce.js';
 import adminRouter from './routes/admin.js';
+import buildsRouter from './routes/builds.js';
 import catalogRouter from './routes/catalog.js';
+import psuRouter from './routes/psu.js';
 
 // Момент запуска — чтобы в ответе /api/v1/hello показывать время работы процесса.
 const STARTED_AT = Date.now();
@@ -72,6 +74,10 @@ export function createApp() {
   // --- Серверная корзина и заказы ЛР8 ---
   app.use('/api/v1', commerceRouter);
 
+  // --- Сохранённые сборки и калькулятор БП (курсовая) ---
+  app.use('/api/v1', buildsRouter);
+  app.use('/api/v1', psuRouter);
+
   // --- Каталог ЛР7 ---
   // Товары, категории и готовые сборки. Данные берутся из Supabase,
   // а при отсутствии переменных окружения — из демонстрационной фикстуры.
@@ -97,6 +103,8 @@ export function createApp() {
         auth: 'POST /api/v1/auth/register, /login, /refresh, /logout; GET /auth/me',
         cart: 'GET /api/v1/cart; POST /cart/items; PATCH/DELETE /cart/items/:id',
         orders: 'GET /api/v1/orders; POST /orders',
+        builds: 'GET/POST /api/v1/builds; POST /builds/check; GET/PUT/DELETE /builds/:id',
+        psu: 'GET /api/v1/psu?cpu=cpu:1&gpu=gpu:1',
         adminOrders: 'GET /api/v1/admin/orders (нужен токен)',
       },
       note: 'Спецификация REST API — 41 операция, файл api/openapi.yaml',

@@ -1,0 +1,513 @@
+/*
+ * PCHelper — курсовая работа 4 курса.
+ * Стили конфигуратора, сохранённых сборок, калькулятора БП и диагностики.
+ * Переменные (--surface, --border, --primary и т. д.) заданы в app.css.
+ */
+
+/* --- Подменю сервисов в шапке --- */
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-bottom: 8px;
+}
+
+.subnav-link {
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--text-muted, #555);
+  font-size: 13px;
+  transition: 0.15s;
+}
+
+.subnav-link:hover {
+  background: var(--surface-2, #f2f4f7);
+  color: var(--text, #111);
+}
+
+.subnav-link.is-active {
+  background: var(--primary-soft, #e3f0ff);
+  color: var(--primary, #1976d2);
+  font-weight: 600;
+}
+
+/* --- Общая шапка страниц подбора --- */
+.builder-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 8px 0 16px;
+}
+
+.builder-head .sub {
+  margin-top: 4px;
+  color: var(--text-muted, #555);
+  font-size: 13px;
+}
+
+/* --- Полоса шагов --- */
+.step-strip {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding-bottom: 6px;
+  overflow-x: auto;
+}
+
+.step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  color: var(--text-muted, #555);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.step-pill.is-done {
+  border-color: var(--primary-soft, #e3f0ff);
+}
+
+.step-pill.is-on {
+  border-color: var(--primary, #1976d2);
+  background: var(--primary, #1976d2);
+  color: #fff;
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+}
+
+.step-pill.is-on .step-num {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* --- Двухколоночный макет --- */
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+.builder-side {
+  position: sticky;
+  top: 118px;
+  padding: 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow-card, none);
+}
+
+.builder-side h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.build-parts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.build-parts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.build-parts dt {
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.build-parts dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.build-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #e8e8e8);
+  font-size: 18px;
+}
+
+.builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.builder-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hint {
+  margin: 0 0 10px;
+  color: var(--text-muted, #555);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* --- Поля форм --- */
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+/* --- Таблица подбора --- */
+.picker-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
+.picker {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.picker th,
+.picker td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #e8e8e8);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.picker th {
+  background: var(--surface-2, #f2f4f7);
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.picker tbody tr {
+  cursor: pointer;
+}
+
+.picker tbody tr:hover {
+  background: var(--surface-2, #f2f4f7);
+}
+
+.picker tbody tr.is-on {
+  background: var(--primary-soft, #e3f0ff);
+}
+
+.picker tbody tr:focus-visible {
+  outline: 2px solid var(--primary, #1976d2);
+  outline-offset: -2px;
+}
+
+.picker-name {
+  min-width: 200px;
+  max-width: 320px;
+  white-space: normal;
+}
+
+.picker-price {
+  font-weight: 600;
+  text-align: right;
+}
+
+.picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 50%;
+  color: var(--primary, #1976d2);
+  font-size: 12px;
+}
+
+.picker tbody tr.is-on .picker-check {
+  border-color: var(--primary, #1976d2);
+  background: var(--primary, #1976d2);
+  color: #fff;
+}
+
+/* --- Результат проверки --- */
+.compat-result {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  font-size: 13px;
+}
+
+.compat-errors,
+.compat-warnings {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.compat-errors {
+  color: #b00020;
+}
+
+.compat-warnings {
+  color: #8a6d00;
+}
+
+.compat-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.compat-badge.is-ok {
+  background: #e6f4ea;
+  color: #1e7a34;
+}
+
+.compat-badge.is-bad {
+  background: #fdecea;
+  color: #b00020;
+}
+
+/* --- Сохранённые сборки --- */
+.saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saved-build {
+  padding: 16px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow-card, none);
+}
+
+.saved-build header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.saved-build h3 {
+  margin: 0 0 2px;
+  font-size: 17px;
+}
+
+.saved-note {
+  margin: 8px 0 0;
+  color: var(--text-muted, #555);
+  font-size: 13px;
+}
+
+.saved-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.saved-detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border, #e8e8e8);
+}
+
+/* --- Калькулятор БП --- */
+.psu-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  max-width: 900px;
+}
+
+.psu-result {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.psu-result > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  font-size: 13px;
+}
+
+.psu-result span {
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.psu-total {
+  border-color: var(--primary, #1976d2) !important;
+}
+
+.psu-total strong {
+  color: var(--primary, #1976d2);
+  font-size: 20px;
+}
+
+/* --- Диагностика --- */
+.diagnostics-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.diagnostics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diagnostics-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.diagnostics-item:hover {
+  background: var(--surface-2, #f2f4f7);
+}
+
+.diagnostics-item.is-on {
+  border-color: var(--primary, #1976d2);
+  background: var(--primary-soft, #e3f0ff);
+  font-weight: 600;
+}
+
+.diagnostics-detail {
+  padding: 18px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+}
+
+.diagnostics-detail h2 {
+  margin-top: 0;
+  font-size: 20px;
+}
+
+.diagnostics-detail .problem {
+  color: var(--text-muted, #555);
+  line-height: 1.5;
+}
+
+.diagnostics-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.diagnostics-steps ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --- Уведомления --- */
+.state.success {
+  border-color: #b7dfc1;
+  background: #e6f4ea;
+  color: #1e7a34;
+}
+
+/* --- Адаптив --- */
+@media (max-width: 980px) {
+  .builder-layout,
+  .diagnostics-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .builder-side {
+    position: static;
+    order: -1;
+  }
+
+  .psu-form,
+  .psu-result {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* На узком экране сводка превращается в компактную строку с итогом,
+   чтобы список комплектующих оставался первым на странице. */
+@media (max-width: 680px) {
+  .builder-side {
+    padding: 10px 12px;
+  }
+
+  .builder-side h3,
+  .builder-side .build-parts,
+  .builder-side .hint {
+    display: none;
+  }
+
+  .build-total {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+}

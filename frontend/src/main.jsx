@@ -6,6 +6,7 @@ import App from './App.jsx';
 import './styles/app.css';
 import './styles/shop.css';
 import './styles/a11y.css';
+import './styles/coursework.css';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

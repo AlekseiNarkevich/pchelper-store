@@ -263,6 +263,9 @@ export function mapRowToProduct(categoryId, row) {
     imageUrl: row['фото_url'] || null,
     description: category.description,
     specs: builder(row),
+    // Исходная строка таблицы нужна конфигуратору: правила совместимости
+    // сравнивают сокеты, TDP и габариты, а не подписи характеристик.
+    data: { ...row },
   };
 }
 
