@@ -7,8 +7,31 @@
  */
 
 import nodemailer from 'nodemailer';
+import tls from 'node:tls';
 
 import { isDatabaseConnected, supabase } from './supabase.service.js';
+
+/**
+ * Сертификаты для проверки TLS.
+ *
+ * Антивирусы (Avast, Kaspersky) подменяют сертификат SMTP своим,
+ * и Node не доверяет ему: в журнале появляется «self-signed certificate
+ * in certificate chain». Поэтому к встроенным сертификатам добавляем
+ * системные — в них есть корневой сертификат антивируса.
+ *
+ * @returns {string[]|undefined}
+ */
+function trustedCertificates() {
+  try {
+    const bundled = tls.getCACertificates('bundled') || [];
+    const system = tls.getCACertificates('system') || [];
+    const merged = [...new Set([...bundled, ...system])];
+    return merged.length ? merged : undefined;
+  } catch {
+    // Старая версия Node: остаются встроенные сертификаты.
+    return undefined;
+  }
+}
 
 /** Признак настроенного SMTP. */
 function smtpConfigured() {
@@ -47,6 +70,7 @@ function createTransport() {
             pass: String(process.env.SMTP_PASS || '').replace(/\s+/g, ''),
           }
         : undefined,
+    tls: { ca: trustedCertificates() },
   });
 }
 
