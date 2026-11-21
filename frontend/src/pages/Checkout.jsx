@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Оформление заказа: получатель, доставка, оплата,
+ * итоговая сумма и создание заказа в Supabase.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -16,6 +21,7 @@ const PICKUP_ADDRESS = 'Г. Минск, пер. Корженевского, 6, �
  * иначе 10 BYN; за МКАД — 15 BYN + 3 BYN за километр.
  */
 export default function Checkout() {
+  // Телефон и адрес подставляются из профиля, но пользователь может их изменить.
   const [items, setItems] = useState(readCart);
   const user = readAuth().user;
   const [form, setForm] = useState({
@@ -31,6 +37,7 @@ export default function Checkout() {
   const navigate = useNavigate();
 
   const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  // Доставка повторяет серверные правила, чтобы итог был виден до заказа.
   const distance = Number(form.distanceKm) || 0;
   const deliveryCost =
     form.deliveryMethod === 'pickup'
@@ -70,6 +77,7 @@ export default function Checkout() {
     event.preventDefault();
     setError('');
 
+    // Проверяем обязательные поля до запроса, чтобы не гонять сеть зря.
     const phone = form.phone.trim();
     if (phone.length < 7) {
       setError('Укажите телефон для связи');
@@ -98,6 +106,7 @@ export default function Checkout() {
 
     setLoading(true);
     try {
+      // Сначала отправляем локальные позиции на сервер, затем оформляем заказ.
       await syncCart(items);
       const order = await createOrder({
         deliveryMethod: form.deliveryMethod,

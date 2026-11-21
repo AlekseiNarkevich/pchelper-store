@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Страница 404: показывается вместо пустого экрана, если
+ * адрес не совпал ни с одним маршрутом приложения.
+ */
+
 import { Link } from 'react-router-dom';
 import React from 'react';
 

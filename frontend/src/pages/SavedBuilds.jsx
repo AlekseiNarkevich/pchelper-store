@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Сохранённые сборки: список из Supabase, состав,
+ * проверка совместимости, загрузка в конфигуратор и удаление.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -91,6 +96,7 @@ export default function SavedBuilds() {
   const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
+    // Список сборок приходит из Supabase; детали загружаются по клику.
     let alive = true;
     listBuilds()
       .then((data) => {
@@ -107,6 +113,7 @@ export default function SavedBuilds() {
     };
   }, []);
 
+  // Состав и совместимость подгружаются один раз при раскрытии.
   async function toggle(build) {
     setError('');
     if (openId === build.id) {
@@ -123,6 +130,7 @@ export default function SavedBuilds() {
     }
   }
 
+  // Удаление подтверждается модальным окном, а не системным.
   async function confirmRemove() {
     const build = removeTarget;
     if (!build) return;

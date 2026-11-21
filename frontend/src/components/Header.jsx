@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Шапка сайта: логотип, основная навигация, поиск
+ * с подсказками, счётчик корзины и вход/выход.
+ */
+
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 

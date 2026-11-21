@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Карточка товара в каталоге: фото, категория,
+ * остаток на складе, цена и кнопка добавления в корзину.
+ */
+
 import { Link } from 'react-router-dom';
 
 import { addToCart } from '../cart.js';

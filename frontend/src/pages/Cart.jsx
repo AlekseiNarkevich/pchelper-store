@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Корзина: позиции из localStorage и Supabase, изменение
+ * количества, удаление, итоговая сумма и переход к оформлению.
+ */
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -6,19 +11,18 @@ import { onCartChange, readCart, removeItem, setQty } from '../cart.js';
 import React from 'react';
 
 /**
- * Корзина — демонстрационная: позиции хранятся в localStorage.
- *
- * Серверная корзина и оформление заказа входят в курсовую 4 курса.
- * Здесь важно показать сценарий: товар выбран, количество меняется,
- * сумма пересчитывается.
+ * Корзина: локальная копия для мгновенного отображения, а изменения
+ * сразу уходят в серверную корзину Supabase.
  */
 export default function Cart() {
   const [items, setItems] = useState(readCart);
 
+  // Подписка нужна, чтобы корзина обновилась после синхронизации с сервером.
   useEffect(() => onCartChange(() => setItems(readCart())), []);
 
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
 
+  // Количество ограничено остатком; ноль удаляет позицию.
   function changeQty(id, delta) {
     const item = items.find((entry) => entry.id === id);
     if (!item) return;

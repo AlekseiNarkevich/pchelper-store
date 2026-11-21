@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Подвал сайта: краткое описание проекта, ссылки на разделы
+ * и подпись учебного проекта.
+ */
+
 import { Link } from 'react-router-dom';
 import React from 'react';
 

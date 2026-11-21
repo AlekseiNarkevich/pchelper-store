@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Вход и регистрация: одна форма с двумя режимами,
+ * проверка полей и переход в личный кабинет после успеха.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
@@ -11,6 +16,7 @@ import { mergeCartWithServer } from '../cart.js';
  * они сохраняются в профиле Supabase и подставляются при оформлении заказа.
  */
 export default function Login({ initialMode = 'login' }) {
+  // Одна форма для входа и регистрации; маршрут /register открывает второй режим.
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState(
     initialMode === 'register' ? '' : 'demo@pchelper.by',

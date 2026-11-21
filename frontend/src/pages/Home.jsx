@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Главная витрина: категории комплектующих, недорогие
+ * товары и готовые сборки. Данные приходят из каталога и Supabase.
+ */
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -20,6 +25,7 @@ export default function Home() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
+    // Три независимых запроса идут параллельно: категории, товары, сборки.
     let alive = true;
     setLoading(true);
     setError('');
@@ -47,6 +53,7 @@ export default function Home() {
     };
   }, []);
 
+  // Всплывающее сообщение после добавления товара в корзину.
   function handleAdded(product) {
     setNotice(`«${product.name}» добавлен в корзину`);
     setTimeout(() => setNotice(''), 2500);

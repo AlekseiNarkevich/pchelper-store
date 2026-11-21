@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Каталог: категории, поиск, фильтры по цене,
+ * сортировка, пагинация и карточки товаров.
+ */
+
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 
@@ -31,12 +36,14 @@ export default function Catalog() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  // Категории нужны для чипов и заголовка; ошибка не блокирует каталог.
   useEffect(() => {
     getCategories()
       .then((data) => setCategories(data.items))
       .catch(() => setCategories([]));
   }, []);
 
+  // Товары перезапрашиваются при смене фильтров, сортировки или страницы.
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -73,6 +80,7 @@ export default function Catalog() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.floor(offset / PAGE_SIZE) + 1;
 
+  // Любое изменение фильтра возвращает на первую страницу.
   function resetAnd(update) {
     setOffset(0);
     update();

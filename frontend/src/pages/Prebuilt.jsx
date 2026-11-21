@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Готовые сборки: состав, итоговая цена и остаток.
+ * Сборка добавляется в корзину одной позицией, а не набором деталей.
+ */
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -17,6 +22,7 @@ export default function Prebuilt() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  // Сборки приходят с составом и остатком; цена считается на сервере.
   useEffect(() => {
     let alive = true;
     getPrebuilt()
@@ -34,6 +40,7 @@ export default function Prebuilt() {
     };
   }, []);
 
+  // Готовая сборка — одна позиция prebuilt:<id>, а не набор комплектующих.
   function add(build) {
     if (Number(build.stock ?? 0) <= 0) {
       setNotice('Этой сборки нет на складе');

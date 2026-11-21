@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Админ-панель: заказы, товары, готовые ПК, запросы
+ * на поступление, журнал писем, пользователи и модерация отзывов.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -135,7 +140,8 @@ const ORDER_STATUSES = [
 ];
 
 /**
- * Административная панель: заказы, товары, пользователи, отзывы.
+ * Административная панель: заказы, товары, готовые ПК, запросы,
+ * письма, пользователи и отзывы.
  */
 export default function Admin() {
   const [tab, setTab] = useState('orders');
@@ -143,12 +149,14 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  // Сводка загружается один раз при открытии панели.
   useEffect(() => {
     getSummary()
       .then(setSummary)
       .catch((reason) => setError(reason.message));
   }, []);
 
+  // Короткое сообщение об успешном действии; ошибки показываются отдельно.
   function flash(message) {
     setNotice(message);
     setError('');
@@ -162,13 +170,14 @@ export default function Admin() {
           <div className="h1" style={{ fontSize: 26 }}>
             Администрирование
           </div>
-          <div className="sub">Заказы, товары, пользователи и отзывы</div>
+          <div className="sub">Заказы, товары, склад, письма и отзывы</div>
         </div>
         <Link className="btn btn-secondary" to="/">
           Вернуться в магазин
         </Link>
       </div>
 
+      {/* Сводные цифры по магазину: заказы, товары, пользователи, отзывы. */}
       {summary && (
         <div className="admin-summary">
           <div>
@@ -197,6 +206,7 @@ export default function Admin() {
       )}
       {notice && <div className="state success">{notice}</div>}
 
+      {/* Вкладки разделов; каждая панель сама загружает свои данные. */}
       <div className="admin-tabs" role="tablist">
         {[
           ['orders', 'Заказы'],
@@ -243,6 +253,7 @@ function OrdersPanel({ onError, onFlash }) {
       .catch((reason) => onError(reason.message));
   }, [onError]);
 
+  // Черновик хранит несохранённые изменения конкретного заказа.
   function draft(order) {
     return (
       drafts[order.id] || {
@@ -260,6 +271,8 @@ function OrdersPanel({ onError, onFlash }) {
     }));
   }
 
+  // Сохраняем статус, трек-номер и комментарий; список перечитываем,
+  // чтобы увидеть историю и актуальное состояние из базы.
   async function save(order) {
     try {
       await updateOrder(order.id, draft(order));
@@ -271,6 +284,7 @@ function OrdersPanel({ onError, onFlash }) {
     }
   }
 
+  // Быстрое подтверждение нового заказа: «Новый» → «В обработке».
   async function confirmOrder(order) {
     try {
       await updateOrder(order.id, {
@@ -285,6 +299,7 @@ function OrdersPanel({ onError, onFlash }) {
     }
   }
 
+  // Состав заказа запрашивается по требованию, чтобы не грузить всё сразу.
   async function togglePositions(order) {
     if (positions[order.id]) {
       setPositions((current) => ({ ...current, [order.id]: null }));
@@ -420,6 +435,7 @@ function ProductsPanel({ onError, onFlash }) {
       .catch((reason) => onError(reason.message));
   }, [onError]);
 
+  // Загрузка товаров выбранной категории; форма редактирования справа.
   function load(nextCategory = category) {
     getProducts(nextCategory)
       .then((data) => setItems(data.items))
@@ -443,6 +459,7 @@ function ProductsPanel({ onError, onFlash }) {
     setForm({});
   }
 
+  // JSON-поля показываем текстом, чтобы их можно было править вручную.
   function startEdit(row) {
     setEditingId(row.id);
     const next = {};
@@ -463,6 +480,7 @@ function ProductsPanel({ onError, onFlash }) {
     }));
   }
 
+  // Перед отправкой приводим типы полей и проверяем JSON.
   async function save(event) {
     event.preventDefault();
     try {
@@ -885,6 +903,7 @@ function UsersPanel({ onError, onFlash }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
+  // Роль меняется сразу; админов и себя менять нельзя (сервер тоже проверяет).
   async function changeRole(user, role) {
     try {
       await updateUser(user.id, { role });
@@ -895,6 +914,7 @@ function UsersPanel({ onError, onFlash }) {
     }
   }
 
+  // Блокировка с причиной; причина показывается пользователю при входе.
   async function toggleBlock(user) {
     const next = !user.blocked;
     const reason = next
@@ -910,6 +930,7 @@ function UsersPanel({ onError, onFlash }) {
     }
   }
 
+  // Удаление требует двух подтверждений; администраторов удалять нельзя.
   async function removeUser(user) {
     if (user.role === 'admin' || user.id === currentId) return;
     const confirmed = window.confirm(

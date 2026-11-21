@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Диагностика неисправностей: восемь типовых ситуаций
+ * и пошаговые инструкции, что проверить в каждом случае.
+ */
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -7,6 +12,7 @@ import { TROUBLE_ITEMS } from '../data/troubleshooting.js';
  * Рекомендации по диагностике типовых неисправностей ПК.
  */
 export default function Diagnostics() {
+  // Слева список ситуаций, справа — выбранная инструкция.
   const [activeId, setActiveId] = useState(TROUBLE_ITEMS[0]?.id);
   const item = TROUBLE_ITEMS.find((entry) => entry.id === activeId) || TROUBLE_ITEMS[0];
 

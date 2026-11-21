@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Карточка товара: характеристики, остаток, отзывы,
+ * добавление в корзину и запрос на поступление при нуле.
+ */
+
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
@@ -50,6 +55,7 @@ export default function Product() {
   const [stockError, setStockError] = useState('');
   const stock = Number(product?.stock ?? 0);
 
+  // При смене товара сбрасываем старые данные и загружаем новый.
   useEffect(() => {
     let alive = true;
     setLoading(true);
@@ -106,6 +112,7 @@ export default function Product() {
     };
   }, [id]);
 
+  // Добавление в корзину: при нулевом остатке кнопка заблокирована.
   function add() {
     if (stock <= 0) return;
     addToCart(product);
@@ -113,6 +120,7 @@ export default function Product() {
     setTimeout(() => setAdded(false), 2000);
   }
 
+  // Запрос на поступление виден администратору в разделе «Запросы».
   async function submitStockRequest(event) {
     event.preventDefault();
     setStockNotice('');
@@ -126,6 +134,7 @@ export default function Product() {
     }
   }
 
+  // Отзыв сначала попадает на модерацию, поэтому сразу на странице не виден.
   async function submitReview(event) {
     event.preventDefault();
     setReviewNotice('');

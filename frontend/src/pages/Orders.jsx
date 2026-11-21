@@ -1,3 +1,8 @@
+/**
+ * PCHelper — История заказов покупателя: список заказов, состав,
+ * статусы, история переходов и подтверждение получения.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -6,6 +11,8 @@ import { completeOrder, getOrderHistory, listOrders } from '../commerce.js';
 
 /** Класс значка по статусу заказа. */
 function statusClass(status) {
+  // Новый — синий, отменённый — красный, финальные — зелёные,
+  // остальные промежуточные — жёлтые.
   if (status === 'Новый') return 'is-new';
   if (status === 'Отменён') return 'is-cancel';
   if (
@@ -30,8 +37,11 @@ export default function Orders() {
   const [history, setHistory] = useState({});
   const [notice, setNotice] = useState('');
   const location = useLocation();
+  // Если пользователь только что оформил заказ, показываем его сверху.
   const created = location.state?.order || null;
 
+  // Подтверждение получения доступно для «Готов к выдаче» и «Доставлен»;
+  // серверная проверка повторяет это правило.
   async function complete(order) {
     if (!window.confirm(`Подтвердить получение заказа ${order.number}?`)) return;
     try {
@@ -54,6 +64,7 @@ export default function Orders() {
     }
   }
 
+  // История переходов подгружается один раз при первом раскрытии заказа.
   async function toggleHistory(order) {
     if (openHistory === order.id) {
       setOpenHistory(null);

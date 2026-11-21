@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Личный кабинет: профиль покупателя, последние сборки,
+ * быстрые действия и удаление аккаунта с подтверждением.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -37,6 +42,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Профиль и последние сборки загружаются параллельно.
     const unsubscribe = onAuthChange(() => setUser(readAuth().user));
     fetchMe()
       .then((profile) => {
@@ -85,6 +91,7 @@ export default function Profile() {
   }
 
   async function handleDeleteAccount() {
+    // Два подтверждения: случайное нажатие не должно удалять аккаунт.
     const confirmed = window.confirm(
       'Удалить аккаунт? Профиль, корзина и сборки будут удалены, вход станет невозможен.',
     );

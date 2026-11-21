@@ -1,3 +1,8 @@
+/**
+ * PCHelper — Калькулятор мощности блока питания: суммирует
+ * TDP процессора и видеокарты и добавляет запас 25%.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -21,6 +26,7 @@ export default function PsuCalculator() {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
 
+  // Списки процессоров и видеокарт загружаются один раз.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -55,6 +61,7 @@ export default function PsuCalculator() {
     if (!integrated && !gpuId && gpus[0]) setGpuId(gpus[0].id);
   }, [integrated, gpuId, gpus]);
 
+  // Расчёт делает сервер: он же подбирает подходящие блоки питания.
   async function handleCalculate() {
     setError('');
     setCalculating(true);
