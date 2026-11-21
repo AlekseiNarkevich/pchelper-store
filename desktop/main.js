@@ -152,10 +152,10 @@ async function createWindow() {
   }
 
   const win = new BrowserWindow({
-    width: 1600,
-    height: 1000,
-    minWidth: 1100,
-    minHeight: 700,
+    width: 1400,
+    height: 900,
+    minWidth: 960,
+    minHeight: 640,
     autoHideMenuBar: true,
     icon: appIconPath,
     webPreferences: {
@@ -211,8 +211,6 @@ async function createWindow() {
   });
 
   win.loadURL(appUrl);
-  // Магазин удобнее смотреть на всей площади экрана.
-  win.maximize();
 }
 
 app.isQuitting = false;
