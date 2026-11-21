@@ -293,15 +293,18 @@ export async function updateItem(userId, itemId, qty) {
     try {
       const cartId = await ensureCartId(userId, false);
       if (!cartId) return [];
-      const query = supabase
-        .from('Корзина_Позиции')
-        .eq('корзина_id', cartId)
-        .eq(field, Number(rawId));
+      const query = supabase.from('Корзина_Позиции');
       if (amount === 0) {
-        const removed = await query.delete();
+        const removed = await query
+          .delete()
+          .eq('корзина_id', cartId)
+          .eq(field, Number(rawId));
         if (removed.error) throw removed.error;
       } else {
-        const updated = await query.update({ количество: amount });
+        const updated = await query
+          .update({ количество: amount })
+          .eq('корзина_id', cartId)
+          .eq(field, Number(rawId));
         if (updated.error) throw updated.error;
       }
       return getCart(userId);
