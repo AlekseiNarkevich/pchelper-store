@@ -104,6 +104,26 @@ test('требование FR-08: админ-маршрут с верным то
   assert.equal(body.total, 0);
 });
 
+test('удаление пользователя без базы возвращает 503 с текстом', async () => {
+  const response = await fetch(`${BASE}/api/v1/admin/users/2`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error.code, 'DATABASE_ERROR');
+});
+
+test('удаление товара без базы возвращает 503 с текстом', async () => {
+  const response = await fetch(`${BASE}/api/v1/admin/products/cpu/1`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${ADMIN_TOKEN}` },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 503);
+  assert.equal(body.error.code, 'DATABASE_ERROR');
+});
+
 test('корневой адрес отдаёт визитку со списком маршрутов, а не 404', async () => {
   const { status, body } = await get('/');
   assert.equal(status, 200);
