@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { money } from '../api.js';
 import { getBuild, listBuilds, removeBuild } from '../builds.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 /** Подписи категорий в составе сборки. */
 const LABELS = {
@@ -86,6 +87,8 @@ export default function SavedBuilds() {
   const [notice, setNotice] = useState('');
   const [openId, setOpenId] = useState(null);
   const [details, setDetails] = useState({});
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -120,16 +123,21 @@ export default function SavedBuilds() {
     }
   }
 
-  async function handleRemove(build) {
-    if (!window.confirm(`Удалить сборку «${build.name}»?`)) return;
+  async function confirmRemove() {
+    const build = removeTarget;
+    if (!build) return;
     setError('');
+    setRemoving(true);
     try {
       await removeBuild(build.id);
       setItems((current) => current.filter((item) => item.id !== build.id));
       setOpenId((current) => (current === build.id ? null : current));
+      setRemoveTarget(null);
       setNotice(`Сборка «${build.name}» удалена.`);
     } catch (reason) {
       setError(reason.message);
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -201,7 +209,7 @@ export default function SavedBuilds() {
               </Link>
               <button
                 className="btn btn-secondary"
-                onClick={() => handleRemove(build)}
+                onClick={() => setRemoveTarget(build)}
                 type="button"
               >
                 Удалить
@@ -214,6 +222,15 @@ export default function SavedBuilds() {
           </article>
         ))}
       </div>
+
+      <ConfirmDialog
+        confirmLabel={removing ? 'Удаляем…' : 'Удалить'}
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={confirmRemove}
+        open={Boolean(removeTarget)}
+        text="Состав и настройки сборки будут удалены без возможности восстановления."
+        title={`Удалить сборку «${removeTarget?.name || ''}»?`}
+      />
     </div>
   );
 }

@@ -72,9 +72,51 @@
 /* --- Двухколоночный макет --- */
 .builder-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(220px, 18vw, 300px);
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 16vw, 360px);
   gap: 20px;
   align-items: start;
+}
+
+/* Список комплектующих: фото, крупные строки и прокрутка. */
+.builder-picker {
+  max-height: 58vh;
+  overflow-y: auto;
+}
+
+.builder-picker .picker thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface, #fff);
+}
+
+.builder-picker .picker td {
+  vertical-align: middle;
+}
+
+.picker-product {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.picker-thumb {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  object-fit: contain;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 6px;
+  background: var(--surface-2, #f2f4f7);
+}
+
+.picker-thumb-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint, #888);
+  font-size: 10px;
 }
 
 .builder-main,
@@ -511,7 +553,7 @@
 /* --- Диагностика --- */
 .diagnostics-layout {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: clamp(260px, 18vw, 340px) minmax(0, 1fr);
   align-items: start;
   gap: 18px;
 }
@@ -566,9 +608,9 @@
 }
 
 .diagnostics-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px 22px;
   padding-left: 18px;
 }
 
@@ -1045,7 +1087,7 @@
 
 .admin-products-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 560px);
   align-items: start;
   gap: 20px;
 }
@@ -1228,4 +1270,37 @@
 .btn-danger:hover {
   background: #a51f1f;
   border-color: #a51f1f;
+}
+
+/* --- Модальное подтверждение --- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.modal {
+  width: min(460px, 100%);
+  padding: 22px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.modal h3 {
+  margin: 0 0 8px;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }

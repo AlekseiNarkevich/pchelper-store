@@ -167,7 +167,7 @@ function ProductTable({ items, columns, isSelected, onPick, emptyText }) {
   }
 
   return (
-    <div className="picker-wrap">
+    <div className="picker-wrap builder-picker">
       <table className="picker">
         <thead>
           <tr>
@@ -200,7 +200,21 @@ function ProductTable({ items, columns, isSelected, onPick, emptyText }) {
                     {selected ? '✓' : ''}
                   </span>
                 </td>
-                <td className="picker-name">{product.name}</td>
+                <td className="picker-name">
+                  <div className="picker-product">
+                    {product.imageUrl ? (
+                      <img
+                        alt=""
+                        className="picker-thumb"
+                        loading="lazy"
+                        src={product.imageUrl}
+                      />
+                    ) : (
+                      <span className="picker-thumb picker-thumb-empty">фото</span>
+                    )}
+                    <span>{product.name}</span>
+                  </div>
+                </td>
                 {columns.map((column) => (
                   <td key={column.label}>{column.value(product)}</td>
                 ))}
@@ -529,6 +543,15 @@ export default function Builder() {
     return components;
   }, [selection, skipGpu]);
 
+  // На итоговом шаге проверяем совместимость автоматически: шаги уже
+  // отфильтрованы, а здесь показываем итог перед сохранением.
+  useEffect(() => {
+    if (step === STEPS.length - 1 && payload.cpu) {
+      void handleCheck();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   const storageValid =
     selection.storage.filter((p) =>
       textOf(p, 'тип', 'Тип').toUpperCase().includes('SSD'),
@@ -656,10 +679,12 @@ export default function Builder() {
             />
           </div>
 
+          <p className="hint">
+            Совместимость проверяется автоматически: шаги уже отфильтрованы, здесь
+            показан итог перед сохранением.
+          </p>
+
           <div className="builder-actions">
-            <button className="btn btn-secondary" onClick={handleCheck} type="button">
-              Проверить совместимость
-            </button>
             <button
               className="btn"
               disabled={saving}
@@ -840,7 +865,9 @@ export default function Builder() {
 
       <div className="builder-layout">
         <section className="builder-main">
-          {message && <div className="state">{message}</div>}
+          {current.key === 'summary' && message && (
+            <div className="state">{message}</div>
+          )}
           {renderStep()}
         </section>
 
