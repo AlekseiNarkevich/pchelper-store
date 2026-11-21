@@ -12,7 +12,20 @@ import { isDatabaseConnected, supabase } from './supabase.service.js';
 
 /** Признак настроенного SMTP. */
 function smtpConfigured() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT);
+  if (!process.env.SMTP_HOST || !process.env.SMTP_PORT) return false;
+  // Gmail принимает только пароль приложения. Если логин указан,
+  // без пароля отправка всё равно не пройдёт — считаем почту не настроенной.
+  if (process.env.SMTP_USER && !process.env.SMTP_PASS) return false;
+  return true;
+}
+
+/**
+ * Настроена ли отправка писем. Нужно админке, чтобы показать статус.
+ *
+ * @returns {boolean}
+ */
+export function mailConfigured() {
+  return smtpConfigured();
 }
 
 /**
@@ -29,7 +42,9 @@ function createTransport() {
       process.env.SMTP_USER || process.env.SMTP_PASS
         ? {
             user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
+            // Gmail показывает пароль приложения с пробелами —
+            // для входа они не нужны.
+            pass: String(process.env.SMTP_PASS || '').replace(/\s+/g, ''),
           }
         : undefined,
   });
@@ -171,6 +186,18 @@ export async function sendOrderStatusEmail({ to, order, status, comment }) {
     subject: `PCHelper: заказ ${order.number} — ${status}`,
     text,
   });
+}
+
+/**
+ * Отправляет готовое письмо и пишет его в журнал.
+ *
+ * Используется повторной отправкой и проверкой SMTP из админки.
+ *
+ * @param {{to: string, subject: string, text: string, orderId?: string|null}} data Письмо.
+ * @returns {Promise<{sent: boolean, error: string}>}
+ */
+export async function sendRawEmail({ to, subject, text, orderId = null }) {
+  return await deliver({ to, subject, text, orderId });
 }
 
 /**

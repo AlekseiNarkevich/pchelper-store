@@ -39,6 +39,11 @@ import {
   listRequests as listStockRequests,
   updateRequest as updateStockRequest,
 } from '../repositories/stock.repository.js';
+import {
+  listEmails,
+  resendEmail,
+  sendTestEmail,
+} from '../repositories/mail.repository.js';
 import { sendOrderStatusEmail } from '../services/mail.service.js';
 import { requireAdmin } from './auth.js';
 
@@ -200,6 +205,28 @@ router.patch(
   asyncHandler(async (req, res) => {
     const status = String((req.body || {}).status || '');
     res.status(200).json(await updateStockRequest(req.params.id, status));
+  }),
+);
+
+router.get(
+  '/emails',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listEmails(Number(req.query.limit) || 100));
+  }),
+);
+
+router.post(
+  '/emails/test',
+  asyncHandler(async (req, res) => {
+    const to = String((req.body || {}).to || req.user?.email || '');
+    res.status(200).json(await sendTestEmail(to));
+  }),
+);
+
+router.post(
+  '/emails/:id/resend',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await resendEmail(req.params.id));
   }),
 );
 

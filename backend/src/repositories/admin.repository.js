@@ -205,7 +205,7 @@ export async function updateOrder(orderId, data, adminId) {
     number: row['номер'],
     status: row['статус'],
     comment: row['комментарий_менеджера'] || '',
-    email: row['эл_почта'] || user.data?.email || '',
+    email: user.data?.email || row['эл_почта'] || '',
     total: Number(row['итоговая_сумма'] || 0),
   };
 }

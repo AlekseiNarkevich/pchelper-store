@@ -93,6 +93,13 @@ export const updateStockRequest = (id, status) =>
     body: { status },
   });
 
+export const getEmails = (limit = 100) =>
+  request(`/admin/emails?limit=${encodeURIComponent(limit)}`);
+export const resendEmail = (id) =>
+  request(`/admin/emails/${encodeURIComponent(id)}/resend`, { method: 'POST' });
+export const sendTestEmail = (to) =>
+  request('/admin/emails/test', { method: 'POST', body: { to } });
+
 export const getReviews = (status = '') =>
   request(`/admin/reviews${status ? `?status=${encodeURIComponent(status)}` : ''}`);
 export const moderateReview = (id, status) =>

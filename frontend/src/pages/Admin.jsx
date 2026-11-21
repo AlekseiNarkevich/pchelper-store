@@ -6,6 +6,7 @@ import { readAuth } from '../auth.js';
 import {
   createProduct,
   deleteProduct,
+  getEmails,
   getOrderPositions,
   getOrders,
   getPrebuiltStock,
@@ -15,6 +16,8 @@ import {
   getSummary,
   getUsers,
   moderateReview,
+  resendEmail,
+  sendTestEmail,
   updateOrder,
   updatePrebuiltStock,
   updateProduct,
@@ -199,6 +202,7 @@ export default function Admin() {
           ['products', 'Товары'],
           ['prebuilt', 'Готовые ПК'],
           ['requests', 'Запросы'],
+          ['emails', 'Письма'],
           ['users', 'Пользователи'],
           ['reviews', 'Отзывы'],
         ].map(([key, label]) => (
@@ -219,6 +223,7 @@ export default function Admin() {
       {tab === 'products' && <ProductsPanel onError={setError} onFlash={flash} />}
       {tab === 'prebuilt' && <PrebuiltStockPanel onError={setError} onFlash={flash} />}
       {tab === 'requests' && <StockRequestsPanel onError={setError} onFlash={flash} />}
+      {tab === 'emails' && <EmailsPanel onError={setError} onFlash={flash} />}
       {tab === 'users' && <UsersPanel onError={setError} onFlash={flash} />}
       {tab === 'reviews' && <ReviewsPanel onError={setError} onFlash={flash} />}
     </div>
@@ -733,6 +738,128 @@ function StockRequestsPanel({ onError, onFlash }) {
           {request.status === 'новый' && (
             <button className="btn btn-sm" onClick={() => mark(request)} type="button">
               Отметить обработанным
+            </button>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+/** Журнал писем и повторная отправка. */
+function EmailsPanel({ onError, onFlash }) {
+  const [items, setItems] = useState([]);
+  const [configured, setConfigured] = useState(false);
+  const [to, setTo] = useState(readAuth()?.user?.email || '');
+  const [busy, setBusy] = useState(false);
+
+  function load() {
+    getEmails()
+      .then((data) => {
+        setItems(data.items);
+        setConfigured(data.configured);
+      })
+      .catch((reason) => onError(reason.message));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, []);
+
+  async function sendTest(event) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const result = await sendTestEmail(to);
+      onFlash(
+        result.sent
+          ? `Проверочное письмо отправлено на ${to}`
+          : `Письмо не отправлено: ${result.error}`,
+      );
+      load();
+    } catch (reason) {
+      onError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendAgain(item) {
+    try {
+      const result = await resendEmail(item.id);
+      onFlash(
+        result.sent
+          ? `Письмо для ${item.email} отправлено повторно`
+          : `Письмо не отправлено: ${result.error}`,
+      );
+      load();
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
+  return (
+    <div className="admin-list">
+      <div className={`state ${configured ? 'success' : 'error'}`}>
+        {configured
+          ? 'SMTP настроен: письма уходят каждому получателю.'
+          : 'SMTP не настроен: письма только сохраняются в журнале.'}
+      </div>
+
+      <form className="admin-order" onSubmit={sendTest}>
+        <header>
+          <div>
+            <h3>Проверка почты</h3>
+            <div className="small faint">
+              Письмо придёт на указанный адрес. Получатели заказов и запросов берутся из
+              их аккаунтов.
+            </div>
+          </div>
+        </header>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <input
+            aria-label="Адрес для проверки"
+            className="input-price"
+            onChange={(event) => setTo(event.target.value)}
+            style={{ flex: '1 1 260px', minWidth: 240 }}
+            type="email"
+            value={to}
+          />
+          <button className="btn btn-sm" disabled={busy} type="submit">
+            Отправить проверку
+          </button>
+        </div>
+      </form>
+
+      {!items.length && <div className="state">Писем пока нет.</div>}
+
+      {items.map((item) => (
+        <article className="admin-order" key={item.id}>
+          <header>
+            <div>
+              <h3>{item.subject}</h3>
+              <div className="small faint">
+                {item.email} · {new Date(item.createdAt).toLocaleString('ru-RU')}
+              </div>
+              {item.error && <div className="small faint">Ошибка: {item.error}</div>}
+            </div>
+            <span className={`status-badge ${item.sent ? 'is-done' : 'is-progress'}`}>
+              {item.sent ? 'отправлено' : 'не отправлено'}
+            </span>
+          </header>
+          {!item.sent && (
+            <button
+              className="btn btn-sm"
+              onClick={() => sendAgain(item)}
+              type="button"
+            >
+              Отправить снова
             </button>
           )}
         </article>
