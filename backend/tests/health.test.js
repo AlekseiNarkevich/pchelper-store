@@ -13,6 +13,8 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
+import { sendRawEmail } from '../src/services/mail.service.js';
+import { sendTestEmail } from '../src/repositories/mail.repository.js';
 
 // Порт и базовый URL заполняются в before(), когда сервер уже поднят.
 let server;
@@ -95,6 +97,22 @@ test('требование FR-08: админ-маршрут с неверным 
   assert.equal(status, 401);
 });
 
+test('требование FR-08: админ-маршрут с токеном покупателя возвращает 403', async () => {
+  const login = await fetch(`${BASE}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'demo@pchelper.by', password: 'demo1234' }),
+  });
+  const { accessToken } = await login.json();
+
+  const response = await fetch(`${BASE}/api/v1/admin/orders`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const body = await response.json();
+  assert.equal(response.status, 403);
+  assert.equal(body.error.code, 'FORBIDDEN');
+});
+
 test('требование FR-08: админ-маршрут с верным токеном возвращает 200', async () => {
   const { status, body } = await get('/api/v1/admin/orders', {
     Authorization: `Bearer ${ADMIN_TOKEN}`,
@@ -137,4 +155,30 @@ test('несуществующий маршрут возвращает 404 в ф
   // Требование NFR-09: все ошибки в одном формате { error: { code, message } }
   assert.equal(body.error.code, 'NOT_FOUND');
   assert.match(body.error.message, /не найден/);
+});
+
+test('тестовые адреса не получают реальных писем', async () => {
+  for (const to of [
+    'student@pchelper.by',
+    'test@example.com',
+    'deleted-1@pchelper.local',
+  ]) {
+    const result = await sendRawEmail({
+      to,
+      subject: 'Проверка',
+      text: 'Проверка',
+    });
+    assert.equal(result.sent, false);
+    assert.match(result.error, /Тестовый адрес/);
+  }
+});
+
+test('проверка почты отклоняет некорректный адрес', async () => {
+  await assert.rejects(() => sendTestEmail('неверный-адрес'), /e-mail/);
+});
+
+test('проверка почты на тестовый адрес не отправляет письмо', async () => {
+  const result = await sendTestEmail('test@example.com');
+  assert.equal(result.sent, false);
+  assert.match(result.error, /Тестовый адрес/);
 });

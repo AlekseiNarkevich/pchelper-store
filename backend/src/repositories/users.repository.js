@@ -354,6 +354,22 @@ export async function deleteAccount(userId) {
         throw apiError(403, 'ADMIN_PROTECTED', 'Аккаунт администратора удалить нельзя');
       }
 
+      const { data: orders, error: ordersError } = await supabase
+        .from('Заказы')
+        .select('id,статус')
+        .eq('пользователь_id', row.id);
+      if (ordersError) throw ordersError;
+      const activeOrders = (orders || []).filter(
+        (order) => !['Завершён', 'Отменён'].includes(order['статус']),
+      );
+      if (activeOrders.length) {
+        throw apiError(
+          409,
+          'ACTIVE_ORDERS',
+          `Нельзя удалить аккаунт: активных заказов ${activeOrders.length}. Сначала завершите или отмените их.`,
+        );
+      }
+
       const id = row.id;
       const updated = await supabase
         .from('Пользователи')
@@ -380,6 +396,11 @@ export async function deleteAccount(userId) {
       await supabase.from('Корзины').delete().eq('пользователь_id', id);
       await supabase.from('Сборки').delete().eq('пользователь_id', id);
       await supabase.from('Отзывы').delete().eq('пользователь_id', id);
+      // Заказы остаются для истории, но без контактов покупателя.
+      await supabase
+        .from('Заказы')
+        .update({ телефон: '—', адрес_доставки: null, эл_почта: null })
+        .eq('пользователь_id', id);
       await supabase
         .from('ЗапросыНаПоступление')
         .update({ email: null, телефон: null, пользователь_id: null })
