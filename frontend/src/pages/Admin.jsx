@@ -378,24 +378,26 @@ function OrdersPanel({ onError, onFlash }) {
           </div>
 
           {positions[order.id] && (
-            <table className="picker">
-              <thead>
-                <tr>
-                  <th>Товар</th>
-                  <th>Количество</th>
-                  <th>Сумма</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions[order.id].map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.name}</td>
-                    <td>{item.qty}</td>
-                    <td>{money(item.sum)}</td>
+            <div className="picker-wrap">
+              <table className="picker">
+                <thead>
+                  <tr>
+                    <th>Товар</th>
+                    <th>Количество</th>
+                    <th>Сумма</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {positions[order.id].map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td>{item.qty}</td>
+                      <td>{money(item.sum)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </article>
       ))}

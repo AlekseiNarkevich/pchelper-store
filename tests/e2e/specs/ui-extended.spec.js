@@ -174,6 +174,34 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     await expect(page.locator('body')).toContainText('Такой страницы нет');
   });
 
+  test('мобильная вёрстка товара и каталога без переполнения', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await page.goto('/catalog');
+    const sort = await page.locator('#catalog-sort').boundingBox();
+    expect(sort).not.toBeNull();
+    expect(sort.x + sort.width).toBeLessThanOrEqual(391);
+
+    await page.goto('/product/cooling:1');
+    const add = page.getByRole('button', { name: 'Добавить в корзину' });
+    await expect(add).toBeVisible();
+    const button = await add.boundingBox();
+    expect(button.x + button.width).toBeLessThanOrEqual(391);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 2,
+      ),
+    ).toBe(true);
+
+    await page.goto('/builder');
+    await expect(page.locator('.step-pill')).toHaveCount(9);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 2,
+      ),
+    ).toBe(true);
+  });
+
   test('визуальная регрессия главной страницы', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');

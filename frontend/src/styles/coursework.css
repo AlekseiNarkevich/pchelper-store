@@ -23,10 +23,10 @@
 /* --- Полоса шагов --- */
 .step-strip {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 16px;
   padding-bottom: 6px;
-  overflow-x: auto;
 }
 
 .step-pill {
@@ -72,7 +72,7 @@
 /* --- Двухколоночный макет --- */
 .builder-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 18vw, 300px);
   gap: 20px;
   align-items: start;
 }
@@ -198,6 +198,7 @@
 
 .panel-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
@@ -1049,6 +1050,10 @@
   gap: 20px;
 }
 
+.admin-products-grid > * {
+  min-width: 0;
+}
+
 .admin-editor {
   padding: 16px;
   border: 1px solid var(--border, #e8e8e8);
@@ -1074,7 +1079,7 @@
 
   .admin-order-grid,
   .admin-products-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1176,5 +1181,23 @@
     margin-top: 0;
     padding-top: 0;
     border-top: 0;
+  }
+}
+
+/* --- Мобильная адаптация: карточка товара, фильтры, шаги --- */
+@media (max-width: 900px) {
+  .product-hero {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .product-hero .photo-box {
+    min-height: 220px;
+  }
+
+  .toolbar .controls {
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 }

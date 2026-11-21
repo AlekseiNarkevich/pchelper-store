@@ -201,7 +201,14 @@ export default function Product() {
           <p className="muted" style={{ fontSize: 14 }}>
             {product.description}
           </p>
-          <div style={{ display: 'flex', gap: 10, margin: '16px 0 22px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              margin: '16px 0 22px',
+            }}
+          >
             <button className="btn" disabled={stock <= 0} onClick={add} type="button">
               {stock <= 0
                 ? 'Нет в наличии'
