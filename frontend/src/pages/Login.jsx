@@ -10,10 +10,14 @@ import { mergeCartWithServer } from '../cart.js';
  * При регистрации сразу запрашиваются имя, телефон и адрес доставки:
  * они сохраняются в профиле Supabase и подставляются при оформлении заказа.
  */
-export default function Login() {
-  const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('demo@pchelper.by');
-  const [password, setPassword] = useState('demo1234');
+export default function Login({ initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode);
+  const [email, setEmail] = useState(
+    initialMode === 'register' ? '' : 'demo@pchelper.by',
+  );
+  const [password, setPassword] = useState(
+    initialMode === 'register' ? '' : 'demo1234',
+  );
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');

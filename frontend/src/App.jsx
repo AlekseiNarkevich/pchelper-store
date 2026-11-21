@@ -92,6 +92,7 @@ export default function App() {
             }
           />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Login initialMode="register" />} />
           <Route
             path="/builds"
             element={

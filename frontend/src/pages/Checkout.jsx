@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { money } from '../api.js';
 import { fetchMe, readAuth } from '../auth.js';
-import { readCart, clearCart } from '../cart.js';
+import { readCart, clearCart, onCartChange } from '../cart.js';
 import { createOrder, syncCart } from '../commerce.js';
 
 /** Адрес пункта самовывоза. */
@@ -16,7 +16,7 @@ const PICKUP_ADDRESS = 'Г. Минск, пер. Корженевского, 6, �
  * иначе 10 BYN; за МКАД — 15 BYN + 3 BYN за километр.
  */
 export default function Checkout() {
-  const [items] = useState(readCart);
+  const [items, setItems] = useState(readCart);
   const user = readAuth().user;
   const [form, setForm] = useState({
     deliveryMethod: 'courier',
@@ -56,6 +56,10 @@ export default function Checkout() {
         /* профиль не обязателен для формы */
       });
   }, []);
+
+  // Корзина подтягивается с сервера после входа: подписка обновляет
+  // список, иначе прямой переход на /checkout показывает «пусто».
+  useEffect(() => onCartChange(() => setItems(readCart())), []);
 
   function changeField(event) {
     const { name, value } = event.target;
