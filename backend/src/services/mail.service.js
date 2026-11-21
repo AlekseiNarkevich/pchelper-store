@@ -148,6 +148,21 @@ async function deliver({ to, subject, text, orderId }) {
   let sent = false;
   let error = '';
 
+  // Демонстрационные адреса вида student@pchelper.by — не настоящие
+  // ящики: Gmail принимает письмо, а потом возвращает bounce.
+  // Такие письма только пишем в журнал с понятной причиной.
+  if (/@pchelper\.by$/i.test(String(to || '').trim())) {
+    await logEmail({
+      orderId,
+      to,
+      subject,
+      text,
+      sent: false,
+      error: 'Демо-адрес: реальная отправка не выполняется',
+    });
+    return { sent: false, error: 'Демо-адрес: реальная отправка не выполняется' };
+  }
+
   if (smtpConfigured()) {
     try {
       await createTransport().sendMail({
