@@ -46,6 +46,7 @@ function fromRow(row) {
     role: ROLE_FROM_DB[row['роль']] || 'user',
     blocked: Boolean(row['заблокирован']),
     blockReason: row['причина_блокировки'] || '',
+    deleted: Boolean(row['удалён']),
     passwordHash: row.password_hash || null,
     createdAt: row['создан_в'] || null,
   };
@@ -325,4 +326,79 @@ export async function revokeRefreshToken(token) {
 
   const record = memoryTokens.get(hash);
   if (record) record.revoked = true;
+}
+
+/**
+ * Удаляет аккаунт: обезличивает пользователя и запрещает вход.
+ *
+ * Полностью удалить строку нельзя из-за заказов (ON DELETE RESTRICT),
+ * поэтому очищаются персональные данные, пароль и токены, а заказы
+ * остаются с ссылкой на обезличенную запись.
+ *
+ * @param {string|number} userId Идентификатор.
+ * @returns {Promise<{id: string, deleted: true}>}
+ */
+export async function deleteAccount(userId) {
+  if (isDatabaseConnected()) {
+    try {
+      const { data: row, error } = await supabase
+        .from('Пользователи')
+        .select('*')
+        .eq('id', Number(userId))
+        .maybeSingle();
+      if (error) throw error;
+      if (!row || row['удалён']) {
+        throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
+      }
+      if (row['роль'] === 'admin') {
+        throw apiError(403, 'ADMIN_PROTECTED', 'Аккаунт администратора удалить нельзя');
+      }
+
+      const id = row.id;
+      const updated = await supabase
+        .from('Пользователи')
+        .update({
+          email: `deleted-${id}@pchelper.local`,
+          password_hash: null,
+          имя: 'Удалённый пользователь',
+          телефон: null,
+          адрес_доставки: null,
+          заблокирован: true,
+          причина_блокировки: 'Аккаунт удалён',
+          удалён: true,
+          удалён_в: new Date().toISOString(),
+          обновлён_в: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (updated.error) throw updated.error;
+
+      // Связанные данные: токены, корзина, сборки, отзывы и запросы.
+      await supabase
+        .from('ОбновительныеТокены')
+        .update({ отозван: true })
+        .eq('пользователь_id', id);
+      await supabase.from('Корзины').delete().eq('пользователь_id', id);
+      await supabase.from('Сборки').delete().eq('пользователь_id', id);
+      await supabase.from('Отзывы').delete().eq('пользователь_id', id);
+      await supabase
+        .from('ЗапросыНаПоступление')
+        .update({ email: null, телефон: null, пользователь_id: null })
+        .eq('пользователь_id', id);
+
+      return { id: String(id), deleted: true };
+    } catch (error) {
+      if (error.status) throw error;
+      throw databaseFailure('удалить аккаунт', error);
+    }
+  }
+
+  for (const [email, user] of memoryUsers.entries()) {
+    if (user.id !== String(userId)) continue;
+    if (user.role === 'admin') {
+      throw apiError(403, 'ADMIN_PROTECTED', 'Аккаунт администратора удалить нельзя');
+    }
+    memoryUsers.delete(email);
+    return { id: String(userId), deleted: true };
+  }
+  throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
 }

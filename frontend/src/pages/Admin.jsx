@@ -6,6 +6,7 @@ import { readAuth } from '../auth.js';
 import {
   createProduct,
   deleteProduct,
+  deleteUser,
   getEmails,
   getOrderPositions,
   getOrders,
@@ -909,6 +910,23 @@ function UsersPanel({ onError, onFlash }) {
     }
   }
 
+  async function removeUser(user) {
+    if (user.role === 'admin' || user.id === currentId) return;
+    const confirmed = window.confirm(
+      `Удалить аккаунт ${user.email}? Он исчезнет из списка, заказы останутся обезличенными.`,
+    );
+    if (!confirmed) return;
+    const typed = window.prompt('Введите УДАЛИТЬ для подтверждения');
+    if (typed !== 'УДАЛИТЬ') return;
+    try {
+      await deleteUser(user.id);
+      load();
+      onFlash('Аккаунт удалён');
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
   return (
     <div className="picker-wrap">
       <table className="picker">
@@ -930,7 +948,7 @@ function UsersPanel({ onError, onFlash }) {
               <td>{user.name}</td>
               <td>
                 <select
-                  disabled={user.id === currentId}
+                  disabled={user.id === currentId || user.role === 'admin'}
                   onChange={(event) => changeRole(user, event.target.value)}
                   value={user.role}
                 >
@@ -947,14 +965,28 @@ function UsersPanel({ onError, onFlash }) {
                 )}
               </td>
               <td>
-                <button
-                  className="link-button"
-                  disabled={user.id === currentId}
-                  onClick={() => toggleBlock(user)}
-                  type="button"
-                >
-                  {user.blocked ? 'Разблокировать' : 'Заблокировать'}
-                </button>
+                {user.role === 'admin' ? (
+                  <span className="small faint">аккаунт защищён</span>
+                ) : (
+                  <>
+                    <button
+                      className="link-button"
+                      disabled={user.id === currentId}
+                      onClick={() => toggleBlock(user)}
+                      type="button"
+                    >
+                      {user.blocked ? 'Разблокировать' : 'Заблокировать'}
+                    </button>{' '}
+                    <button
+                      className="link-button"
+                      disabled={user.id === currentId}
+                      onClick={() => removeUser(user)}
+                      type="button"
+                    >
+                      Удалить
+                    </button>
+                  </>
+                )}
               </td>
             </tr>
           ))}

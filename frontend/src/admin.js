@@ -64,6 +64,8 @@ export const updateUser = (id, data) =>
     method: 'PATCH',
     body: data,
   });
+export const deleteUser = (id) =>
+  request(`/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 export const getProducts = (category) =>
   request(`/admin/products?category=${encodeURIComponent(category)}`);

@@ -25,6 +25,42 @@ import { readAuth } from './auth.js';
 import { onError } from './errorBus.js';
 
 /**
+ * Показывает понятное сообщение вместо белого экрана, если React
+ * не смог отрисовать страницу.
+ */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="container">
+          <div className="state error" role="alert">
+            <h1 className="h2">Что-то пошло не так</h1>
+            <p>{this.state.error.message}</p>
+            <button
+              className="btn"
+              onClick={() => window.location.reload()}
+              type="button"
+            >
+              Обновить страницу
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+/**
  * Каркас витрины: шапка, область страницы, подвал.
  * Тема синяя — та же, что выбрана в ЛР5 по результатам опроса.
  */
@@ -57,60 +93,62 @@ export default function App() {
       </a>
       <Header />
       <main className="app-main" id="main">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/catalog" element={<Catalog />} />
-          <Route path="/catalog/:category" element={<Catalog />} />
-          <Route path="/product/:id" element={<Product />} />
-          <Route path="/prebuilt" element={<Prebuilt />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route
-            path="/checkout"
-            element={
-              <RequireAuth>
-                <Checkout />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/orders"
-            element={
-              <RequireAuth>
-                <Orders />
-              </RequireAuth>
-            }
-          />
-          <Route path="/builder" element={<Builder />} />
-          <Route path="/psu" element={<PsuCalculator />} />
-          <Route path="/diagnostics" element={<Diagnostics />} />
-          <Route
-            path="/admin"
-            element={
-              <RequireAdmin>
-                <Admin />
-              </RequireAdmin>
-            }
-          />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Login initialMode="register" />} />
-          <Route
-            path="/builds"
-            element={
-              <RequireAuth>
-                <SavedBuilds />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <RequireAuth>
-                <Profile />
-              </RequireAuth>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/catalog" element={<Catalog />} />
+            <Route path="/catalog/:category" element={<Catalog />} />
+            <Route path="/product/:id" element={<Product />} />
+            <Route path="/prebuilt" element={<Prebuilt />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route
+              path="/checkout"
+              element={
+                <RequireAuth>
+                  <Checkout />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/orders"
+              element={
+                <RequireAuth>
+                  <Orders />
+                </RequireAuth>
+              }
+            />
+            <Route path="/builder" element={<Builder />} />
+            <Route path="/psu" element={<PsuCalculator />} />
+            <Route path="/diagnostics" element={<Diagnostics />} />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <Admin />
+                </RequireAdmin>
+              }
+            />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Login initialMode="register" />} />
+            <Route
+              path="/builds"
+              element={
+                <RequireAuth>
+                  <SavedBuilds />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <RequireAuth>
+                  <Profile />
+                </RequireAuth>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
       <Footer />
       {error && (

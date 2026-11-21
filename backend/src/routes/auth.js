@@ -7,10 +7,12 @@
  *   POST  /api/v1/auth/logout    выход
  *   GET   /api/v1/auth/me        профиль по access-токену
  *   PATCH /api/v1/auth/profile   изменение имени, телефона и адреса
+ *   DELETE /api/v1/auth/account  удаление своего аккаунта
  */
 import { Router } from 'express';
 
 import {
+  deleteOwnAccount,
   login,
   logout,
   publicUser,
@@ -64,6 +66,11 @@ export async function requireAuth(req, res, next) {
             ? `Аккаунт заблокирован: ${user.blockReason}`
             : 'Аккаунт заблокирован администратором',
         },
+      });
+    }
+    if (user.deleted) {
+      return res.status(403).json({
+        error: { code: 'ACCOUNT_DELETED', message: 'Аккаунт удалён' },
       });
     }
     req.user = user;
@@ -154,6 +161,14 @@ router.patch(
   handle(async (req, res) => {
     const user = await updateProfile(req.user.id, req.body || {});
     res.status(200).json({ user });
+  }),
+);
+
+router.delete(
+  '/auth/account',
+  requireAuth,
+  handle(async (req, res) => {
+    res.status(200).json(await deleteOwnAccount(req.user.id));
   }),
 );
 

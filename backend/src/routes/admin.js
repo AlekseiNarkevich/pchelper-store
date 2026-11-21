@@ -22,6 +22,7 @@ import { Router } from 'express';
 import {
   createProduct,
   deleteProduct,
+  deleteUser,
   getSummary,
   listOrderHistory,
   listOrderPositions,
@@ -137,6 +138,14 @@ router.patch(
   asyncHandler(async (req, res) => {
     const adminId = req.user?.id || '';
     res.status(200).json(await updateUser(req.params.id, req.body || {}, adminId));
+  }),
+);
+
+router.delete(
+  '/users/:id',
+  asyncHandler(async (req, res) => {
+    const adminId = req.user?.id || '';
+    res.status(200).json(await deleteUser(req.params.id, adminId));
   }),
 );
 

@@ -235,3 +235,30 @@ test('logout отзывает refresh-токен', async () => {
   });
   assert.equal(afterLogout.status, 401);
 });
+
+test('пользователь может удалить свой аккаунт', async () => {
+  const address = email();
+  const registered = await request('/api/v1/auth/register', {
+    method: 'POST',
+    body: { email: address, password: 'secret123', name: 'Удаляемый' },
+  });
+  assert.equal(registered.status, 201);
+
+  const removed = await request('/api/v1/auth/account', {
+    method: 'DELETE',
+    token: registered.body.accessToken,
+  });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.deleted, true);
+
+  const profile = await request('/api/v1/auth/me', {
+    token: registered.body.accessToken,
+  });
+  assert.equal(profile.status, 401);
+
+  const loginAgain = await request('/api/v1/auth/login', {
+    method: 'POST',
+    body: { email: address, password: 'secret123' },
+  });
+  assert.equal(loginAgain.status, 401);
+});

@@ -15,6 +15,7 @@ import jwt from 'jsonwebtoken';
 import { apiError, validation } from '../domain/errors.js';
 import {
   createUser,
+  deleteAccount,
   findByEmail,
   findById,
   isRefreshTokenActive,
@@ -133,6 +134,9 @@ export async function login(data) {
         : 'Аккаунт заблокирован администратором',
     );
   }
+  if (user.deleted) {
+    throw apiError(403, 'ACCOUNT_DELETED', 'Аккаунт удалён');
+  }
   return issueTokens(user);
 }
 
@@ -191,6 +195,9 @@ export async function refresh(token) {
   if (user.blocked) {
     throw apiError(403, 'USER_BLOCKED', 'Аккаунт заблокирован администратором');
   }
+  if (user.deleted) {
+    throw apiError(403, 'ACCOUNT_DELETED', 'Аккаунт удалён');
+  }
   return issueTokens(user);
 }
 
@@ -229,6 +236,16 @@ export async function updateProfile(userId, data) {
     throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
   }
   return publicUser(user);
+}
+
+/**
+ * Удаляет собственный аккаунт пользователя.
+ *
+ * @param {string} userId Идентификатор.
+ * @returns {Promise<{id: string, deleted: true}>}
+ */
+export async function deleteOwnAccount(userId) {
+  return await deleteAccount(userId);
 }
 
 /**

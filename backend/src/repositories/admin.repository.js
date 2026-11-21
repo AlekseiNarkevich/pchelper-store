@@ -9,6 +9,7 @@
 import { CATEGORY_BY_ID, CATEGORIES } from '../domain/catalog.js';
 import { apiError } from '../domain/errors.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
+import { deleteAccount } from './users.repository.js';
 import { notifyPendingRequests } from './stock.repository.js';
 
 /** Допустимые статусы заказа. */
@@ -240,25 +241,22 @@ export async function listOrderHistory(orderId) {
  */
 export async function listUsers() {
   if (!isDatabaseConnected()) return { items: [], total: 0 };
-  const { data, error } = await supabase
-    .from('Пользователи')
-    .select(
-      'id,email,имя,телефон,адрес_доставки,роль,заблокирован,причина_блокировки,создан_в',
-    )
-    .order('id');
+  const { data, error } = await supabase.from('Пользователи').select('*').order('id');
   if (error) throw databaseError('получить пользователей', error);
 
-  const items = (data || []).map((row) => ({
-    id: String(row.id),
-    email: row.email,
-    name: row['имя'],
-    phone: row['телефон'] || '',
-    address: row['адрес_доставки'] || '',
-    role: row['роль'],
-    blocked: Boolean(row['заблокирован']),
-    blockReason: row['причина_блокировки'] || '',
-    createdAt: row['создан_в'],
-  }));
+  const items = (data || [])
+    .filter((row) => !row['удалён'])
+    .map((row) => ({
+      id: String(row.id),
+      email: row.email,
+      name: row['имя'],
+      phone: row['телефон'] || '',
+      address: row['адрес_доставки'] || '',
+      role: row['роль'],
+      blocked: Boolean(row['заблокирован']),
+      blockReason: row['причина_блокировки'] || '',
+      createdAt: row['создан_в'],
+    }));
   return { items, total: items.length };
 }
 
@@ -278,6 +276,24 @@ export async function updateUser(userId, data, currentAdminId) {
       'VALIDATION_ERROR',
       'Нельзя менять роль или блокировать самого себя',
     );
+  }
+
+  const target = await supabase
+    .from('Пользователи')
+    .select('id,роль,удалён')
+    .eq('id', Number(userId))
+    .maybeSingle();
+  if (target.error) throw databaseError('прочитать пользователя', target.error);
+  if (!target.data || target.data['удалён']) {
+    throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
+  }
+  if (target.data['роль'] === 'admin') {
+    if (data.blocked) {
+      throw apiError(400, 'ADMIN_PROTECTED', 'Администратора нельзя заблокировать');
+    }
+    if (data.role !== undefined && data.role !== 'admin') {
+      throw apiError(400, 'ADMIN_PROTECTED', 'Роль администратора менять нельзя');
+    }
   }
 
   const updates = { обновлён_в: new Date().toISOString() };
@@ -308,6 +324,21 @@ export async function updateUser(userId, data, currentAdminId) {
     role: row['роль'],
     blocked: Boolean(row['заблокирован']),
   };
+}
+
+/**
+ * Удаляет пользователя из админки.
+ *
+ * @param {string} userId Кого удаляем.
+ * @param {string} currentAdminId Кто удаляет.
+ * @returns {Promise<{id: string, deleted: true}>}
+ */
+export async function deleteUser(userId, currentAdminId) {
+  requireDatabase();
+  if (String(userId) === String(currentAdminId)) {
+    throw apiError(400, 'SELF_DELETE', 'Нельзя удалить свой аккаунт');
+  }
+  return await deleteAccount(userId);
 }
 
 /**
@@ -426,6 +457,13 @@ export async function deleteProduct(category, productId) {
     .eq('id', Number(productId))
     .select('id');
   if (error) {
+    if (error.code === '23503') {
+      throw apiError(
+        409,
+        'PRODUCT_IN_USE',
+        'Товар входит в сборку или готовый ПК. Сначала уберите его оттуда, потом удаляйте.',
+      );
+    }
     throw databaseError(
       'удалить товар (возможно, он входит в заказ или сборку)',
       error,

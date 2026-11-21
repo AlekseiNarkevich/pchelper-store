@@ -2,7 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { money } from '../api.js';
-import { fetchMe, logout, onAuthChange, readAuth, updateProfile } from '../auth.js';
+import {
+  deleteMyAccount,
+  fetchMe,
+  logout,
+  onAuthChange,
+  readAuth,
+  updateProfile,
+} from '../auth.js';
 import { listBuilds } from '../builds.js';
 import { clearLocalCart } from '../cart.js';
 
@@ -75,6 +82,23 @@ export default function Profile() {
     await logout();
     clearLocalCart();
     navigate('/');
+  }
+
+  async function handleDeleteAccount() {
+    const confirmed = window.confirm(
+      'Удалить аккаунт? Профиль, корзина и сборки будут удалены, вход станет невозможен.',
+    );
+    if (!confirmed) return;
+    const typed = window.prompt('Введите УДАЛИТЬ для подтверждения');
+    if (typed !== 'УДАЛИТЬ') return;
+
+    try {
+      await deleteMyAccount();
+      clearLocalCart();
+      navigate('/');
+    } catch (reason) {
+      setError(reason.message);
+    }
   }
 
   return (
@@ -150,6 +174,23 @@ export default function Profile() {
               >
                 Выйти
               </button>
+
+              {user.role !== 'admin' && (
+                <div className="danger-zone">
+                  <div className="h3">Удаление аккаунта</div>
+                  <p className="muted">
+                    Профиль, корзина и сохранённые сборки будут удалены. Заказы
+                    останутся обезличенными, войти в аккаунт больше не получится.
+                  </p>
+                  <button
+                    className="btn btn-danger"
+                    onClick={handleDeleteAccount}
+                    type="button"
+                  >
+                    Удалить аккаунт
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <p className="muted">Загружаем профиль…</p>

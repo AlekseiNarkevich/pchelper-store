@@ -1201,3 +1201,31 @@
     row-gap: 8px;
   }
 }
+
+/* --- Опасные действия в профиле --- */
+.danger-zone {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--danger, #c62828);
+  border-radius: var(--radius, 10px);
+  background: rgba(198, 40, 40, 0.08);
+}
+
+.danger-zone .h3 {
+  color: var(--danger, #c62828);
+}
+
+.danger-zone .btn-danger {
+  margin-top: 8px;
+}
+
+.btn-danger {
+  background: var(--danger, #c62828);
+  border-color: var(--danger, #c62828);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #a51f1f;
+  border-color: #a51f1f;
+}

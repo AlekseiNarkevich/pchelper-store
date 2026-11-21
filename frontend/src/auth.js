@@ -191,6 +191,22 @@ export async function updateProfile(data) {
 }
 
 /**
+ * Удаляет аккаунт текущего пользователя.
+ *
+ * @returns {Promise<{id: string, deleted: boolean}>}
+ */
+export async function deleteMyAccount() {
+  const { accessToken } = readAuth();
+  if (!accessToken) throw new Error('Требуется вход');
+  const result = await request('/auth/account', {
+    method: 'DELETE',
+    token: accessToken,
+  });
+  writeAuth({ accessToken: null, refreshToken: null, user: null });
+  return result;
+}
+
+/**
  * Возвращает профиль по токену.
  */
 export async function fetchMe() {
