@@ -98,15 +98,27 @@ export default function Home() {
         <div className="h2" style={{ marginBottom: 14 }}>
           Категории
         </div>
-        <div className="feature-grid">
-          {categories.map((category) => (
-            <Link className="feature" key={category.id} to={`/catalog/${category.id}`}>
-              <div className="h3">{category.name}</div>
-              <p>{category.description}</p>
-              <div className="small faint">{category.count} товаров</div>
-            </Link>
-          ))}
-        </div>
+        {loading ? (
+          <div className="feature-grid" aria-label="Загрузка категорий">
+            {Array.from({ length: 8 }, (_, index) => (
+              <div className="skeleton feature-skeleton" key={index} />
+            ))}
+          </div>
+        ) : (
+          <div className="feature-grid">
+            {categories.map((category) => (
+              <Link
+                className="feature"
+                key={category.id}
+                to={`/catalog/${category.id}`}
+              >
+                <div className="h3">{category.name}</div>
+                <p>{category.description}</p>
+                <div className="small faint">{category.count} товаров</div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="section">

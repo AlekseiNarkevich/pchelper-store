@@ -407,6 +407,11 @@ select {
   gap: var(--space-4);
 }
 
+.feature-skeleton {
+  min-height: 128px;
+  border-radius: var(--radius-lg, 14px);
+}
+
 .feature {
   display: block;
   padding: var(--space-5);

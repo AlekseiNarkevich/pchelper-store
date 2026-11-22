@@ -374,7 +374,7 @@ export default function Admin() {
       </div>
 
       {/* Сводные цифры по магазину: заказы, товары, пользователи, отзывы. */}
-      {summary && (
+      {summary ? (
         <div className="admin-summary">
           <div>
             <span>Заказы</span>
@@ -393,6 +393,8 @@ export default function Admin() {
             <strong>{summary.pendingReviews}</strong>
           </div>
         </div>
+      ) : (
+        <div className="state">Загружаем сводку…</div>
       )}
 
       {error && (
@@ -445,6 +447,7 @@ function OrdersPanel({ onError, onFlash }) {
   const [cancelTarget, setCancelTarget] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -452,7 +455,10 @@ function OrdersPanel({ onError, onFlash }) {
       .then((data) => {
         if (alive) setOrders(data.items);
       })
-      .catch((error) => onError(error.message));
+      .catch((error) => onError(error.message))
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -576,6 +582,7 @@ function OrdersPanel({ onError, onFlash }) {
     return order.status !== 'Отменён';
   });
 
+  if (loading) return <div className="state">Загружаем заказы…</div>;
   if (!orders.length) return <div className="state">Заказов пока нет.</div>;
 
   return (
@@ -774,6 +781,7 @@ function ProductsPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({});
   const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCategories()
@@ -783,9 +791,11 @@ function ProductsPanel({ onError, onFlash }) {
 
   // Загрузка товаров выбранной категории; форма редактирования справа.
   function load(nextCategory = category) {
+    setLoading(true);
     getProducts(nextCategory)
       .then((data) => setItems(data.items))
-      .catch((reason) => onError(reason.message));
+      .catch((reason) => onError(reason.message))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -894,43 +904,47 @@ function ProductsPanel({ onError, onFlash }) {
             </button>
           </div>
           <div className="picker-wrap">
-            <table className="picker">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Название</th>
-                  <th>Цена</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.id}</td>
-                    <td className="picker-name">{row['название']}</td>
-                    <td>{money(row['цена'])}</td>
-                    <td>
-                      <div className="admin-row-actions">
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => startEdit(row)}
-                          type="button"
-                        >
-                          Изменить
-                        </button>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => remove(row)}
-                          type="button"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </td>
+            {loading ? (
+              <div className="state">Загружаем товары…</div>
+            ) : (
+              <table className="picker">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Цена</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {items.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.id}</td>
+                      <td className="picker-name">{row['название']}</td>
+                      <td>{money(row['цена'])}</td>
+                      <td>
+                        <div className="admin-row-actions">
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => startEdit(row)}
+                            type="button"
+                          >
+                            Изменить
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => remove(row)}
+                            type="button"
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -992,14 +1006,17 @@ function ProductsPanel({ onError, onFlash }) {
 function PrebuiltStockPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
   const [values, setValues] = useState({});
+  const [loading, setLoading] = useState(true);
 
   function load() {
+    setLoading(true);
     getPrebuiltStock()
       .then((data) => {
         setItems(data.items);
         setValues(Object.fromEntries(data.items.map((item) => [item.id, item.stock])));
       })
-      .catch((reason) => onError(reason.message));
+      .catch((reason) => onError(reason.message))
+      .finally(() => setLoading(false));
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1017,45 +1034,49 @@ function PrebuiltStockPanel({ onError, onFlash }) {
 
   return (
     <div className="picker-wrap admin-prebuilt">
-      <table className="picker">
-        <thead>
-          <tr>
-            <th>Готовая сборка</th>
-            <th>На складе</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id}>
-              <td className="picker-name">{item.name}</td>
-              <td>
-                <input
-                  className="input-price"
-                  min="0"
-                  onChange={(event) =>
-                    setValues((current) => ({
-                      ...current,
-                      [item.id]: event.target.value,
-                    }))
-                  }
-                  type="number"
-                  value={values[item.id] ?? 0}
-                />
-              </td>
-              <td>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => save(item)}
-                  type="button"
-                >
-                  Сохранить
-                </button>
-              </td>
+      {loading ? (
+        <div className="state">Загружаем остатки…</div>
+      ) : (
+        <table className="picker">
+          <thead>
+            <tr>
+              <th>Готовая сборка</th>
+              <th>На складе</th>
+              <th />
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td className="picker-name">{item.name}</td>
+                <td>
+                  <input
+                    className="input-price"
+                    min="0"
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        [item.id]: event.target.value,
+                      }))
+                    }
+                    type="number"
+                    value={values[item.id] ?? 0}
+                  />
+                </td>
+                <td>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => save(item)}
+                    type="button"
+                  >
+                    Сохранить
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -1063,11 +1084,14 @@ function PrebuiltStockPanel({ onError, onFlash }) {
 /** Запросы на поступление товара. */
 function StockRequestsPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   function load() {
+    setLoading(true);
     getStockRequests()
       .then((data) => setItems(data.items))
-      .catch((reason) => onError(reason.message));
+      .catch((reason) => onError(reason.message))
+      .finally(() => setLoading(false));
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1083,6 +1107,7 @@ function StockRequestsPanel({ onError, onFlash }) {
     }
   }
 
+  if (loading) return <div className="state">Загружаем запросы…</div>;
   if (!items.length) return <div className="state">Запросов нет.</div>;
 
   return (
@@ -1125,14 +1150,17 @@ function EmailsPanel({ onError, onFlash }) {
   const [configured, setConfigured] = useState(false);
   const [to, setTo] = useState(readAuth()?.user?.email || '');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load() {
+    setLoading(true);
     getEmails()
       .then((data) => {
         setItems(data.items);
         setConfigured(data.configured);
       })
-      .catch((reason) => onError(reason.message));
+      .catch((reason) => onError(reason.message))
+      .finally(() => setLoading(false));
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1210,7 +1238,11 @@ function EmailsPanel({ onError, onFlash }) {
         </div>
       </form>
 
-      {!items.length && <div className="state">Писем пока нет.</div>}
+      {loading ? (
+        <div className="state">Загружаем письма…</div>
+      ) : (
+        !items.length && <div className="state">Писем пока нет.</div>
+      )}
 
       {items.map((item) => (
         <article className="admin-order" key={item.id}>
@@ -1247,12 +1279,15 @@ function UsersPanel({ onError, onFlash }) {
   const [dialog, setDialog] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const currentId = readAuth().user?.id;
 
   function load() {
+    setLoading(true);
     getUsers()
       .then((data) => setUsers(data.items))
-      .catch((error) => onError(error.message));
+      .catch((error) => onError(error.message))
+      .finally(() => setLoading(false));
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1342,6 +1377,8 @@ function UsersPanel({ onError, onFlash }) {
                 danger: false,
               }
             : null;
+
+  if (loading) return <div className="state">Загружаем пользователей…</div>;
 
   return (
     <>
@@ -1462,11 +1499,14 @@ function ReviewsPanel({ onError, onFlash }) {
   const [dialog, setDialog] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   function load(next = status) {
+    setLoading(true);
     getReviews(next)
       .then((data) => setReviews(data.items))
-      .catch((error) => onError(error.message));
+      .catch((error) => onError(error.message))
+      .finally(() => setLoading(false));
   }
 
   useEffect(() => {
@@ -1567,7 +1607,11 @@ function ReviewsPanel({ onError, onFlash }) {
         ))}
       </div>
 
-      {!reviews.length && <div className="state">Отзывов нет.</div>}
+      {loading ? (
+        <div className="state">Загружаем отзывы…</div>
+      ) : (
+        !reviews.length && <div className="state">Отзывов нет.</div>
+      )}
 
       <div className="admin-list">
         {reviews.map((review) => (

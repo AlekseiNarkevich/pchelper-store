@@ -16,10 +16,73 @@ const { spawn } = require('child_process');
 
 const BACKEND_PORT = Number(process.env.PORT || 3001);
 let backendProcess = null;
+let splashWindow = null;
+let splashStartedAt = 0;
 
 const appIconPath = app.isPackaged
   ? path.join(process.resourcesPath, 'icon.ico')
   : path.resolve(__dirname, 'icon.ico');
+
+/**
+ * Показывает заставку на время запуска backend и загрузки интерфейса.
+ *
+ * Отдельное маленькое окно без рамки: пользователь сразу видит, что
+ * приложение не зависло, пока локальный сервер поднимается.
+ */
+function createSplash() {
+  splashStartedAt = Date.now();
+  splashWindow = new BrowserWindow({
+    width: 520,
+    height: 320,
+    frame: false,
+    resizable: false,
+    movable: false,
+    show: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    backgroundColor: '#0b2a4a',
+    icon: appIconPath,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.once('ready-to-show', () => {
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.show();
+  });
+  splashWindow.on('show', () => console.log('[splash] заставка показана'));
+  splashWindow.on('closed', () => {
+    console.log('[splash] заставка закрыта');
+    splashWindow = null;
+  });
+}
+
+/**
+ * Меняет подпись на заставке.
+ *
+ * @param {string} text Новый статус.
+ */
+function setSplashStatus(text) {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  splashWindow.webContents
+    .executeJavaScript(
+      `document.getElementById('status').textContent = ${JSON.stringify(text)};`,
+    )
+    .catch(() => {
+      /* заставка могла уже закрыться */
+    });
+}
+
+/**
+ * Закрывает заставку после появления главного окна.
+ */
+function closeSplash() {
+  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+  splashWindow = null;
+}
 
 /**
  * Читает файл .env без сторонних зависимостей.
@@ -138,11 +201,14 @@ function stopBackend() {
  * @returns {Promise<void>}
  */
 async function createWindow() {
+  createSplash();
   startBackend();
 
   try {
     await waitForServer(`http://127.0.0.1:${BACKEND_PORT}/api/v1/health`);
+    setSplashStatus('Загружаем интерфейс…');
   } catch (error) {
+    closeSplash();
     dialog.showErrorBox(
       'Ошибка запуска PCHelper',
       `Не удалось запустить локальный сервер.\n${error.message}`,
@@ -156,6 +222,7 @@ async function createWindow() {
     height: 900,
     minWidth: 960,
     minHeight: 640,
+    show: false,
     autoHideMenuBar: true,
     icon: appIconPath,
     webPreferences: {
@@ -210,6 +277,27 @@ async function createWindow() {
     console.error(`[web] не загрузилось ${url}: ${code} ${description}`);
   });
 
+  // Главное окно показываем только после первого кадра, заставку убираем.
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) return;
+    setSplashStatus('Готово');
+    win.show();
+    // Не даём заставке мигнуть, если backend поднялся очень быстро.
+    const visibleFor = Date.now() - splashStartedAt;
+    setTimeout(closeSplash, Math.max(150, 1300 - visibleFor));
+  });
+
+  win.webContents.once('did-finish-load', () => {
+    setSplashStatus('Почти готово…');
+  });
+
+  // Страховка: если ready-to-show не придёт, всё равно показываем окно.
+  const splashFallback = setTimeout(() => {
+    if (!win.isDestroyed() && !win.isVisible()) win.show();
+    closeSplash();
+  }, 20000);
+  win.on('closed', () => clearTimeout(splashFallback));
+
   win.loadURL(appUrl);
 }
 
@@ -218,6 +306,7 @@ app.whenReady().then(createWindow);
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+  closeSplash();
   stopBackend();
 });
 

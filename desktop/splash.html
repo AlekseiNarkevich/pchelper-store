@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PCHelper — запуск</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        font-family:
+          "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0b2a4a;
+        color: #fff;
+      }
+
+      .splash {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 85% 15%, rgba(88, 166, 255, 0.42), transparent 38%),
+          radial-gradient(circle at 10% 90%, rgba(25, 118, 210, 0.55), transparent 42%),
+          linear-gradient(135deg, #0b2a4a 0%, #114a7a 55%, #1976d2 100%);
+      }
+
+      .splash::before,
+      .splash::after {
+        position: absolute;
+        content: "";
+        border-radius: 44%;
+        background: rgba(255, 255, 255, 0.07);
+        transform: rotate(-18deg);
+      }
+
+      .splash::before {
+        top: -38%;
+        right: -18%;
+        width: 70%;
+        height: 95%;
+      }
+
+      .splash::after {
+        bottom: -48%;
+        left: -24%;
+        width: 72%;
+        height: 85%;
+      }
+
+      .content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 24px;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 92px;
+        height: 92px;
+        margin-bottom: 18px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+      }
+
+      .logo img {
+        width: 70px;
+        height: 70px;
+        object-fit: contain;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        font-weight: 750;
+        letter-spacing: -0.5px;
+      }
+
+      .tagline {
+        margin-top: 4px;
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .status {
+        margin-top: 28px;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
+      }
+
+      .bar {
+        width: 220px;
+        height: 4px;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+      }
+
+      .bar span {
+        display: block;
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: #8ec5ff;
+        animation: slide 1.4s ease-in-out infinite;
+      }
+
+      @keyframes slide {
+        0% {
+          transform: translateX(-110%);
+        }
+        100% {
+          transform: translateX(340%);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="splash">
+      <div class="content">
+        <div class="logo">
+          <img src="logo.png" alt="PCHelper" />
+        </div>
+        <h1>PCHelper</h1>
+        <div class="tagline">Просто и ясно</div>
+        <div class="status" id="status">Запускаем приложение…</div>
+        <div class="bar"><span></span></div>
+      </div>
+    </div>
+  </body>
+</html>
