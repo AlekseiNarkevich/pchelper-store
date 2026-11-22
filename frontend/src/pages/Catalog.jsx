@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { getCategories, getProducts } from '../api.js';
 import ProductCard from '../components/ProductCard.jsx';
@@ -24,6 +24,8 @@ export default function Catalog() {
   const { category } = useParams();
   const [searchParams] = useSearchParams();
   const search = searchParams.get('search') || '';
+  const navigate = useNavigate();
+  const [term, setTerm] = useState(search);
 
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
@@ -80,6 +82,18 @@ export default function Catalog() {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.floor(offset / PAGE_SIZE) + 1;
 
+  useEffect(() => {
+    setTerm(search);
+  }, [search]);
+
+  // Поиск в каталоге нужен на телефоне: шапка там скрывает строку поиска.
+  function submitSearch(event) {
+    event.preventDefault();
+    const value = term.trim();
+    const path = category ? `/catalog/${category}` : '/catalog';
+    navigate(value ? `${path}?search=${encodeURIComponent(value)}` : path);
+  }
+
   // Любое изменение фильтра возвращает на первую страницу.
   function resetAnd(update) {
     setOffset(0);
@@ -98,6 +112,19 @@ export default function Catalog() {
         <span>Каталог</span>
         {current && <span>{current.name}</span>}
       </div>
+
+      <form className="catalog-mobile-search" onSubmit={submitSearch} role="search">
+        <input
+          aria-label="Найти товар"
+          onChange={(event) => setTerm(event.target.value)}
+          placeholder="Поиск: модель, AM5, DDR5…"
+          type="search"
+          value={term}
+        />
+        <button className="btn btn-sm" type="submit">
+          Найти
+        </button>
+      </form>
 
       <div className="chips">
         <Link className={`chip${!category ? ' is-on' : ''}`} to="/catalog">

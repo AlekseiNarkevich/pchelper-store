@@ -573,6 +573,23 @@
   border-top: 1px solid var(--border, #e8e8e8);
 }
 
+.catalog-mobile-search {
+  display: none;
+}
+
+@media (max-width: 680px) {
+  .catalog-mobile-search {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 12px;
+  }
+
+  .catalog-mobile-search input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 /* --- Калькулятор БП --- */
 .psu-pickers {
   display: grid;
@@ -1062,7 +1079,7 @@
   position: fixed;
   right: 20px;
   bottom: 112px;
-  z-index: 950;
+  z-index: 1200;
   display: flex;
   align-items: flex-start;
   gap: 12px;
