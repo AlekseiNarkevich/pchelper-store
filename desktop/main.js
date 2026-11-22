@@ -80,8 +80,11 @@ function setSplashStatus(text) {
  * Закрывает заставку после появления главного окна.
  */
 function closeSplash() {
-  if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+  const splash = splashWindow;
   splashWindow = null;
+  if (splash && !splash.isDestroyed()) {
+    splash.destroy();
+  }
 }
 
 /**
@@ -277,15 +280,22 @@ async function createWindow() {
     console.error(`[web] не загрузилось ${url}: ${code} ${description}`);
   });
 
-  // Главное окно показываем только после первого кадра, заставку убираем.
-  win.once('ready-to-show', () => {
-    if (win.isDestroyed()) return;
+  // Главное окно показываем после первого кадра или загрузки страницы,
+  // заставку убираем принудительно. ready-to-show в Electron иногда
+  // не приходит, поэтому did-finish-load — вторая страховка.
+  let revealed = false;
+  const revealMainWindow = () => {
+    if (revealed || win.isDestroyed()) return;
+    revealed = true;
     setSplashStatus('Готово');
     win.show();
     // Не даём заставке мигнуть, если backend поднялся очень быстро.
     const visibleFor = Date.now() - splashStartedAt;
     setTimeout(closeSplash, Math.max(150, 1300 - visibleFor));
-  });
+  };
+
+  win.once('ready-to-show', revealMainWindow);
+  win.webContents.once('did-finish-load', revealMainWindow);
 
   win.webContents.once('did-finish-load', () => {
     setSplashStatus('Почти готово…');
@@ -293,7 +303,7 @@ async function createWindow() {
 
   // Страховка: если ready-to-show не придёт, всё равно показываем окно.
   const splashFallback = setTimeout(() => {
-    if (!win.isDestroyed() && !win.isVisible()) win.show();
+    revealMainWindow();
     closeSplash();
   }, 20000);
   win.on('closed', () => clearTimeout(splashFallback));

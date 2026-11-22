@@ -27,6 +27,7 @@
       "main.js",
       "preload.js",
       "splash.html",
+      "splash-icon.png",
       "logo.png",
       "icon.ico",
       "package.json"
