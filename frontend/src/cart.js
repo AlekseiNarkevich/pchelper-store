@@ -102,6 +102,36 @@ export function addToCart(product) {
   void pushToServer((commerce) => commerce.addServerItem(product.id, 1));
 }
 
+/**
+ * Добавляет в корзину готовый набор комплектующих (сборку).
+ *
+ * Используется конфигуратором и сохранёнными сборками. Товары без остатка
+ * пропускаются, чтобы не класть в корзину то, что нельзя купить.
+ *
+ * @param {Array<object>} products Комплектующие сборки.
+ * @returns {{added: number, skipped: string[]}}
+ */
+export function addBuildToCart(products) {
+  const added = [];
+  const skipped = [];
+
+  for (const product of products) {
+    if (!product?.id) continue;
+    if (product.stock != null && Number(product.stock) <= 0) {
+      skipped.push(product.name);
+      continue;
+    }
+    addToCart(product);
+    added.push(product.name);
+  }
+
+  if (skipped.length) {
+    reportError(`Нет на складе: ${skipped.join(', ')}`);
+  }
+
+  return { added: added.length, skipped };
+}
+
 /** Общее количество единиц товара. */
 export function cartCount() {
   return readCart().reduce((sum, item) => sum + item.qty, 0);

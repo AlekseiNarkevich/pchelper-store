@@ -4,9 +4,10 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { money } from '../api.js';
+import { addBuildToCart } from '../cart.js';
 import { getBuild, listBuilds, removeBuild } from '../builds.js';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
@@ -94,6 +95,7 @@ export default function SavedBuilds() {
   const [details, setDetails] = useState({});
   const [removeTarget, setRemoveTarget] = useState(null);
   const [removing, setRemoving] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Список сборок приходит из Supabase; детали загружаются по клику.
@@ -112,6 +114,29 @@ export default function SavedBuilds() {
       alive = false;
     };
   }, []);
+
+  // Добавляет комплектующие сохранённой сборки в корзину.
+  async function addSavedBuild(build) {
+    setError('');
+    try {
+      const data = details[build.id] || (await getBuild(build.id)).build;
+      if (data.compatibility?.errors?.length) {
+        setError('Сборка несовместима: уберите ошибки в конфигураторе.');
+        return;
+      }
+      const products = data.components
+        .map((component) => component.product)
+        .filter(Boolean);
+      const result = addBuildToCart(products);
+      if (result.added > 0) {
+        navigate('/cart');
+      } else {
+        setError('Не удалось добавить сборку: проверьте остатки товаров.');
+      }
+    } catch (reason) {
+      setError(reason.message);
+    }
+  }
 
   // Состав и совместимость подгружаются один раз при раскрытии.
   async function toggle(build) {
@@ -215,6 +240,13 @@ export default function SavedBuilds() {
               <Link className="btn btn-secondary" to={`/builder?build=${build.id}`}>
                 Открыть в конфигураторе
               </Link>
+              <button
+                className="btn"
+                onClick={() => addSavedBuild(build)}
+                type="button"
+              >
+                В корзину
+              </button>
               <button
                 className="btn btn-secondary"
                 onClick={() => setRemoveTarget(build)}

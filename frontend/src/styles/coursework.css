@@ -182,6 +182,31 @@
   margin-top: 12px;
 }
 
+/* Итоговый шаг: одинаковые отступы сверху и снизу от подписей,
+ * подсказки и кнопок, чтобы текст не выглядел смещённым вверх. */
+.builder-summary-step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.builder-summary-step .field {
+  gap: 14px;
+}
+
+.builder-summary-step .hint {
+  margin: 0;
+}
+
+.builder-summary-step .builder-actions {
+  gap: 12px;
+  margin-top: 0;
+}
+
+.builder-summary-step .compat-result {
+  margin-top: 0;
+}
+
 .builder-nav {
   display: flex;
   justify-content: space-between;

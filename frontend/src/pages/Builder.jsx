@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
 import { readAuth } from '../auth.js';
+import { addBuildToCart } from '../cart.js';
 import { checkCompatibility, getBuild, saveBuild } from '../builds.js';
 import {
   booleanOf,
@@ -245,6 +246,7 @@ export default function Builder() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [step, setStep] = useState(0);
+  const navigate = useNavigate();
   const [selection, setSelection] = useState({
     cpu: null,
     motherboard: null,
@@ -618,7 +620,7 @@ export default function Builder() {
     setMessage('');
     if (!payload.cpu) {
       setError('Сначала выберите процессор.');
-      return;
+      return null;
     }
     try {
       const result = await checkCompatibility(payload);
@@ -628,8 +630,10 @@ export default function Builder() {
           ? 'Сборка совместима.'
           : `Найдено проблем: ${result.errors.length}.`,
       );
+      return result;
     } catch (reason) {
       setError(reason.message);
+      return null;
     }
   }
 
@@ -651,6 +655,31 @@ export default function Builder() {
       setError(reason.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Добавляет все выбранные комплектующие в корзину и ведёт к оформлению.
+  async function handleAddToCart() {
+    setError('');
+    setMessage('');
+    const result = check || (await handleCheck());
+    if (!result) return;
+    if (!result.compatible) {
+      setError('Сборка несовместима: устраните ошибки перед покупкой.');
+      return;
+    }
+
+    const products = ['cpu', 'motherboard', 'ram', 'cooling', 'psu', 'case']
+      .map((key) => selection[key])
+      .filter(Boolean);
+    if (!skipGpu && selection.gpu) products.push(selection.gpu);
+    products.push(...selection.storage);
+
+    const added = addBuildToCart(products);
+    if (added.added > 0) {
+      navigate('/cart');
+    } else {
+      setError('Не удалось добавить сборку: проверьте остатки товаров.');
     }
   }
 
@@ -685,6 +714,14 @@ export default function Builder() {
           </p>
 
           <div className="builder-actions">
+            <button
+              className="btn btn-secondary"
+              disabled={!check || check.errors.length > 0}
+              onClick={handleAddToCart}
+              type="button"
+            >
+              В корзину
+            </button>
             <button
               className="btn"
               disabled={saving}
@@ -893,9 +930,6 @@ export default function Builder() {
             <span>Итого</span>
             <strong>{money(total)}</strong>
           </div>
-          {needWatts > 0 && (
-            <p className="hint">Блок питания: не менее {needWatts} Вт с запасом 25%.</p>
-          )}
         </aside>
       </div>
 
