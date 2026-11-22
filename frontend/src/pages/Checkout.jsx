@@ -8,11 +8,14 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import { money } from '../api.js';
 import { fetchMe, readAuth } from '../auth.js';
+import DeliveryMap from '../components/DeliveryMap.jsx';
 import { readCart, clearCart, onCartChange } from '../cart.js';
 import { createOrder, syncCart } from '../commerce.js';
+import { calculateDelivery } from '../utils/delivery.js';
 
 /** Адрес пункта самовывоза. */
-const PICKUP_ADDRESS = 'Г. Минск, пер. Корженевского, 6, пом. 1';
+const PICKUP_ADDRESS = 'г. Минск, пер. Корженевского, 6, пом. 1';
+const MAP_LINK = 'https://yandex.by/maps/?text=';
 
 /**
  * Оформление заказа.
@@ -34,6 +37,7 @@ export default function Checkout() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deliveryPoint, setDeliveryPoint] = useState(null);
   const navigate = useNavigate();
 
   const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -48,6 +52,13 @@ export default function Checkout() {
           ? 0
           : 10;
   const total = itemsTotal + deliveryCost;
+
+  // Ссылка на Яндекс Карты для выбранного адреса или ПВЗ.
+  const mapAddress =
+    form.deliveryMethod === 'pickup'
+      ? PICKUP_ADDRESS
+      : form.address.trim() || PICKUP_ADDRESS;
+  const mapHref = `${MAP_LINK}${encodeURIComponent(mapAddress)}`;
 
   useEffect(() => {
     fetchMe()
@@ -70,7 +81,24 @@ export default function Checkout() {
 
   function changeField(event) {
     const { name, value } = event.target;
+    // Ручная смена зоны или расстояния отменяет точку на карте.
+    if (name === 'deliveryZone' || name === 'distanceKm') {
+      setDeliveryPoint(null);
+    }
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  // Клик по карте: зона и расстояние считаются по координатам.
+  function handleMapPick(lat, lng) {
+    const result = calculateDelivery(lat, lng, itemsTotal);
+    setDeliveryPoint({ lat, lng });
+    setForm((current) => ({
+      ...current,
+      deliveryMethod: 'courier',
+      deliveryZone: result.zone,
+      distanceKm: result.zone === 'outside' ? String(result.distanceKm) : '',
+    }));
+    setError(result.reachable ? '' : result.message || 'Доставка недоступна');
   }
 
   async function handleSubmit(event) {
@@ -283,6 +311,34 @@ export default function Checkout() {
                 )}
               </div>
             )}
+
+            <div className="delivery-map">
+              <div className="delivery-map-head">
+                <strong>
+                  {form.deliveryMethod === 'pickup' ? 'Пункт выдачи' : 'Точка доставки'}
+                </strong>
+                <span className="small faint">
+                  {form.deliveryMethod === 'pickup'
+                    ? 'Самовывоз'
+                    : form.deliveryZone === 'outside'
+                      ? `За МКАД, ${form.distanceKm || 0} км`
+                      : 'В пределах МКАД'}
+                </span>
+                <a href={mapHref} rel="noreferrer" target="_blank">
+                  Открыть в Яндекс Картах
+                </a>
+              </div>
+              <DeliveryMap
+                mode={form.deliveryMethod}
+                onPick={handleMapPick}
+                point={deliveryPoint}
+              />
+              <div className="delivery-map-hint">
+                {form.deliveryMethod === 'pickup'
+                  ? 'Пункт выдачи отмечен на карте.'
+                  : 'Кликните по карте, чтобы выбрать точку доставки — зона и стоимость рассчитаются автоматически.'}
+              </div>
+            </div>
           </section>
 
           <section className="profile-panel">

@@ -118,7 +118,7 @@ function orderText(order) {
   ];
 
   if (order.deliveryMethod === 'pickup') {
-    lines.push('Получение: самовывоз, Г. Минск, пер. Корженевского, 6, пом. 1');
+    lines.push('Получение: самовывоз, г. Минск, пер. Корженевского, 6, пом. 1');
   } else {
     lines.push(
       `Адрес: ${order.address || 'уточнит менеджер'}`,

@@ -18,7 +18,7 @@ const orders = new Map();
 let nextOrderId = 1;
 
 /** Адрес пункта самовывоза. */
-export const PICKUP_ADDRESS = 'Г. Минск, пер. Корженевского, 6, пом. 1';
+export const PICKUP_ADDRESS = 'г. Минск, пер. Корженевского, 6, пом. 1';
 
 /** Поле ссылки на компонент в таблицах корзины. */
 const FIELD_BY_CATEGORY = {

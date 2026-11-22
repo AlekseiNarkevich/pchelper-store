@@ -76,14 +76,20 @@ body {
   font-size: clamp(17px, 2.4vw, 20px);
 }
 
-/* Учёт safe-area на мобильных устройствах. */
+/* Учёт safe-area на мобильных устройствах и высоты закреплённого подвала. */
 @supports (padding: env(safe-area-inset-bottom)) {
   .app-shell {
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 
   .site-header {
     padding-top: env(safe-area-inset-top);
+  }
+
+  @media (max-width: 900px) {
+    .app-shell {
+      padding-bottom: calc(118px + env(safe-area-inset-bottom));
+    }
   }
 }
 

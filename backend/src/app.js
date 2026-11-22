@@ -51,7 +51,7 @@ export function createApp() {
   app.get('/api/v1/health', (req, res) => {
     res.status(200).json({
       status: 'ok',
-      version: '1.0.0',
+      version: '1.1.0',
       uptimeSeconds: Math.floor((Date.now() - STARTED_AT) / 1000),
       timestamp: new Date().toISOString(),
     });
@@ -114,7 +114,7 @@ export function createApp() {
     res.status(200).json({
       service: 'PCHelper API',
       description: 'Интернет-магазин комплектующих PCHelper: каталог, сборки, заказы',
-      version: process.env.APP_VERSION || '1.0.0',
+      version: process.env.APP_VERSION || '1.1.0',
       environment: process.env.NODE_ENV || 'development',
       endpoints: {
         health: 'GET /api/v1/health',
