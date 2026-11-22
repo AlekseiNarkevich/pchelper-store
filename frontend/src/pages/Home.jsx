@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getCategories, getPrebuilt, getProducts, money } from '../api.js';
+import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import React from 'react';
 
@@ -94,6 +95,12 @@ export default function Home() {
         </div>
       )}
 
+      {loading && (
+        <div className="state" role="status">
+          Загружаем данные магазина…
+        </div>
+      )}
+
       <section className="section">
         <div className="h2" style={{ marginBottom: 14 }}>
           Категории
@@ -171,11 +178,11 @@ export default function Home() {
             {prebuilt.map((build) => (
               <article className="product-card" key={build.id}>
                 <div className="photo">
-                  {build.imageUrl ? (
-                    <img alt={build.name} loading="lazy" src={build.imageUrl} />
-                  ) : (
-                    <span>фото</span>
-                  )}
+                  <ImageWithStatus
+                    alt={build.name}
+                    loading="lazy"
+                    src={build.imageUrl}
+                  />
                 </div>
                 <div className="name">{build.name}</div>
                 <div className="vendor">{build.task}</div>

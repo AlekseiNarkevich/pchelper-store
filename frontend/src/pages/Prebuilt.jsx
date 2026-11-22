@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getPrebuilt, money } from '../api.js';
+import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import { addToCart } from '../cart.js';
 import React from 'react';
 
@@ -94,11 +95,7 @@ export default function Prebuilt() {
           {items.map((build) => (
             <article className="product-card" key={build.id}>
               <div className="photo">
-                {build.imageUrl ? (
-                  <img alt={build.name} loading="lazy" src={build.imageUrl} />
-                ) : (
-                  <span>фото</span>
-                )}
+                <ImageWithStatus alt={build.name} loading="lazy" src={build.imageUrl} />
               </div>
               <div className="name">{build.name}</div>
               <div className="vendor">{build.task}</div>

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { getProduct, getProducts, money } from '../api.js';
+import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import { readAuth } from '../auth.js';
 import { addToCart } from '../cart.js';
@@ -188,11 +189,7 @@ export default function Product() {
 
       <div className="product-hero">
         <div className="photo-box">
-          {product.imageUrl ? (
-            <img alt={product.name} src={product.imageUrl} />
-          ) : (
-            <span>фото товара</span>
-          )}
+          <ImageWithStatus alt={product.name} src={product.imageUrl} />
         </div>
         <div>
           <div className="h1" style={{ fontSize: 26 }}>

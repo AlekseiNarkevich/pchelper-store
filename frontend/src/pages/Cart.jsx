@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { money } from '../api.js';
+import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import { onCartChange, readCart, removeItem, setQty } from '../cart.js';
 import React from 'react';
 
@@ -79,7 +80,10 @@ export default function Cart() {
         {items.map((item) => (
           <div className="cart-row" key={item.id}>
             <div className="thumb">
-              <img alt={item.name} src={item.imageUrl || '/placeholder.jpg'} />
+              <ImageWithStatus
+                alt={item.name}
+                src={item.imageUrl || '/placeholder.jpg'}
+              />
             </div>
             <div className="cart-name">
               <Link

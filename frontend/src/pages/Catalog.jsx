@@ -3,7 +3,7 @@
  * сортировка, пагинация и карточки товаров.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { getCategories, getProducts } from '../api.js';
@@ -26,6 +26,8 @@ export default function Catalog() {
   const search = searchParams.get('search') || '';
   const navigate = useNavigate();
   const [term, setTerm] = useState(search);
+  const queryKey = `${category || ''}|${search}`;
+  const lastQueryRef = useRef(queryKey);
 
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
@@ -47,6 +49,17 @@ export default function Catalog() {
 
   // Товары перезапрашиваются при смене фильтров, сортировки или страницы.
   useEffect(() => {
+    // При смене категории или поиска возвращаемся на первую страницу:
+    // иначе offset от старого списка может оказаться за пределами нового.
+    if (lastQueryRef.current !== queryKey) {
+      lastQueryRef.current = queryKey;
+      if (offset !== 0) {
+        setLoading(true);
+        setOffset(0);
+        return undefined;
+      }
+    }
+
     let alive = true;
     setLoading(true);
     setError('');
@@ -75,7 +88,7 @@ export default function Catalog() {
     return () => {
       alive = false;
     };
-  }, [category, search, sort, minPrice, maxPrice, offset]);
+  }, [category, search, sort, minPrice, maxPrice, offset, queryKey]);
 
   const current = categories.find((item) => item.id === category);
   const title = category ? current?.name || 'Категория' : 'Все комплектующие';
@@ -209,6 +222,12 @@ export default function Catalog() {
           >
             Повторить
           </button>
+        </div>
+      )}
+
+      {loading && (
+        <div className="state" role="status">
+          Загружаем товары…
         </div>
       )}
 

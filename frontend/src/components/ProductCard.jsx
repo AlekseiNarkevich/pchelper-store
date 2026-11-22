@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 
 import { addToCart } from '../cart.js';
 import { money } from '../api.js';
+import ImageWithStatus from './ImageWithStatus.jsx';
 import React from 'react';
 
 /**
@@ -30,11 +31,7 @@ export default function ProductCard({ product, onAdded }) {
   return (
     <article className="product-card">
       <Link className="photo" to={`/product/${product.id}`}>
-        {product.imageUrl ? (
-          <img alt={product.name} loading="lazy" src={product.imageUrl} />
-        ) : (
-          <img alt="" aria-hidden="true" src="/placeholder.jpg" />
-        )}
+        <ImageWithStatus alt={product.name} loading="lazy" src={product.imageUrl} />
       </Link>
       <Link className="name" to={`/product/${product.id}`}>
         {product.name}

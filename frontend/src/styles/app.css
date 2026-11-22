@@ -151,6 +151,57 @@ select {
   padding: 0 var(--space-5);
 }
 
+/* Картинки товаров: показываем состояние загрузки, а не пустое место. */
+.image-status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.image-status img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.image-status.is-loaded img {
+  opacity: 1;
+}
+
+.image-status.is-loading img,
+.image-status.is-error img {
+  visibility: hidden;
+}
+
+.image-status-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--text-faint, #788);
+  font-size: 12px;
+  text-align: center;
+}
+
+.product-hero .photo-box .image-status {
+  min-height: 280px;
+}
+
+.product-hero .photo-box .image-status img {
+  max-width: 100%;
+  max-height: 380px;
+  width: auto;
+  height: auto;
+}
+
 /* ============================== шапка =================================== */
 
 .site-header {
