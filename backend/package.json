@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "images:localize": "node --env-file=.env scripts/localize-images.mjs"
   },
   "engines": {
     "node": ">=22"
