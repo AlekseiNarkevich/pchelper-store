@@ -32,13 +32,22 @@
 postgresql://postgres.<ref>:<пароль>@aws-0-....pooler.supabase.com:5432/postgres
 ```
 
-4. Добавьте в `backend/.env`:
+4. Лучше **не записывать пароль в `backend/.env`**: этот файл целиком
+   упаковывается в exe. Задайте переменную только в текущем терминале:
 
-```env
-SUPABASE_DB_URL=postgresql://...
+```powershell
+$env:SUPABASE_DB_URL = "postgresql://postgres.<ref>:<пароль>@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
 ```
 
-`.env` в git не попадает. Пароль базы в промпт и репозиторий не пишем.
+`backend/.env` не перезапишет уже заданную переменную окружения.
+После бэкапа её можно убрать:
+
+```powershell
+Remove-Item Env:SUPABASE_DB_URL
+```
+
+Если всё же положили строку в `.env`, удалите её перед сборкой exe.
+Пароль базы в git и в промпт не пишем.
 
 ## Выгрузить только структуру
 

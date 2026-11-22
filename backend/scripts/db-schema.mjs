@@ -23,7 +23,8 @@ const dbUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
 
 if (!dbUrl) {
   console.error(
-    'Нет SUPABASE_DB_URL. Добавьте строку подключения в backend/.env:\n' +
+    'Нет SUPABASE_DB_URL. Задайте строку подключения в терминале:\n' +
+      '$env:SUPABASE_DB_URL = "postgresql://..."\n' +
       'Dashboard -> Connect -> Session pooler -> URI',
   );
   process.exit(1);
