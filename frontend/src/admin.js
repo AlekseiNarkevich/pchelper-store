@@ -78,6 +78,48 @@ export const createProduct = (category, data) =>
   request('/admin/products', { method: 'POST', body: { category, data } });
 
 /**
+ * Сжимает фото перед загрузкой.
+ *
+ * Большие фото — главная причина лишнего трафика Supabase. Уменьшаем
+ * до 1200 px и переводим в WebP прямо в браузере; GIF не трогаем,
+ * чтобы не потерять анимацию. Если браузер не смог — отправляем исходник.
+ *
+ * @param {File} file Выбранный файл.
+ * @returns {Promise<File>}
+ */
+async function compressImage(file) {
+  if (!file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  if (file.size < 250 * 1024) return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+      bitmap.close?.();
+      return file;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', 0.82),
+    );
+    if (!blob || blob.size >= file.size) return file;
+
+    const name = file.name.replace(/\.[^.]+$/, '') || 'photo';
+    return new File([blob], `${name}.webp`, { type: 'image/webp' });
+  } catch {
+    // Старый браузер или необычный формат: пусть решает backend.
+    return file;
+  }
+}
+
+/**
  * Загружает фото товара в Supabase Storage.
  *
  * Форма отправляется как multipart/form-data, поэтому общий JSON-помощник
@@ -87,8 +129,9 @@ export const createProduct = (category, data) =>
  * @returns {Promise<{url: string, path: string}>}
  */
 export async function uploadProductImage(file) {
+  const prepared = await compressImage(file);
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', prepared);
 
   let token = readAuth().accessToken;
   if (!token) throw new Error('Требуется вход');
