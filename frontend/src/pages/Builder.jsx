@@ -183,18 +183,22 @@ function ProductTable({ items, columns, isSelected, onPick, emptyText }) {
         <tbody>
           {items.map((product) => {
             const selected = isSelected(product);
+            const outOfStock = Number(product.stock ?? 0) <= 0;
             return (
               <tr
-                className={selected ? 'is-on' : ''}
+                className={`${selected ? 'is-on' : ''}${outOfStock ? ' is-out' : ''}`}
                 key={product.id}
-                onClick={() => onPick(product)}
+                onClick={() => {
+                  if (!outOfStock) onPick(product);
+                }}
                 onKeyDown={(event) => {
+                  if (outOfStock) return;
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     onPick(product);
                   }
                 }}
-                tabIndex={0}
+                tabIndex={outOfStock ? -1 : 0}
               >
                 <td>
                   <span className="picker-check" aria-hidden="true">
@@ -213,7 +217,17 @@ function ProductTable({ items, columns, isSelected, onPick, emptyText }) {
                     ) : (
                       <span className="picker-thumb picker-thumb-empty">фото</span>
                     )}
-                    <span>{product.name}</span>
+                    <span className="picker-name-text">
+                      <Link
+                        className="picker-link"
+                        onClick={(event) => event.stopPropagation()}
+                        title="Открыть страницу товара"
+                        to={`/product/${product.id}`}
+                      >
+                        {product.name}
+                      </Link>
+                      {outOfStock && <span className="picker-out">нет в наличии</span>}
+                    </span>
                   </div>
                 </td>
                 {columns.map((column) => (
