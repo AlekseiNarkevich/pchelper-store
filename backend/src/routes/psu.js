@@ -65,6 +65,8 @@ router.get(
         id: item.id,
         name: item.name,
         price: item.price,
+        imageUrl: item.imageUrl || null,
+        stock: Number(item.stock ?? 0),
         watts: numField(item, 'мощность_в_ваттах', 'Мощность'),
         standard: textField(item, 'стандарт_блока_питания', 'Стандарт'),
         certificate: textField(item, 'сертификат_80plus', 'Сертификат 80 PLUS'),

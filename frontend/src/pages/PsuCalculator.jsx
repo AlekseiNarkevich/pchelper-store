@@ -1,32 +1,116 @@
 /**
- * PCHelper — Калькулятор мощности блока питания: суммирует
- * TDP процессора и видеокарты и добавляет запас 25%.
+ * PCHelper — Калькулятор мощности блока питания.
+ *
+ * Слева выбираются процессор и видеокарта (с фотографиями и характеристиками),
+ * затем сервер считает рекомендуемую мощность и показывает подходящие БП.
+ * Кнопка «Собрать ПК» активна только после выбора процессора, видеокарты
+ * (или встроенной графики) и конкретного блока питания.
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
 import { calculatePsu } from '../builds.js';
 import { hasIntegratedGraphics } from '../productFields.js';
 
 /**
- * Калькулятор мощности блока питания.
+ * Список комплектующих с фото и выбором строки.
  *
- * Сервер считает рекомендуемую мощность по TDP процессора и видеокарты
- * с запасом 25% и возвращает только подходящие модели.
+ * @param {object} props Свойства.
+ * @param {Array<object>} props.items Товары.
+ * @param {string} props.selectedId Выбранный идентификатор.
+ * @param {Function} props.onPick Выбор товара.
+ * @param {string} props.emptyText Текст при пустом списке.
+ * @returns {React.ReactElement}
+ */
+function ProductList({ items, selectedId, onPick, emptyText }) {
+  if (!items.length) return <div className="state">{emptyText}</div>;
+
+  return (
+    <div className="picker-wrap psu-list">
+      <table className="picker">
+        <thead>
+          <tr>
+            <th aria-label="Выбор" />
+            <th>Название</th>
+            <th>Характеристики</th>
+            <th>Цена</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((product) => {
+            const selected = product.id === selectedId;
+            const outOfStock = Number(product.stock ?? 0) <= 0;
+            const specs = (product.specs || [])
+              .slice(0, 2)
+              .map((spec) => `${spec.label}: ${spec.value}`)
+              .join(' · ');
+
+            return (
+              <tr
+                className={`${selected ? 'is-on' : ''}${outOfStock ? ' is-out' : ''}`}
+                key={product.id}
+                onClick={() => {
+                  if (!outOfStock) onPick(product);
+                }}
+                tabIndex={outOfStock ? -1 : 0}
+              >
+                <td>
+                  <span className="picker-check" aria-hidden="true">
+                    {selected ? '✓' : ''}
+                  </span>
+                </td>
+                <td className="picker-name">
+                  <div className="picker-product">
+                    {product.imageUrl ? (
+                      <img
+                        alt=""
+                        className="picker-thumb"
+                        loading="lazy"
+                        src={product.imageUrl}
+                      />
+                    ) : (
+                      <span className="picker-thumb picker-thumb-empty">фото</span>
+                    )}
+                    <span className="picker-name-text">
+                      <Link
+                        className="picker-link"
+                        onClick={(event) => event.stopPropagation()}
+                        to={`/product/${product.id}`}
+                      >
+                        {product.name}
+                      </Link>
+                      {outOfStock && <span className="picker-out">нет в наличии</span>}
+                    </span>
+                  </div>
+                </td>
+                <td className="small faint">{specs || '—'}</td>
+                <td className="picker-price">{money(product.price)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Калькулятор мощности блока питания.
  */
 export default function PsuCalculator() {
   const [cpus, setCpus] = useState([]);
   const [gpus, setGpus] = useState([]);
   const [cpuId, setCpuId] = useState('');
   const [gpuId, setGpuId] = useState('');
+  const [psuId, setPsuId] = useState('');
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const navigate = useNavigate();
 
-  // Списки процессоров и видеокарт загружаются один раз.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -57,13 +141,35 @@ export default function PsuCalculator() {
   );
   const integrated = hasIntegratedGraphics(selectedCpu);
 
+  // Если у процессора нет встроенной графики, видеокарта обязательна.
   useEffect(() => {
     if (!integrated && !gpuId && gpus[0]) setGpuId(gpus[0].id);
   }, [integrated, gpuId, gpus]);
 
-  // Расчёт делает сервер: он же подбирает подходящие блоки питания.
+  const selectedPsu = result?.items.find((item) => item.id === psuId) || null;
+  const canBuild = Boolean(cpuId && psuId && (gpuId || integrated));
+
+  function pickCpu(product) {
+    setCpuId(product.id);
+    setResult(null);
+    setPsuId('');
+  }
+
+  function pickGpu(product) {
+    setGpuId(product.id);
+    setResult(null);
+    setPsuId('');
+  }
+
+  function useIntegrated() {
+    setGpuId('');
+    setResult(null);
+    setPsuId('');
+  }
+
   async function handleCalculate() {
     setError('');
+    setPsuId('');
     setCalculating(true);
     try {
       setResult(await calculatePsu(cpuId, integrated && !gpuId ? null : gpuId));
@@ -72,6 +178,14 @@ export default function PsuCalculator() {
     } finally {
       setCalculating(false);
     }
+  }
+
+  // Передаём выбранные детали в конфигуратор через query-параметры.
+  function buildPc() {
+    if (!canBuild) return;
+    const params = new URLSearchParams({ cpu: cpuId, psu: psuId });
+    if (gpuId) params.set('gpu', gpuId);
+    navigate(`/builder?${params.toString()}`);
   }
 
   return (
@@ -86,61 +200,90 @@ export default function PsuCalculator() {
           <div className="h1" style={{ fontSize: 26 }}>
             Калькулятор мощности БП
           </div>
-          <div className="sub">Расчёт по TDP процессора и видеокарты с запасом 25%</div>
+          <div className="sub">
+            Выберите процессор, видеокарту и блок питания — расчёт с запасом 25%
+          </div>
         </div>
-        <Link className="btn btn-secondary" to="/builder">
+        <button
+          className="btn"
+          disabled={!canBuild}
+          onClick={buildPc}
+          title={
+            canBuild
+              ? 'Открыть конфигуратор с выбранными деталями'
+              : 'Сначала выберите процессор, видеокарту и блок питания'
+          }
+          type="button"
+        >
           Собрать ПК
-        </Link>
+        </button>
       </div>
 
       {loading ? (
         <div className="state">Загружаем комплектующие…</div>
       ) : (
-        <div className="psu-form">
-          <label className="field">
-            <span>Процессор</span>
-            <select
-              onChange={(event) => {
-                setCpuId(event.target.value);
-                setResult(null);
-              }}
-              value={cpuId}
-            >
-              {cpus.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <>
+          <div className="psu-pickers">
+            <section className="profile-panel psu-picker-panel">
+              <div className="panel-head">
+                <h2>Процессор</h2>
+                {selectedCpu && (
+                  <span className="small faint">
+                    TDP{' '}
+                    {selectedCpu.specs?.find((s) => s.label === 'TDP')?.value || '—'}
+                  </span>
+                )}
+              </div>
+              <ProductList
+                emptyText="Процессоры не найдены."
+                items={cpus}
+                onPick={pickCpu}
+                selectedId={cpuId}
+              />
+            </section>
 
-          <label className="field">
-            <span>Видеокарта</span>
-            <select
-              onChange={(event) => {
-                setGpuId(event.target.value);
-                setResult(null);
-              }}
-              value={gpuId}
-            >
-              {integrated && <option value="">Без дискретной видеокарты</option>}
-              {gpus.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <section className="profile-panel psu-picker-panel">
+              <div className="panel-head">
+                <h2>Видеокарта</h2>
+                {integrated && (
+                  <button
+                    className={`btn btn-sm ${gpuId ? 'btn-secondary' : ''}`}
+                    onClick={useIntegrated}
+                    type="button"
+                  >
+                    Без дискретной
+                  </button>
+                )}
+              </div>
+              <ProductList
+                emptyText="Видеокарты не найдены."
+                items={gpus}
+                onPick={pickGpu}
+                selectedId={gpuId}
+              />
+            </section>
+          </div>
 
-          <button
-            className="btn"
-            disabled={calculating || !cpuId}
-            onClick={handleCalculate}
-            type="button"
-          >
-            {calculating ? 'Считаем…' : 'Рассчитать'}
-          </button>
-        </div>
+          <div className="psu-calc-row">
+            <button
+              className="btn"
+              disabled={calculating || !cpuId}
+              onClick={handleCalculate}
+              type="button"
+            >
+              {calculating ? 'Считаем…' : 'Рассчитать мощность'}
+            </button>
+            <span className="small faint">
+              {selectedCpu?.name || 'Процессор не выбран'}
+              {' · '}
+              {gpuId
+                ? gpus.find((gpu) => gpu.id === gpuId)?.name
+                : integrated
+                  ? 'встроенная графика'
+                  : 'видеокарта не выбрана'}
+            </span>
+          </div>
+        </>
       )}
 
       {error && (
@@ -161,7 +304,9 @@ export default function PsuCalculator() {
             <div>
               <span>Видеокарта</span>
               <strong>
-                {result.gpu ? `${result.gpu.name} · ${result.gpu.tdp} Вт` : 'нет'}
+                {result.gpu
+                  ? `${result.gpu.name} · ${result.gpu.tdp} Вт`
+                  : 'встроенная'}
               </strong>
             </div>
             <div className="psu-total">
@@ -171,14 +316,21 @@ export default function PsuCalculator() {
             </div>
           </div>
 
-          <h3>Подходящие блоки питания</h3>
+          <div className="panel-head">
+            <h3>Подходящие блоки питания</h3>
+            {selectedPsu && (
+              <span className="small faint">Выбран: {selectedPsu.name}</span>
+            )}
+          </div>
+
           {result.items.length === 0 ? (
             <div className="state">В каталоге нет блоков питания такой мощности.</div>
           ) : (
-            <div className="picker-wrap">
+            <div className="picker-wrap psu-list">
               <table className="picker">
                 <thead>
                   <tr>
+                    <th aria-label="Выбор" />
                     <th>Название</th>
                     <th>Мощность</th>
                     <th>80 PLUS</th>
@@ -188,18 +340,59 @@ export default function PsuCalculator() {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.items.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <Link to={`/product/${item.id}`}>{item.name}</Link>
-                      </td>
-                      <td>{item.watts} Вт</td>
-                      <td>{item.certificate || '—'}</td>
-                      <td>{item.modular ? 'да' : 'нет'}</td>
-                      <td>{item.pcieGen5 ? 'да' : 'нет'}</td>
-                      <td className="picker-price">{money(item.price)}</td>
-                    </tr>
-                  ))}
+                  {result.items.map((item) => {
+                    const selected = item.id === psuId;
+                    const outOfStock = Number(item.stock ?? 0) <= 0;
+                    return (
+                      <tr
+                        className={`${selected ? 'is-on' : ''}${outOfStock ? ' is-out' : ''}`}
+                        key={item.id}
+                        onClick={() => {
+                          if (!outOfStock) setPsuId(item.id);
+                        }}
+                        tabIndex={outOfStock ? -1 : 0}
+                      >
+                        <td>
+                          <span className="picker-check" aria-hidden="true">
+                            {selected ? '✓' : ''}
+                          </span>
+                        </td>
+                        <td className="picker-name">
+                          <div className="picker-product">
+                            {item.imageUrl ? (
+                              <img
+                                alt=""
+                                className="picker-thumb"
+                                loading="lazy"
+                                src={item.imageUrl}
+                              />
+                            ) : (
+                              <span className="picker-thumb picker-thumb-empty">
+                                фото
+                              </span>
+                            )}
+                            <span className="picker-name-text">
+                              <Link
+                                className="picker-link"
+                                onClick={(event) => event.stopPropagation()}
+                                to={`/product/${item.id}`}
+                              >
+                                {item.name}
+                              </Link>
+                              {outOfStock && (
+                                <span className="picker-out">нет в наличии</span>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                        <td>{item.watts} Вт</td>
+                        <td>{item.certificate || '—'}</td>
+                        <td>{item.modular ? 'да' : 'нет'}</td>
+                        <td>{item.pcieGen5 ? 'да' : 'нет'}</td>
+                        <td className="picker-price">{money(item.price)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

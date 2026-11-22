@@ -282,7 +282,11 @@ export default function Builder() {
   const [hydrated, setHydrated] = useState(false);
   const [searchParams] = useSearchParams();
   const buildId = searchParams.get('build');
+  const cpuParam = searchParams.get('cpu');
+  const gpuParam = searchParams.get('gpu');
+  const psuParam = searchParams.get('psu');
   const loadedBuildRef = useRef(false);
+  const loadedPartsRef = useRef(false);
 
   // Загрузка каталога и восстановление черновика.
   useEffect(() => {
@@ -510,6 +514,23 @@ export default function Builder() {
       alive = false;
     };
   }, [buildId, loading]);
+
+  // Открытие из калькулятора БП: /builder?cpu=...&gpu=...&psu=...
+  useEffect(() => {
+    if (buildId || !cpuParam || loading || loadedPartsRef.current) return;
+    loadedPartsRef.current = true;
+
+    const find = (list, id) => list.find((product) => product.id === id) || null;
+    const cpu = find(lists.cpu, cpuParam);
+    if (!cpu) return;
+    const gpu = gpuParam ? find(lists.gpu, gpuParam) : null;
+    const psu = psuParam ? find(lists.psu, psuParam) : null;
+
+    setSelection((current) => ({ ...current, cpu, gpu, psu }));
+    setSkipGpu(!gpu && hasIntegratedGraphics(cpu));
+    setStep(0);
+    setHydrated(true);
+  }, [buildId, cpuParam, gpuParam, psuParam, loading, lists]);
 
   // Встроенной графики нет — режим «без видеокарты» недоступен.
   useEffect(() => {
@@ -899,19 +920,27 @@ export default function Builder() {
       )}
 
       <div className="step-strip" role="list">
-        {STEPS.map((item, index) => (
-          <button
-            className={`step-pill${index === step ? ' is-on' : ''}${
-              index < step ? ' is-done' : ''
-            }`}
-            key={item.key}
-            onClick={() => setStep(index)}
-            type="button"
-          >
-            <span className="step-num">{index + 1}</span>
-            <span>{item.title}</span>
-          </button>
-        ))}
+        {STEPS.map((item, index) => {
+          const filled =
+            item.key === 'storage'
+              ? selection.storage.length > 0
+              : item.key === 'gpu'
+                ? Boolean(selection.gpu) || skipGpu
+                : Boolean(selection[item.key]);
+          return (
+            <button
+              className={`step-pill${index === step ? ' is-on' : ''}${
+                filled ? ' is-done' : ''
+              }`}
+              key={item.key}
+              onClick={() => setStep(index)}
+              type="button"
+            >
+              <span className="step-num">{index + 1}</span>
+              <span>{item.title}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="builder-layout">
