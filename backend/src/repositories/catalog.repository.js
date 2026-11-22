@@ -114,6 +114,7 @@ function matchesSearch(product, needle) {
  * @param {string} [params.search] Подстрока в названии или характеристиках.
  * @param {number} [params.minPrice] Минимальная цена.
  * @param {number} [params.maxPrice] Максимальная цена.
+ * @param {Record<string, string[]>} [params.filters] Фильтры по характеристикам.
  * @param {string} [params.sort] Вариант сортировки.
  * @param {number} [params.limit] Размер страницы.
  * @param {number} [params.offset] Смещение.
@@ -125,6 +126,7 @@ export async function listProducts(params = {}) {
     search,
     minPrice,
     maxPrice,
+    filters,
     sort = 'price_asc',
     limit = 20,
     offset = 0,
@@ -140,6 +142,19 @@ export async function listProducts(params = {}) {
   }
   if (minPrice !== undefined) products = products.filter((p) => p.price >= minPrice);
   if (maxPrice !== undefined) products = products.filter((p) => p.price <= maxPrice);
+
+  if (filters && Object.keys(filters).length) {
+    const entries = Object.entries(filters).filter(([, values]) => values.length);
+    products = products.filter((product) =>
+      entries.every(([label, values]) =>
+        product.specs.some(
+          (spec) =>
+            normalize(spec.label) === normalize(label) &&
+            values.some((value) => normalize(spec.value) === normalize(value)),
+        ),
+      ),
+    );
+  }
 
   products.sort((a, b) => {
     if (sort === 'price_desc') return b.price - a.price;

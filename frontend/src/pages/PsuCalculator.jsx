@@ -3,11 +3,11 @@
  *
  * Слева выбираются процессор и видеокарта (с фотографиями и характеристиками),
  * затем сервер считает рекомендуемую мощность и показывает подходящие БП.
- * Кнопка «Собрать ПК» активна только после выбора процессора, видеокарты
- * (или встроенной графики) и конкретного блока питания.
+ * «Собрать ПК» доступна при наличии CPU и GPU/встроенной графики; БП
+ * можно выбрать сразу или подобрать позже в конфигураторе.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
@@ -112,6 +112,7 @@ export default function PsuCalculator() {
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const resultRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -190,6 +191,13 @@ export default function PsuCalculator() {
       setCalculating(false);
     }
   }
+
+  // После расчёта подводим пользователя к результату и списку БП:
+  // на 2K они могут быть ниже первого экрана.
+  useEffect(() => {
+    if (!result || !resultRef.current) return;
+    resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [result]);
 
   // Передаём выбранные детали в конфигуратор через query-параметры.
   // БП не обязателен: без него откроем конфигуратор с CPU и видеокартой.
@@ -317,7 +325,7 @@ export default function PsuCalculator() {
 
       {result && (
         <>
-          <div className="psu-result">
+          <div className="psu-result" ref={resultRef}>
             <div>
               <span>Процессор</span>
               <strong>

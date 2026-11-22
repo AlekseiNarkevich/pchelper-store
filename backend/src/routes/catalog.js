@@ -91,6 +91,32 @@ function parsePrice(value, name) {
   return number;
 }
 
+/**
+ * Разбирает фильтры характеристик из JSON-строки.
+ *
+ * @param {unknown} value Значение query-параметра.
+ * @returns {Record<string, string[]>|undefined}
+ */
+function parseFilters(value) {
+  if (value === undefined || value === '') return undefined;
+  try {
+    const parsed = JSON.parse(String(value));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('not an object');
+    }
+    const result = {};
+    for (const [label, values] of Object.entries(parsed)) {
+      const list = (Array.isArray(values) ? values : [values])
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+      if (list.length) result[label] = list;
+    }
+    return result;
+  } catch {
+    throw badRequest('Параметр filters должен быть JSON-объектом');
+  }
+}
+
 /** GET /api/v1/categories */
 router.get(
   '/categories',
@@ -125,6 +151,7 @@ router.get(
     });
     const minPrice = parsePrice(req.query.minPrice, 'minPrice');
     const maxPrice = parsePrice(req.query.maxPrice, 'maxPrice');
+    const filters = parseFilters(req.query.filters);
 
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       throw badRequest('minPrice не может быть больше maxPrice');
@@ -135,6 +162,7 @@ router.get(
       search,
       minPrice,
       maxPrice,
+      filters,
       sort,
       limit: limit ?? 20,
       offset: offset ?? 0,

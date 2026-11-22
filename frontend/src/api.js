@@ -15,7 +15,7 @@ const BASE = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '');
  * @param {number} timeoutMs Тайм-аут запроса.
  * @returns {Promise<object>}
  */
-async function request(path, timeoutMs = 8000) {
+async function request(path, timeoutMs = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

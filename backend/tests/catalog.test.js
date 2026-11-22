@@ -107,6 +107,23 @@ test('каталог: фильтр по цене оставляет товары
   }
 });
 
+test('каталог: фильтр по характеристике оставляет подходящие товары', async () => {
+  const filters = encodeURIComponent(JSON.stringify({ Производитель: ['AMD'] }));
+  const { status, body } = await get(`/products?filters=${filters}`);
+  assert.equal(status, 200);
+  assert.ok(body.total >= 1);
+  for (const item of body.items) {
+    const spec = item.specs.find((entry) => entry.label === 'Производитель');
+    assert.equal(spec?.value, 'AMD');
+  }
+});
+
+test('валидация: некорректный filters отклоняется', async () => {
+  const { status, body } = await get('/products?filters=not-json');
+  assert.equal(status, 400);
+  assert.equal(body.error.code, 'VALIDATION_ERROR');
+});
+
 test('каталог: сортировка по убыванию цены', async () => {
   const { status, body } = await get('/products?sort=price_desc');
   assert.equal(status, 200);

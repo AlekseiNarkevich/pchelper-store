@@ -83,6 +83,12 @@ export default function Prebuilt() {
       {error && <div className="state error">Не удалось загрузить сборки: {error}</div>}
 
       {loading && (
+        <div className="state" role="status">
+          Загружаем готовые сборки…
+        </div>
+      )}
+
+      {loading && (
         <div className="product-grid">
           <div className="skeleton" />
           <div className="skeleton" />

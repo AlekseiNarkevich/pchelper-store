@@ -83,6 +83,9 @@ function closeSplash() {
   const splash = splashWindow;
   splashWindow = null;
   if (splash && !splash.isDestroyed()) {
+    // Скрываем перед destroy(): так Windows не успевает показать
+    // «призрачное» окно заставки в момент закрытия приложения.
+    splash.hide();
     splash.destroy();
   }
 }

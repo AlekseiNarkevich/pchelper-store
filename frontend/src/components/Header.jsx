@@ -142,6 +142,20 @@ export default function Header() {
                 type="search"
                 value={term}
               />
+              {term && (
+                <button
+                  aria-label="Очистить поиск"
+                  className="search-clear"
+                  onClick={() => {
+                    setTerm('');
+                    setPreview([]);
+                    setOpen(false);
+                  }}
+                  type="button"
+                >
+                  ×
+                </button>
+              )}
             </form>
             {open && preview.length > 0 && (
               <div className="search-drop">
