@@ -62,7 +62,8 @@
       ]
     },
     "portable": {
-      "artifactName": "PCHelper-Portable-${version}-${arch}.${ext}"
+      "artifactName": "PCHelper-Portable-${version}-${arch}.${ext}",
+      "splashImage": "splash.bmp"
     }
   }
 }
