@@ -445,6 +445,7 @@ function OrdersPanel({ onError, onFlash }) {
   const [drafts, setDrafts] = useState({});
   const [filter, setFilter] = useState('active');
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelIntent, setCancelIntent] = useState('cancel');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -526,14 +527,17 @@ function OrdersPanel({ onError, onFlash }) {
   }
 
   // «Удалить» и выбор статуса «Отменён» ведут в одно окно причины.
-  function openCancel(order) {
+  // status — только отменить, delete — отменить и сразу удалить.
+  function openCancel(order, intent = 'cancel') {
     setCancelTarget(order);
+    setCancelIntent(intent);
     setReason('');
   }
 
   function closeCancel() {
     if (busy) return;
     setCancelTarget(null);
+    setCancelIntent('cancel');
     setReason('');
   }
 
@@ -546,16 +550,36 @@ function OrdersPanel({ onError, onFlash }) {
         status: 'Отменён',
         comment: value,
       });
-      setOrders((current) =>
-        current.map((item) =>
-          item.id === updated.id ? { ...item, ...updated } : item,
-        ),
-      );
-      clearDraft(cancelTarget.id);
-      onFlash(
-        `Заказ ${cancelTarget.number} отменён — покупателю отправлено письмо с причиной`,
-      );
+
+      if (cancelIntent === 'delete') {
+        setOrders((current) =>
+          current.map((item) =>
+            item.id === updated.id ? { ...item, ...updated } : item,
+          ),
+        );
+        await deleteOrder(cancelTarget.id);
+        setOrders((current) => current.filter((item) => item.id !== cancelTarget.id));
+        clearDraft(cancelTarget.id);
+        onFlash(
+          `Заказ ${cancelTarget.number} отменён и удалён — покупателю отправлено письмо с причиной`,
+        );
+      } else {
+        setOrders((current) =>
+          current.map((item) =>
+            item.id === updated.id ? { ...item, ...updated } : item,
+          ),
+        );
+        clearDraft(cancelTarget.id);
+        // Сразу показываем отменённый заказ в соответствующем фильтре,
+        // чтобы он не выглядел «исчезнувшим».
+        setFilter('cancelled');
+        onFlash(
+          `Заказ ${cancelTarget.number} отменён — письмо отправлено, заказ в разделе «Отменённые»`,
+        );
+      }
+
       setCancelTarget(null);
+      setCancelIntent('cancel');
       setReason('');
     } catch (error) {
       onError(error.message);
@@ -682,7 +706,7 @@ function OrdersPanel({ onError, onFlash }) {
                     onClick={() =>
                       order.status === 'Отменён'
                         ? removeCancelled(order)
-                        : openCancel(order)
+                        : openCancel(order, 'delete')
                     }
                     type="button"
                   >
@@ -734,10 +758,15 @@ function OrdersPanel({ onError, onFlash }) {
             onClick={(event) => event.stopPropagation()}
             role="dialog"
           >
-            <h3 id="cancel-order-title">Отменить заказ {cancelTarget.number}?</h3>
+            <h3 id="cancel-order-title">
+              {cancelIntent === 'delete'
+                ? `Удалить заказ ${cancelTarget.number}?`
+                : `Отменить заказ ${cancelTarget.number}?`}
+            </h3>
             <p className="muted">
-              Заказ получит статус «Отменён» и исчезнет из активного списка. Покупателю
-              уйдёт письмо с указанной причиной.
+              {cancelIntent === 'delete'
+                ? 'Заказ получит статус «Отменён», покупателю уйдёт письмо с причиной, после чего заказ будет удалён из базы.'
+                : 'Заказ получит статус «Отменён» и останется в разделе «Отменённые». Покупателю уйдёт письмо с причиной.'}
             </p>
             <label className="field">
               <span>Причина отмены</span>
@@ -764,7 +793,11 @@ function OrdersPanel({ onError, onFlash }) {
                 onClick={confirmCancel}
                 type="button"
               >
-                {busy ? 'Отменяем…' : 'Отменить заказ'}
+                {busy
+                  ? 'Сохраняем…'
+                  : cancelIntent === 'delete'
+                    ? 'Отменить и удалить'
+                    : 'Отменить заказ'}
               </button>
             </div>
           </div>
