@@ -1176,6 +1176,113 @@
   text-transform: uppercase;
 }
 
+/* --- Пользователи в админке --- */
+.admin-users-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: var(--radius, 10px);
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow-card, none);
+}
+
+.admin-users {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-users th,
+.admin-users td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, #e8e8e8);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-users th {
+  background: var(--surface-2, #f2f4f7);
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.admin-users th:last-child,
+.admin-users td:last-child {
+  text-align: right;
+}
+
+.admin-users tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-users tbody tr:hover {
+  background: var(--surface-2, #f8fafc);
+}
+
+.admin-users tbody tr.is-self {
+  background: var(--primary-soft, #e3f0ff);
+}
+
+.admin-user-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+}
+
+.admin-user-main strong {
+  font-size: 14px;
+}
+
+.admin-user-email {
+  color: var(--text-muted, #555);
+  word-break: break-all;
+}
+
+.admin-user-main small {
+  color: var(--text-faint, #777);
+  font-size: 11px;
+}
+
+.admin-role {
+  min-width: 160px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  font: inherit;
+}
+
+.admin-user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-user-reason {
+  max-width: 260px;
+  margin-top: 4px;
+  color: var(--danger, #c62828);
+  font-size: 11px;
+  white-space: normal;
+}
+
+.btn-warn {
+  border-color: #b45309;
+  background: #b45309;
+  color: #fff;
+}
+
+.btn-warn:hover {
+  border-color: #92400e;
+  background: #92400e;
+}
+
 .admin-order {
   padding: 16px;
   border: 1px solid var(--border, #e8e8e8);

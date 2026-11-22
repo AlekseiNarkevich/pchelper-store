@@ -62,15 +62,21 @@ export async function requireAuth(req, res, next) {
       return res.status(403).json({
         error: {
           code: 'USER_BLOCKED',
-          message: user.blockReason
-            ? `Аккаунт заблокирован: ${user.blockReason}`
-            : 'Аккаунт заблокирован администратором',
+          message: `${
+            user.blockReason
+              ? `Аккаунт заблокирован: ${user.blockReason}`
+              : 'Аккаунт заблокирован администратором'
+          }. Обратитесь в поддержку: pchelper.shop@gmail.com`,
         },
       });
     }
     if (user.deleted) {
       return res.status(403).json({
-        error: { code: 'ACCOUNT_DELETED', message: 'Аккаунт удалён' },
+        error: {
+          code: 'ACCOUNT_DELETED',
+          message:
+            'Аккаунт удалён. Вход невозможен. Обратитесь в поддержку: pchelper.shop@gmail.com',
+        },
       });
     }
     req.user = user;

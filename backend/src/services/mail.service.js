@@ -11,6 +11,9 @@ import tls from 'node:tls';
 
 import { isDatabaseConnected, supabase } from './supabase.service.js';
 
+/** Адрес поддержки во всех письмах об аккаунте. */
+const SUPPORT_EMAIL = 'pchelper.shop@gmail.com';
+
 /**
  * Сертификаты для проверки TLS.
  *
@@ -229,6 +232,146 @@ export async function sendOrderStatusEmail({ to, order, status, comment }) {
     subject: `PCHelper: заказ ${order.number} — ${status}`,
     text,
   });
+}
+
+/**
+ * Сообщает о блокировке аккаунта.
+ *
+ * @param {{to: string, name?: string, reason: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendAccountBlockedEmail({ to, name, reason }) {
+  const text = [
+    name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
+    '',
+    'Ваш аккаунт в PCHelper заблокирован.',
+    `Причина: ${reason || 'Нарушение правил магазина'}.`,
+    '',
+    'Вход в аккаунт временно невозможен.',
+    `Если считаете блокировку ошибкой, напишите в поддержку: ${SUPPORT_EMAIL}.`,
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({ to, subject: 'PCHelper: аккаунт заблокирован', text });
+}
+
+/**
+ * Сообщает о разблокировке аккаунта.
+ *
+ * @param {{to: string, name?: string, comment?: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendAccountUnblockedEmail({ to, name, comment }) {
+  const text = [
+    name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
+    '',
+    'Ваш аккаунт в PCHelper снова активен — вход разрешён.',
+    comment ? `Комментарий администратора: ${comment}` : '',
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({ to, subject: 'PCHelper: аккаунт разблокирован', text });
+}
+
+/**
+ * Сообщает об удалении аккаунта.
+ *
+ * Письмо отправляется до обезличивания записи, поэтому адрес ещё известен.
+ *
+ * @param {{to: string, name?: string, reason: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendAccountDeletedEmail({ to, name, reason }) {
+  const text = [
+    name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
+    '',
+    'Ваш аккаунт в PCHelper удалён.',
+    `Причина: ${reason || 'Решение администрации'}.`,
+    '',
+    'Вход в этот аккаунт невозможен.',
+    `Если это ошибка, напишите в поддержку: ${SUPPORT_EMAIL}.`,
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({ to, subject: 'PCHelper: аккаунт удалён', text });
+}
+
+/** Русские названия ролей для писем. */
+const ROLE_LABELS = {
+  customer: 'Покупатель',
+  manager: 'Менеджер',
+  admin: 'Администратор',
+};
+
+/**
+ * Сообщает о смене роли аккаунта.
+ *
+ * @param {{to: string, name?: string, role: string, comment?: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendRoleChangedEmail({ to, name, role, comment }) {
+  const text = [
+    name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
+    '',
+    `Роль вашего аккаунта изменена: ${ROLE_LABELS[role] || role}.`,
+    comment ? `Комментарий администратора: ${comment}` : '',
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({ to, subject: 'PCHelper: изменена роль аккаунта', text });
+}
+
+/**
+ * Сообщает о решении по отзыву.
+ *
+ * @param {{to: string, name?: string, productId: string, status: string, comment?: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendReviewModeratedEmail({
+  to,
+  name,
+  productId,
+  status,
+  comment,
+}) {
+  const action = status === 'опубликован' ? 'опубликован' : 'отклонён';
+  const text = [
+    name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
+    '',
+    `Ваш отзыв на товар ${productId} ${action}.`,
+    comment ? `Комментарий модератора: ${comment}` : '',
+    '',
+    `Если у вас есть вопросы, напишите в поддержку: ${SUPPORT_EMAIL}.`,
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({ to, subject: `PCHelper: отзыв ${action}`, text });
+}
+
+/**
+ * Сообщает об удалении отзыва.
+ *
+ * @param {{to: string, name?: string, productId: string, comment?: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendReviewDeletedEmail({ to, name, productId, comment }) {
+  const text = [
+    name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
+    '',
+    `Ваш отзыв на товар ${productId} удалён.`,
+    comment ? `Причина: ${comment}` : '',
+    '',
+    `Если это ошибка, напишите в поддержку: ${SUPPORT_EMAIL}.`,
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  await deliver({ to, subject: 'PCHelper: отзыв удалён', text });
 }
 
 /**

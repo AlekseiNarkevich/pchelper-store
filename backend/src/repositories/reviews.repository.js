@@ -168,6 +168,39 @@ export async function listAll(status) {
 }
 
 /**
+ * Данные отзыва вместе с автором для писем и уведомлений.
+ *
+ * @param {string} reviewId Идентификатор.
+ * @returns {Promise<object|null>}
+ */
+async function reviewDetails(reviewId) {
+  const { data: row, error } = await supabase
+    .from('Отзывы')
+    .select('*')
+    .eq('id', Number(reviewId))
+    .maybeSingle();
+  if (error) throw databaseError('прочитать отзыв', error);
+  if (!row) return null;
+
+  const user = await supabase
+    .from('Пользователи')
+    .select('email,имя')
+    .eq('id', Number(row['пользователь_id']))
+    .maybeSingle();
+  if (user.error) throw databaseError('прочитать автора отзыва', user.error);
+
+  return {
+    id: String(row.id),
+    productId: `${row['товар_категория']}:${row['товар_id']}`,
+    rating: Number(row['оценка']),
+    text: row['текст'] || '',
+    status: row['статус'],
+    author: user.data?.['имя'] || 'Покупатель',
+    email: user.data?.email || '',
+  };
+}
+
+/**
  * Меняет статус отзыва.
  *
  * @param {string} reviewId Идентификатор.
@@ -179,6 +212,9 @@ export async function moderate(reviewId, status) {
   if (!['опубликован', 'отклонён', 'на модерации'].includes(status)) {
     throw apiError(400, 'VALIDATION_ERROR', 'Неизвестный статус отзыва');
   }
+  const details = await reviewDetails(reviewId);
+  if (!details) throw apiError(404, 'REVIEW_NOT_FOUND', 'Отзыв не найден');
+
   const { data: row, error } = await supabase
     .from('Отзывы')
     .update({ статус: status })
@@ -187,5 +223,21 @@ export async function moderate(reviewId, status) {
     .maybeSingle();
   if (error) throw databaseError('изменить статус отзыва', error);
   if (!row) throw apiError(404, 'REVIEW_NOT_FOUND', 'Отзыв не найден');
-  return { id: String(row.id), status: row['статус'] };
+  return { ...details, status: row['статус'] };
+}
+
+/**
+ * Удаляет отзыв.
+ *
+ * @param {string} reviewId Идентификатор.
+ * @returns {Promise<object>}
+ */
+export async function deleteReview(reviewId) {
+  requireDatabase();
+  const details = await reviewDetails(reviewId);
+  if (!details) throw apiError(404, 'REVIEW_NOT_FOUND', 'Отзыв не найден');
+
+  const { error } = await supabase.from('Отзывы').delete().eq('id', Number(reviewId));
+  if (error) throw databaseError('удалить отзыв', error);
+  return { ...details, deleted: true };
 }

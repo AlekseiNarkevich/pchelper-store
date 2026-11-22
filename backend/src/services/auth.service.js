@@ -111,6 +111,9 @@ export async function register(data) {
   return issueTokens(user);
 }
 
+/** Адрес поддержки, который показывается при блокировке и удалении. */
+const SUPPORT_EMAIL = 'pchelper.shop@gmail.com';
+
 /**
  * Проверяет логин и пароль.
  *
@@ -123,19 +126,29 @@ export async function login(data) {
   const user = await findByEmail(email);
 
   if (!user || !verifyPassword(password, user.passwordHash)) {
-    throw apiError(401, 'INVALID_CREDENTIALS', 'Неверный e-mail или пароль');
+    throw apiError(
+      401,
+      'INVALID_CREDENTIALS',
+      `Неверный e-mail или пароль. Если аккаунт был удалён, войти нельзя — напишите в поддержку: ${SUPPORT_EMAIL}`,
+    );
   }
   if (user.blocked) {
     throw apiError(
       403,
       'USER_BLOCKED',
-      user.blockReason
-        ? `Аккаунт заблокирован: ${user.blockReason}`
-        : 'Аккаунт заблокирован администратором',
+      `${
+        user.blockReason
+          ? `Аккаунт заблокирован: ${user.blockReason}`
+          : 'Аккаунт заблокирован администратором'
+      }. Обратитесь в поддержку: ${SUPPORT_EMAIL}`,
     );
   }
   if (user.deleted) {
-    throw apiError(403, 'ACCOUNT_DELETED', 'Аккаунт удалён');
+    throw apiError(
+      403,
+      'ACCOUNT_DELETED',
+      `Аккаунт удалён. Вход невозможен. Обратитесь в поддержку: ${SUPPORT_EMAIL}`,
+    );
   }
   return issueTokens(user);
 }
@@ -193,10 +206,18 @@ export async function refresh(token) {
     throw apiError(401, 'REFRESH_INVALID', 'Пользователь не найден');
   }
   if (user.blocked) {
-    throw apiError(403, 'USER_BLOCKED', 'Аккаунт заблокирован администратором');
+    throw apiError(
+      403,
+      'USER_BLOCKED',
+      `Аккаунт заблокирован администратором. Обратитесь в поддержку: ${SUPPORT_EMAIL}`,
+    );
   }
   if (user.deleted) {
-    throw apiError(403, 'ACCOUNT_DELETED', 'Аккаунт удалён');
+    throw apiError(
+      403,
+      'ACCOUNT_DELETED',
+      `Аккаунт удалён. Обратитесь в поддержку: ${SUPPORT_EMAIL}`,
+    );
   }
   return issueTokens(user);
 }

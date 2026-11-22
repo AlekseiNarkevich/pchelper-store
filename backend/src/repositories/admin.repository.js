@@ -9,7 +9,7 @@
 import { CATEGORY_BY_ID, CATEGORIES } from '../domain/catalog.js';
 import { apiError } from '../domain/errors.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
-import { deleteAccount } from './users.repository.js';
+import { deleteAccount, findById } from './users.repository.js';
 import { notifyPendingRequests } from './stock.repository.js';
 
 /** Допустимые статусы заказа. */
@@ -332,9 +332,8 @@ export async function updateUser(userId, data, currentAdminId) {
     if (data.blocked) {
       throw apiError(400, 'ADMIN_PROTECTED', 'Администратора нельзя заблокировать');
     }
-    if (data.role !== undefined && data.role !== 'admin') {
-      throw apiError(400, 'ADMIN_PROTECTED', 'Роль администратора менять нельзя');
-    }
+    // Понизить другого администратора можно: себя изменить нельзя
+    // (проверка выше), поэтому хотя бы один администратор остаётся.
   }
 
   const updates = { обновлён_в: new Date().toISOString() };
@@ -355,15 +354,17 @@ export async function updateUser(userId, data, currentAdminId) {
     .from('Пользователи')
     .update(updates)
     .eq('id', Number(userId))
-    .select('id,email,роль,заблокирован')
+    .select('id,email,имя,роль,заблокирован,причина_блокировки')
     .maybeSingle();
   if (error) throw databaseError('обновить пользователя', error);
   if (!row) throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
   return {
     id: String(row.id),
     email: row.email,
+    name: row['имя'] || '',
     role: row['роль'],
     blocked: Boolean(row['заблокирован']),
+    blockReason: row['причина_блокировки'] || '',
   };
 }
 
@@ -372,14 +373,26 @@ export async function updateUser(userId, data, currentAdminId) {
  *
  * @param {string} userId Кого удаляем.
  * @param {string} currentAdminId Кто удаляет.
- * @returns {Promise<{id: string, deleted: true}>}
+ * @param {string} [reason] Причина для письма.
+ * @returns {Promise<{id: string, deleted: true, email: string, name: string, reason: string}>}
  */
-export async function deleteUser(userId, currentAdminId) {
+export async function deleteUser(userId, currentAdminId, reason) {
   requireDatabase();
   if (String(userId) === String(currentAdminId)) {
     throw apiError(400, 'SELF_DELETE', 'Нельзя удалить свой аккаунт');
   }
-  return await deleteAccount(userId);
+
+  // Данные нужны для письма: после удаления запись обезличивается.
+  const target = await findById(userId);
+  if (!target) throw apiError(404, 'USER_NOT_FOUND', 'Пользователь не найден');
+
+  const result = await deleteAccount(userId);
+  return {
+    ...result,
+    email: target.email,
+    name: target.name || '',
+    reason: String(reason || 'Решение администрации').trim(),
+  };
 }
 
 /**

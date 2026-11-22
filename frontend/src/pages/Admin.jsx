@@ -12,6 +12,7 @@ import {
   createProduct,
   deleteOrder,
   deleteProduct,
+  deleteReview,
   deleteUser,
   getEmails,
   getOrders,
@@ -146,6 +147,20 @@ const PAYMENT_LABELS = {
   invoice: 'По счёту',
 };
 
+/** Русские названия ролей пользователей. */
+const ROLE_LABELS = {
+  customer: 'Покупатель',
+  manager: 'Менеджер',
+  admin: 'Администратор',
+};
+
+/** Русские подписи статусов отзыва. */
+const REVIEW_STATUS_LABELS = {
+  'на модерации': 'На модерации',
+  опубликован: 'Опубликован',
+  отклонён: 'Отклонён',
+};
+
 /**
  * Способ получения и адрес одной строкой.
  *
@@ -191,6 +206,75 @@ function positionsText(count) {
  */
 function paymentText(value) {
   return PAYMENT_LABELS[value] || value || '—';
+}
+
+/**
+ * Модальное окно с обязательной причиной действия.
+ *
+ * Используется для блокировки, разблокировки, удаления аккаунта,
+ * смены роли и модерации отзывов: причина уходит пользователю письмом.
+ *
+ * @param {object} props Свойства.
+ * @returns {React.ReactElement|null}
+ */
+function ActionReasonDialog({
+  open,
+  title,
+  text,
+  label = 'Комментарий',
+  placeholder = 'Укажите причину',
+  confirmLabel = 'Подтвердить',
+  danger = false,
+  busy = false,
+  value,
+  onChange,
+  onConfirm,
+  onCancel,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onCancel} role="presentation">
+      <div
+        aria-labelledby="action-reason-title"
+        aria-modal="true"
+        className="modal"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <h3 id="action-reason-title">{title}</h3>
+        {text && <p className="muted">{text}</p>}
+        <label className="field">
+          <span>{label}</span>
+          <textarea
+            autoFocus
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder}
+            rows={4}
+            value={value}
+          />
+        </label>
+        <div className="modal-actions">
+          <button
+            className="btn btn-secondary"
+            disabled={busy}
+            onClick={onCancel}
+            type="button"
+          >
+            Отмена
+          </button>
+          <button
+            className={danger ? 'btn btn-danger' : 'btn'}
+            disabled={busy || !value.trim()}
+            onClick={onConfirm}
+            type="button"
+          >
+            {busy ? 'Сохраняем…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -1093,143 +1177,232 @@ function EmailsPanel({ onError, onFlash }) {
   );
 }
 
-/** Пользователи: роли и блокировка. */
+/** Пользователи: роли, блокировка и удаление с причиной. */
 function UsersPanel({ onError, onFlash }) {
   const [users, setUsers] = useState([]);
+  const [dialog, setDialog] = useState(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
   const currentId = readAuth().user?.id;
 
   function load() {
     getUsers()
       .then((data) => setUsers(data.items))
-      .catch((reason) => onError(reason.message));
+      .catch((error) => onError(error.message));
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
-  // Роль меняется сразу; админов и себя менять нельзя (сервер тоже проверяет).
-  async function changeRole(user, role) {
+  function openAction(user, type, role) {
+    const defaults = {
+      block: 'Нарушение правил магазина',
+      unblock: 'Аккаунт разблокирован администратором',
+      delete: '',
+      role: 'Изменение роли аккаунта',
+    };
+    setDialog({ user, type, role });
+    setReason(defaults[type] || '');
+  }
+
+  function closeAction() {
+    if (busy) return;
+    setDialog(null);
+    setReason('');
+  }
+
+  // Любое действие с аккаунтом требует причины и уходит пользователю письмом.
+  async function confirmAction() {
+    if (!dialog || !reason.trim()) return;
+    const { user, type, role } = dialog;
+    setBusy(true);
     try {
-      await updateUser(user.id, { role });
+      if (type === 'delete') {
+        await deleteUser(user.id, reason.trim());
+      } else if (type === 'role') {
+        await updateUser(user.id, { role, reason: reason.trim() });
+      } else {
+        await updateUser(user.id, {
+          blocked: type === 'block',
+          reason: reason.trim(),
+        });
+      }
       load();
-      onFlash('Роль обновлена');
-    } catch (reason) {
-      onError(reason.message);
+      const messages = {
+        block: `Аккаунт ${user.email} заблокирован — письмо отправлено`,
+        unblock: `Аккаунт ${user.email} разблокирован — письмо отправлено`,
+        delete: `Аккаунт ${user.email} удалён — письмо отправлено`,
+        role: `Роль ${user.email} изменена — письмо отправлено`,
+      };
+      onFlash(messages[type]);
+      setDialog(null);
+      setReason('');
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setBusy(false);
     }
   }
 
-  // Блокировка с причиной; причина показывается пользователю при входе.
-  async function toggleBlock(user) {
-    const next = !user.blocked;
-    const reason = next
-      ? window.prompt('Причина блокировки', 'Нарушение правил магазина')
-      : '';
-    if (next && reason === null) return;
-    try {
-      await updateUser(user.id, { blocked: next, reason });
-      load();
-      onFlash(next ? 'Пользователь заблокирован' : 'Пользователь разблокирован');
-    } catch (reasonText) {
-      onError(reasonText.message);
-    }
-  }
-
-  // Удаление требует двух подтверждений; администраторов удалять нельзя.
-  async function removeUser(user) {
-    if (user.role === 'admin' || user.id === currentId) return;
-    const confirmed = window.confirm(
-      `Удалить аккаунт ${user.email}? Он исчезнет из списка, заказы останутся обезличенными.`,
-    );
-    if (!confirmed) return;
-    const typed = window.prompt('Введите УДАЛИТЬ для подтверждения');
-    if (typed !== 'УДАЛИТЬ') return;
-    try {
-      await deleteUser(user.id);
-      load();
-      onFlash('Аккаунт удалён');
-    } catch (reason) {
-      onError(reason.message);
-    }
-  }
+  const dialogConfig =
+    dialog?.type === 'block'
+      ? {
+          title: `Заблокировать ${dialog.user.email}?`,
+          text: 'Пользователь не сможет войти в аккаунт. Причина уйдёт ему письмом.',
+          label: 'Причина блокировки',
+          confirmLabel: 'Заблокировать',
+          danger: true,
+        }
+      : dialog?.type === 'unblock'
+        ? {
+            title: `Разблокировать ${dialog.user.email}?`,
+            text: 'Вход снова станет доступен. Комментарий уйдёт пользователю письмом.',
+            label: 'Комментарий',
+            confirmLabel: 'Разблокировать',
+            danger: false,
+          }
+        : dialog?.type === 'delete'
+          ? {
+              title: `Удалить аккаунт ${dialog.user.email}?`,
+              text: 'Аккаунт будет обезличен, заказы останутся без контактов. Причина уйдёт письмом до удаления.',
+              label: 'Причина удаления',
+              confirmLabel: 'Удалить аккаунт',
+              danger: true,
+            }
+          : dialog?.type === 'role'
+            ? {
+                title: `Сменить роль на «${ROLE_LABELS[dialog.role] || dialog.role}»?`,
+                text: 'Пользователь получит письмо о новой роли и комментарий.',
+                label: 'Комментарий',
+                confirmLabel: 'Сменить роль',
+                danger: false,
+              }
+            : null;
 
   return (
-    <div className="picker-wrap">
-      <table className="picker">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>E-mail</th>
-            <th>Имя</th>
-            <th>Роль</th>
-            <th>Статус</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((user) => (
-            <tr key={user.id}>
-              <td>{user.id}</td>
-              <td>{user.email}</td>
-              <td>{user.name}</td>
-              <td>
-                <select
-                  disabled={user.id === currentId || user.role === 'admin'}
-                  onChange={(event) => changeRole(user, event.target.value)}
-                  value={user.role}
-                >
-                  <option value="customer">customer</option>
-                  <option value="manager">manager</option>
-                  <option value="admin">admin</option>
-                </select>
-              </td>
-              <td>
-                {user.blocked ? (
-                  <span className="status-badge is-cancel">заблокирован</span>
-                ) : (
-                  <span className="status-badge is-done">активен</span>
-                )}
-              </td>
-              <td>
-                {user.role === 'admin' ? (
-                  <span className="small faint">аккаунт защищён</span>
-                ) : (
-                  <>
-                    <button
-                      className="link-button"
-                      disabled={user.id === currentId}
-                      onClick={() => toggleBlock(user)}
-                      type="button"
-                    >
-                      {user.blocked ? 'Разблокировать' : 'Заблокировать'}
-                    </button>{' '}
-                    <button
-                      className="link-button"
-                      disabled={user.id === currentId}
-                      onClick={() => removeUser(user)}
-                      type="button"
-                    >
-                      Удалить
-                    </button>
-                  </>
-                )}
-              </td>
+    <>
+      <div className="admin-users-wrap">
+        <table className="admin-users">
+          <thead>
+            <tr>
+              <th>Пользователь</th>
+              <th>Роль</th>
+              <th>Статус</th>
+              <th>Действия</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {users.map((user) => (
+              <tr className={user.id === currentId ? 'is-self' : ''} key={user.id}>
+                <td>
+                  <div className="admin-user-main">
+                    <strong>
+                      {user.name && user.name !== user.email ? user.name : 'Без имени'}
+                    </strong>
+                    <span className="admin-user-email">{user.email}</span>
+                    <small>
+                      ID {user.id}
+                      {user.createdAt
+                        ? ` · ${new Date(user.createdAt).toLocaleDateString('ru-RU')}`
+                        : ''}
+                    </small>
+                  </div>
+                </td>
+                <td>
+                  {user.id === currentId ? (
+                    <span className="status-badge is-done">Администратор</span>
+                  ) : (
+                    <select
+                      aria-label={`Роль ${user.email}`}
+                      className="admin-role"
+                      onChange={(event) => {
+                        if (event.target.value !== user.role) {
+                          openAction(user, 'role', event.target.value);
+                        }
+                      }}
+                      value={user.role}
+                    >
+                      <option value="customer">Покупатель</option>
+                      {/* Роль manager осталась в базе, но отдельных прав не даёт:
+                          в интерфейсе показываем её только у старых записей. */}
+                      {user.role === 'manager' && (
+                        <option value="manager">Менеджер (без прав)</option>
+                      )}
+                      <option value="admin">Администратор</option>
+                    </select>
+                  )}
+                </td>
+                <td>
+                  <span
+                    className={`status-badge ${user.blocked ? 'is-cancel' : 'is-done'}`}
+                  >
+                    {user.blocked ? 'Заблокирован' : 'Активен'}
+                  </span>
+                  {user.blocked && user.blockReason && (
+                    <div className="admin-user-reason">{user.blockReason}</div>
+                  )}
+                </td>
+                <td>
+                  <div className="admin-user-actions">
+                    {user.role === 'admin' ? (
+                      <span className="small faint">Аккаунт защищён</span>
+                    ) : (
+                      <>
+                        <button
+                          className={`btn btn-sm ${user.blocked ? 'btn-secondary' : 'btn-warn'}`}
+                          onClick={() =>
+                            openAction(user, user.blocked ? 'unblock' : 'block')
+                          }
+                          type="button"
+                        >
+                          {user.blocked ? 'Разблокировать' : 'Заблокировать'}
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => openAction(user, 'delete')}
+                          type="button"
+                        >
+                          Удалить
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ActionReasonDialog
+        busy={busy}
+        confirmLabel={dialogConfig?.confirmLabel}
+        danger={dialogConfig?.danger}
+        label={dialogConfig?.label}
+        onChange={setReason}
+        onCancel={closeAction}
+        onConfirm={confirmAction}
+        open={Boolean(dialogConfig)}
+        text={dialogConfig?.text}
+        title={dialogConfig?.title || ''}
+        value={reason}
+      />
+    </>
   );
 }
 
-/** Отзывы: модерация. */
+/** Отзывы: модерация и удаление с письмом автору. */
 function ReviewsPanel({ onError, onFlash }) {
   const [reviews, setReviews] = useState([]);
   const [status, setStatus] = useState('на модерации');
+  const [dialog, setDialog] = useState(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
 
   function load(next = status) {
     getReviews(next)
       .then((data) => setReviews(data.items))
-      .catch((reason) => onError(reason.message));
+      .catch((error) => onError(error.message));
   }
 
   useEffect(() => {
@@ -1237,27 +1410,95 @@ function ReviewsPanel({ onError, onFlash }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  async function moderate(review, nextStatus) {
+  function openAction(review, action) {
+    const defaults = {
+      publish: 'Отзыв соответствует правилам магазина.',
+      reject: '',
+      delete: '',
+    };
+    setDialog({ review, action });
+    setReason(defaults[action] || '');
+  }
+
+  function closeAction() {
+    if (busy) return;
+    setDialog(null);
+    setReason('');
+  }
+
+  async function confirmAction() {
+    if (!dialog || !reason.trim()) return;
+    const { review, action } = dialog;
+    setBusy(true);
     try {
-      await moderateReview(review.id, nextStatus);
+      if (action === 'delete') {
+        await deleteReview(review.id, reason.trim());
+      } else {
+        await moderateReview(
+          review.id,
+          action === 'publish' ? 'опубликован' : 'отклонён',
+          reason.trim(),
+        );
+      }
       load(status);
-      onFlash('Статус отзыва обновлён');
-    } catch (reason) {
-      onError(reason.message);
+      const messages = {
+        publish: 'Отзыв опубликован — автору отправлено письмо',
+        reject: 'Отзыв отклонён — автору отправлено письмо',
+        delete: 'Отзыв удалён — автору отправлено письмо',
+      };
+      onFlash(messages[action]);
+      setDialog(null);
+      setReason('');
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setBusy(false);
     }
   }
+
+  const dialogConfig =
+    dialog?.action === 'publish'
+      ? {
+          title: 'Опубликовать отзыв?',
+          text: 'Отзыв появится на странице товара. Автор получит письмо с комментарием.',
+          label: 'Комментарий модератора',
+          confirmLabel: 'Опубликовать',
+          danger: false,
+        }
+      : dialog?.action === 'reject'
+        ? {
+            title: 'Отклонить отзыв?',
+            text: 'Отзыв не будет показан. Автор получит письмо с причиной.',
+            label: 'Причина отклонения',
+            confirmLabel: 'Отклонить',
+            danger: true,
+          }
+        : dialog?.action === 'delete'
+          ? {
+              title: 'Удалить отзыв?',
+              text: 'Отзыв будет удалён безвозвратно. Автор получит письмо с причиной.',
+              label: 'Причина удаления',
+              confirmLabel: 'Удалить отзыв',
+              danger: true,
+            }
+          : null;
 
   return (
     <div>
       <div className="admin-categories">
-        {['на модерации', 'опубликован', 'отклонён', ''].map((value) => (
+        {[
+          ['на модерации', 'На модерации'],
+          ['опубликован', 'Опубликованные'],
+          ['отклонён', 'Отклонённые'],
+          ['', 'Все'],
+        ].map(([value, label]) => (
           <button
             className={`chip${status === value ? ' is-on' : ''}`}
             key={value || 'all'}
             onClick={() => setStatus(value)}
             type="button"
           >
-            {value || 'все'}
+            {label}
           </button>
         ))}
       </div>
@@ -1286,29 +1527,54 @@ function ReviewsPanel({ onError, onFlash }) {
                       : 'is-progress'
                 }`}
               >
-                {review.status}
+                {REVIEW_STATUS_LABELS[review.status] || review.status}
               </span>
             </header>
             <p>{review.text || 'Без текста'}</p>
             <div className="admin-actions">
+              {review.status !== 'опубликован' && (
+                <button
+                  className="btn btn-sm"
+                  onClick={() => openAction(review, 'publish')}
+                  type="button"
+                >
+                  Опубликовать
+                </button>
+              )}
+              {review.status !== 'отклонён' && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => openAction(review, 'reject')}
+                  type="button"
+                >
+                  Отклонить
+                </button>
+              )}
               <button
-                className="btn btn-sm"
-                onClick={() => moderate(review, 'опубликован')}
+                className="btn btn-danger btn-sm"
+                onClick={() => openAction(review, 'delete')}
                 type="button"
               >
-                Опубликовать
-              </button>
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => moderate(review, 'отклонён')}
-                type="button"
-              >
-                Отклонить
+                Удалить
               </button>
             </div>
           </article>
         ))}
       </div>
+
+      <ActionReasonDialog
+        busy={busy}
+        confirmLabel={dialogConfig?.confirmLabel}
+        danger={dialogConfig?.danger}
+        label={dialogConfig?.label}
+        onChange={setReason}
+        onCancel={closeAction}
+        onConfirm={confirmAction}
+        open={Boolean(dialogConfig)}
+        text={dialogConfig?.text}
+        title={dialogConfig?.title || ''}
+        value={reason}
+      />
     </div>
   );
 }

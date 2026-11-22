@@ -66,8 +66,11 @@ export const updateUser = (id, data) =>
     method: 'PATCH',
     body: data,
   });
-export const deleteUser = (id) =>
-  request(`/admin/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const deleteUser = (id, reason) =>
+  request(`/admin/users/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    body: { reason },
+  });
 
 export const getProducts = (category) =>
   request(`/admin/products?category=${encodeURIComponent(category)}`);
@@ -106,8 +109,13 @@ export const sendTestEmail = (to) =>
 
 export const getReviews = (status = '') =>
   request(`/admin/reviews${status ? `?status=${encodeURIComponent(status)}` : ''}`);
-export const moderateReview = (id, status) =>
+export const moderateReview = (id, status, reason) =>
   request(`/admin/reviews/${encodeURIComponent(id)}`, {
     method: 'PATCH',
-    body: { status },
+    body: { status, reason },
+  });
+export const deleteReview = (id, reason) =>
+  request(`/admin/reviews/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    body: { reason },
   });

@@ -36,7 +36,7 @@ import {
   updateProduct,
   updateUser,
 } from '../repositories/admin.repository.js';
-import { listAll, moderate } from '../repositories/reviews.repository.js';
+import { deleteReview, listAll, moderate } from '../repositories/reviews.repository.js';
 import {
   listRequests as listStockRequests,
   updateRequest as updateStockRequest,
@@ -46,7 +46,15 @@ import {
   resendEmail,
   sendTestEmail,
 } from '../repositories/mail.repository.js';
-import { sendOrderStatusEmail } from '../services/mail.service.js';
+import {
+  sendAccountBlockedEmail,
+  sendAccountDeletedEmail,
+  sendAccountUnblockedEmail,
+  sendOrderStatusEmail,
+  sendReviewDeletedEmail,
+  sendReviewModeratedEmail,
+  sendRoleChangedEmail,
+} from '../services/mail.service.js';
 import { requireAdmin } from './auth.js';
 
 const router = Router();
@@ -145,7 +153,34 @@ router.patch(
   '/users/:id',
   asyncHandler(async (req, res) => {
     const adminId = req.user?.id || '';
-    res.status(200).json(await updateUser(req.params.id, req.body || {}, adminId));
+    const data = req.body || {};
+    const user = await updateUser(req.params.id, data, adminId);
+
+    // Каждое действие с аккаунтом сопровождается письмом с причиной.
+    if (user.email) {
+      if (data.blocked === true) {
+        void sendAccountBlockedEmail({
+          to: user.email,
+          name: user.name,
+          reason: user.blockReason || data.reason,
+        });
+      } else if (data.blocked === false) {
+        void sendAccountUnblockedEmail({
+          to: user.email,
+          name: user.name,
+          comment: data.reason,
+        });
+      } else if (data.role) {
+        void sendRoleChangedEmail({
+          to: user.email,
+          name: user.name,
+          role: user.role,
+          comment: data.reason,
+        });
+      }
+    }
+
+    res.status(200).json(user);
   }),
 );
 
@@ -153,7 +188,16 @@ router.delete(
   '/users/:id',
   asyncHandler(async (req, res) => {
     const adminId = req.user?.id || '';
-    res.status(200).json(await deleteUser(req.params.id, adminId));
+    const reason = String((req.body || {}).reason || 'Решение администрации').trim();
+    const user = await deleteUser(req.params.id, adminId, reason);
+    if (user.email) {
+      void sendAccountDeletedEmail({
+        to: user.email,
+        name: user.name,
+        reason,
+      });
+    }
+    res.status(200).json(user);
   }),
 );
 
@@ -258,8 +302,36 @@ router.get(
 router.patch(
   '/reviews/:id',
   asyncHandler(async (req, res) => {
-    const status = String((req.body || {}).status || '');
-    res.status(200).json(await moderate(req.params.id, status));
+    const body = req.body || {};
+    const reason = String(body.reason || '').trim();
+    const review = await moderate(req.params.id, String(body.status || ''));
+    if (review.email) {
+      void sendReviewModeratedEmail({
+        to: review.email,
+        name: review.author,
+        productId: review.productId,
+        status: review.status,
+        comment: reason,
+      });
+    }
+    res.status(200).json(review);
+  }),
+);
+
+router.delete(
+  '/reviews/:id',
+  asyncHandler(async (req, res) => {
+    const reason = String((req.body || {}).reason || '').trim();
+    const review = await deleteReview(req.params.id);
+    if (review.email) {
+      void sendReviewDeletedEmail({
+        to: review.email,
+        name: review.author,
+        productId: review.productId,
+        comment: reason || 'Решение модератора',
+      });
+    }
+    res.status(200).json(review);
   }),
 );
 
