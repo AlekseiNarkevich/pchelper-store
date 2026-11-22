@@ -8,6 +8,8 @@ import { Link } from 'react-router-dom';
 
 import { getCategories, money } from '../api.js';
 import { readAuth } from '../auth.js';
+import { onDataChanged } from '../dataBus.js';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import {
   createProduct,
   deleteOrder,
@@ -373,11 +375,25 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  // Сводка загружается один раз при открытии панели.
+  // Сводка перечитывается после действий в любой вкладке и при возврате
+  // в окно: иначе после удаления заказа цифра остаётся старой.
   useEffect(() => {
-    getSummary()
-      .then(setSummary)
-      .catch((reason) => setError(reason.message));
+    let alive = true;
+    const load = () => {
+      getSummary()
+        .then((data) => {
+          if (alive) setSummary(data);
+        })
+        .catch((reason) => {
+          if (alive) setError(reason.message);
+        });
+    };
+    load();
+    const stop = onDataChanged(load);
+    return () => {
+      alive = false;
+      stop();
+    };
   }, []);
 
   // Короткое сообщение об успешном действии; ошибки показываются отдельно.
@@ -492,6 +508,13 @@ function OrdersPanel({ onError, onFlash }) {
       alive = false;
     };
   }, [onError]);
+
+  // Тихо перечитываем заказы после действий в другой вкладке админки.
+  useAutoRefresh(() => {
+    getOrders()
+      .then((data) => setOrders(data.items))
+      .catch(() => {});
+  });
 
   // Черновик хранит несохранённые изменения конкретного заказа.
   function draft(order) {
@@ -881,6 +904,13 @@ function ProductsPanel({ onError, onFlash }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
+  // Список товаров мог измениться в другой вкладке; форму не трогаем.
+  useAutoRefresh(() => {
+    getProducts(category)
+      .then((data) => setItems(data.items))
+      .catch(() => {});
+  });
+
   const fields = useMemo(
     () => [...(PRODUCT_FIELDS[category] || []), ['количество', 'number']],
     [category],
@@ -1142,6 +1172,16 @@ function PrebuiltStockPanel({ onError, onFlash }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
+  // Остатки могли изменить в соседней вкладке; форму не сбрасываем.
+  useAutoRefresh(() => {
+    getPrebuiltStock()
+      .then((data) => {
+        setItems(data.items);
+        setValues(Object.fromEntries(data.items.map((item) => [item.id, item.stock])));
+      })
+      .catch(() => {});
+  });
+
   async function save(item) {
     try {
       await updatePrebuiltStock(item.id, Number(values[item.id]));
@@ -1217,6 +1257,12 @@ function StockRequestsPanel({ onError, onFlash }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
+  useAutoRefresh(() => {
+    getStockRequests()
+      .then((data) => setItems(data.items))
+      .catch(() => {});
+  });
+
   async function mark(request) {
     try {
       await updateStockRequest(request.id, 'обработан');
@@ -1285,6 +1331,15 @@ function EmailsPanel({ onError, onFlash }) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
+
+  useAutoRefresh(() => {
+    getEmails()
+      .then((data) => {
+        setItems(data.items);
+        setConfigured(data.configured);
+      })
+      .catch(() => {});
+  });
 
   async function sendTest(event) {
     event.preventDefault();
@@ -1412,6 +1467,12 @@ function UsersPanel({ onError, onFlash }) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
+
+  useAutoRefresh(() => {
+    getUsers()
+      .then((data) => setUsers(data.items))
+      .catch(() => {});
+  });
 
   function openAction(user, type, role) {
     const defaults = {
@@ -1633,6 +1694,12 @@ function ReviewsPanel({ onError, onFlash }) {
     load(status);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
+
+  useAutoRefresh(() => {
+    getReviews(status)
+      .then((data) => setReviews(data.items))
+      .catch(() => {});
+  });
 
   function openAction(review, action) {
     const defaults = {

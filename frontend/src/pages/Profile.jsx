@@ -16,6 +16,7 @@ import {
   updateProfile,
 } from '../auth.js';
 import { listBuilds } from '../builds.js';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import { clearLocalCart } from '../cart.js';
 
 /** Подписи ролей для интерфейса. */
@@ -62,6 +63,14 @@ export default function Profile() {
 
     return unsubscribe;
   }, []);
+
+  // Форму профиля не трогаем, чтобы не стереть ввод. Обновляем только
+  // последние сборки: они могли измениться в конфигураторе.
+  useAutoRefresh(() => {
+    listBuilds()
+      .then((data) => setBuilds(data.items.slice(0, 4)))
+      .catch(() => {});
+  });
 
   function changeField(event) {
     const { name, value } = event.target;

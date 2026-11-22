@@ -3,6 +3,7 @@
  */
 
 import { readAuth, refreshAccessToken } from './auth.js';
+import { notifyDataChanged } from './dataBus.js';
 
 const BASE = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '');
 
@@ -45,6 +46,9 @@ async function request(path, options = {}) {
   if (!response.ok) {
     throw new Error(data?.error?.message || `Ошибка сервера ${response.status}`);
   }
+
+  // Любое изменение в админке должно обновить сводку и открытые списки.
+  if (method !== 'GET') notifyDataChanged('admin');
   return data;
 }
 

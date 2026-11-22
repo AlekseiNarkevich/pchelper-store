@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { getCategories, getPrebuilt, getProducts, money } from '../api.js';
 import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import ProductCard from '../components/ProductCard.jsx';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import React from 'react';
 
 /**
@@ -54,7 +55,21 @@ export default function Home() {
     };
   }, []);
 
-  // Всплывающее сообщение после добавления товара в корзину.
+  // Тихо обновляем витрину после изменений в админке и при возврате
+  // в окно: скелетоны и уже загруженный экран не мигают.
+  useAutoRefresh(() => {
+    Promise.all([
+      getCategories(),
+      getProducts({ limit: 8, sort: 'price_asc' }),
+      getPrebuilt(),
+    ])
+      .then(([categoryData, productData, prebuiltData]) => {
+        setCategories(categoryData.items);
+        setProducts(productData.items);
+        setPrebuilt(prebuiltData.items.slice(0, 4));
+      })
+      .catch(() => {});
+  });
   function handleAdded(product) {
     setNotice(`«${product.name}» добавлен в корзину`);
     setTimeout(() => setNotice(''), 2500);

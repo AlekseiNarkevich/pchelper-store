@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { getPrebuilt, money } from '../api.js';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import { addToCart } from '../cart.js';
 import React from 'react';
@@ -41,7 +42,12 @@ export default function Prebuilt() {
     };
   }, []);
 
-  // Готовая сборка — одна позиция prebuilt:<id>, а не набор комплектующих.
+  // Остатки готовых ПК могли измениться после заказа или правки админа.
+  useAutoRefresh(() => {
+    getPrebuilt()
+      .then((data) => setItems(data.items))
+      .catch(() => {});
+  });
   function add(build) {
     if (Number(build.stock ?? 0) <= 0) {
       setNotice('Этой сборки нет на складе');

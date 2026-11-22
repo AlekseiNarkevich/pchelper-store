@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { getCategories, getProducts } from '../api.js';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import ProductCard from '../components/ProductCard.jsx';
 import React from 'react';
 
@@ -113,12 +114,17 @@ export default function Catalog() {
       .catch(() => setCategories([]));
   }, []);
 
-  // Для выбранной категории загружаем все товары: по ним считаем
-  // доступные значения фильтров и количество для каждого варианта.
+  // При смене категории сбрасываем фильтры. Это отдельный эффект:
+  // автообновление не должно стирать выбранные пользователем значения.
   useEffect(() => {
     setFilters({});
     setFilterSearch({});
     setFilterExpanded({});
+  }, [category]);
+
+  // Для выбранной категории загружаем все товары: по ним считаем
+  // доступные значения фильтров и количество для каждого варианта.
+  useEffect(() => {
     if (!category) {
       setFilterProducts([]);
       return undefined;
@@ -248,6 +254,36 @@ export default function Catalog() {
       alive = false;
     };
   }, [category, search, sort, minPrice, maxPrice, offset, queryKey, filterKey]);
+
+  // Тихо перечитываем категории, фильтры и текущую страницу после
+  // изменений в админке или при возврате в окно. Фильтры не сбрасываем.
+  useAutoRefresh(() => {
+    getCategories()
+      .then((data) => setCategories(data.items))
+      .catch(() => {});
+
+    if (category) {
+      getProducts({ category, limit: 100 })
+        .then((data) => setFilterProducts(data.items))
+        .catch(() => {});
+    }
+
+    getProducts({
+      category,
+      search,
+      sort,
+      minPrice,
+      maxPrice,
+      filters: filterKey === '{}' ? '' : filterKey,
+      limit: PAGE_SIZE,
+      offset,
+    })
+      .then((data) => {
+        setItems(data.items);
+        setTotal(data.total);
+      })
+      .catch(() => {});
+  });
 
   const current = categories.find((item) => item.id === category);
   const title = category ? current?.name || 'Категория' : 'Все комплектующие';

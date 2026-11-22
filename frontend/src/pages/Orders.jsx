@@ -8,6 +8,7 @@ import { Link, useLocation } from 'react-router-dom';
 
 import { money } from '../api.js';
 import { completeOrder, getOrderHistory, listOrders } from '../commerce.js';
+import { onDataChanged } from '../dataBus.js';
 
 /** Класс значка по статусу заказа. */
 function statusClass(status) {
@@ -77,18 +78,25 @@ export default function Orders() {
 
   useEffect(() => {
     let alive = true;
-    listOrders()
-      .then((data) => {
-        if (alive) setOrders(data.items);
-      })
-      .catch((reason) => {
-        if (alive) setError(reason.message);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
+    // Перечитываем заказы после действий админа и при возврате в окно:
+    // статус мог измениться в другой вкладке.
+    const load = () => {
+      listOrders()
+        .then((data) => {
+          if (alive) setOrders(data.items);
+        })
+        .catch((reason) => {
+          if (alive) setError(reason.message);
+        })
+        .finally(() => {
+          if (alive) setLoading(false);
+        });
+    };
+    load();
+    const stop = onDataChanged(load);
     return () => {
       alive = false;
+      stop();
     };
   }, []);
 

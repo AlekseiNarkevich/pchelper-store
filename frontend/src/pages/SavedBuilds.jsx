@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { money } from '../api.js';
 import { addBuildToCart } from '../cart.js';
 import { getBuild, listBuilds, removeBuild } from '../builds.js';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 /** Подписи категорий в составе сборки. */
@@ -115,7 +116,13 @@ export default function SavedBuilds() {
     };
   }, []);
 
-  // Добавляет комплектующие сохранённой сборки в корзину.
+  // Список сборок мог измениться в другой вкладке или после сохранения
+  // в конфигураторе — обновляем тихо, без скелетона.
+  useAutoRefresh(() => {
+    listBuilds()
+      .then((data) => setItems(data.items))
+      .catch(() => {});
+  });
   async function addSavedBuild(build) {
     setError('');
     try {

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { getProduct, getProducts, money } from '../api.js';
+import { useAutoRefresh } from '../useAutoRefresh.js';
 import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import { readAuth } from '../auth.js';
@@ -113,7 +114,16 @@ export default function Product() {
     };
   }, [id]);
 
-  // Добавление в корзину: при нулевом остатке кнопка заблокирована.
+  // Тихо обновляем остаток и отзывы: цену или модерацию могли поменять
+  // в админке, пока страница была открыта.
+  useAutoRefresh(() => {
+    getProduct(id)
+      .then((data) => setProduct(data))
+      .catch(() => {});
+    getReviews(id)
+      .then((data) => setReviews(data))
+      .catch(() => {});
+  });
   function add() {
     if (stock <= 0) return;
     addToCart(product);
