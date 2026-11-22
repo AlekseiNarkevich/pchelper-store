@@ -29,19 +29,22 @@ function pinIcon(kind) {
  * @param {'pickup'|'courier'} props.mode Способ получения.
  * @param {{lat: number, lng: number}|null} props.point Точка доставки.
  * @param {Function} props.onPick Выбор точки (lat, lng).
+ * @param {boolean} [props.pickEnabled] Разрешить выбор точки кликом.
  * @returns {React.ReactElement}
  */
-export default function DeliveryMap({ mode, point, onPick }) {
+export default function DeliveryMap({ mode, point, onPick, pickEnabled = true }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const deliveryRef = useRef(null);
   const modeRef = useRef(mode);
   const onPickRef = useRef(onPick);
+  const pickEnabledRef = useRef(pickEnabled);
 
   useEffect(() => {
     modeRef.current = mode;
     onPickRef.current = onPick;
-  }, [mode, onPick]);
+    pickEnabledRef.current = pickEnabled;
+  }, [mode, onPick, pickEnabled]);
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return undefined;
@@ -65,7 +68,7 @@ export default function DeliveryMap({ mode, point, onPick }) {
 
     // Клик по карте выбирает адрес только для курьерской доставки.
     map.on('click', (event) => {
-      if (modeRef.current !== 'courier') return;
+      if (modeRef.current !== 'courier' || !pickEnabledRef.current) return;
       onPickRef.current(event.latlng.lat, event.latlng.lng);
     });
 

@@ -38,7 +38,18 @@ export default function Checkout() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [deliveryPoint, setDeliveryPoint] = useState(null);
+  const [mapFullscreen, setMapFullscreen] = useState(false);
   const navigate = useNavigate();
+
+  // Esc закрывает полноэкранную карту.
+  useEffect(() => {
+    if (!mapFullscreen) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape') setMapFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mapFullscreen]);
 
   const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   // Доставка повторяет серверные правила, чтобы итог был виден до заказа.
@@ -327,16 +338,33 @@ export default function Checkout() {
                 <a href={mapHref} rel="noreferrer" target="_blank">
                   Открыть в Яндекс Картах
                 </a>
+                <button
+                  className="link-button"
+                  onClick={() => setMapFullscreen(true)}
+                  type="button"
+                >
+                  На весь экран
+                </button>
               </div>
-              <DeliveryMap
-                mode={form.deliveryMethod}
-                onPick={handleMapPick}
-                point={deliveryPoint}
-              />
+              <div
+                className="delivery-map-click"
+                onClickCapture={(event) => {
+                  if (event.target.closest('.leaflet-control')) return;
+                  setMapFullscreen(true);
+                }}
+                role="presentation"
+              >
+                <DeliveryMap
+                  mode={form.deliveryMethod}
+                  onPick={handleMapPick}
+                  pickEnabled={false}
+                  point={deliveryPoint}
+                />
+              </div>
               <div className="delivery-map-hint">
                 {form.deliveryMethod === 'pickup'
-                  ? 'Пункт выдачи отмечен на карте.'
-                  : 'Кликните по карте, чтобы выбрать точку доставки — зона и стоимость рассчитаются автоматически.'}
+                  ? 'Пункт выдачи отмечен на карте. Нажмите на карту, чтобы открыть её на весь экран.'
+                  : 'Кликните по карте, чтобы выбрать точку доставки — зона и стоимость рассчитаются автоматически. Карта откроется на весь экран.'}
               </div>
             </div>
           </section>
@@ -414,6 +442,49 @@ export default function Checkout() {
           </button>
         </aside>
       </form>
+
+      {mapFullscreen && (
+        <div
+          aria-label="Карта доставки на весь экран"
+          aria-modal="true"
+          className="map-fullscreen"
+          role="dialog"
+        >
+          <div className="map-fullscreen-bar">
+            <div>
+              <strong>
+                {form.deliveryMethod === 'pickup' ? 'Пункт выдачи' : 'Точка доставки'}
+              </strong>
+              <span className="small faint">
+                {form.deliveryMethod === 'pickup'
+                  ? 'Самовывоз'
+                  : form.deliveryZone === 'outside'
+                    ? `За МКАД, ${form.distanceKm || 0} км`
+                    : 'В пределах МКАД'}
+              </span>
+            </div>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setMapFullscreen(false)}
+              type="button"
+            >
+              Закрыть карту
+            </button>
+          </div>
+          <div className="map-fullscreen-body">
+            <DeliveryMap
+              mode={form.deliveryMethod}
+              onPick={handleMapPick}
+              point={deliveryPoint}
+            />
+          </div>
+          <div className="map-fullscreen-hint">
+            {form.deliveryMethod === 'pickup'
+              ? 'Пункт выдачи отмечен синим маркером.'
+              : 'Кликните по карте, чтобы выбрать точку. Зона и стоимость доставки пересчитаются автоматически.'}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

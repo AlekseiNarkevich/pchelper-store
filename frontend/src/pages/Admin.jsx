@@ -128,6 +128,58 @@ const PRODUCT_FIELDS = {
   ],
 };
 
+/** Русские подписи полей товара для формы админки. */
+const FIELD_LABELS = {
+  название: 'Название',
+  производитель: 'Производитель',
+  сокет: 'Сокет',
+  ядра_потоки: 'Ядра / потоки',
+  частота: 'Частота',
+  tdp: 'TDP, Вт',
+  встроенная_графика: 'Встроенная графика',
+  поддержка_памяти: 'Поддержка памяти',
+  цена: 'Цена, BYN',
+  фото_url: 'Ссылка на фото',
+  тип_памяти: 'Тип памяти',
+  форм_фактор: 'Форм-фактор',
+  чипсет: 'Чипсет',
+  фазы_питания: 'Фазы питания',
+  макс_объем_памяти: 'Макс. объём памяти, ГБ',
+  m2_слоты: 'M.2 слоты',
+  sata_порты: 'SATA порты',
+  объем: 'Объём, ГБ',
+  профили_разгона: 'Профили разгона',
+  тайминги: 'Тайминги',
+  объем_памяти: 'Объём памяти, ГБ',
+  длина: 'Длина, мм',
+  количество_вентиляторов: 'Кол-во вентиляторов',
+  толщина_в_слотах: 'Толщина, слотов',
+  мощность_в_ваттах: 'Мощность, Вт',
+  стандарт_блока_питания: 'Стандарт БП',
+  сертификат_80plus: 'Сертификат 80 PLUS',
+  сертификат_cybenetics: 'Сертификат Cybenetics',
+  модульный: 'Модульный',
+  pcie_gen5: 'PCIe 5.0',
+  количество_pcie: 'Разъёмы PCIe',
+  количество_cpu: 'Разъёмы CPU',
+  количество_sata: 'Разъёмы SATA',
+  объем_в_гб: 'Объём, ГБ',
+  интерфейс: 'Интерфейс',
+  скорость_чтения_записи: 'Скорость чтения / записи',
+  драм_буфер: 'DRAM-буфер',
+  радиатор_охлаждения: 'Радиатор',
+  макс_длина_gpu: 'Макс. длина GPU, мм',
+  макс_высота_кулера: 'Макс. высота кулера, мм',
+  поддержка_сжо: 'Поддержка СЖО',
+  макс_длина_радиатора: 'Макс. длина радиатора, мм',
+  вентиляторы_в_комплекте: 'Вентиляторы в комплекте',
+  тип: 'Тип',
+  высота: 'Высота, мм',
+  длина_радиатора: 'Длина радиатора, мм',
+  шум_макс: 'Макс. шум, дБ',
+  количество: 'Количество на складе',
+};
+
 /** Статусы заказа. */
 const ORDER_STATUSES = [
   'Новый',
@@ -159,6 +211,12 @@ const REVIEW_STATUS_LABELS = {
   'на модерации': 'На модерации',
   опубликован: 'Опубликован',
   отклонён: 'Отклонён',
+};
+
+/** Русские подписи статусов запросов на поступление. */
+const REQUEST_STATUS_LABELS = {
+  новый: 'Новый',
+  обработан: 'Обработан',
 };
 
 /**
@@ -780,7 +838,7 @@ function ProductsPanel({ onError, onFlash }) {
           try {
             value = JSON.parse(value);
           } catch {
-            throw new Error(`Поле «${key}»: некорректный JSON`);
+            throw new Error(`Поле «${FIELD_LABELS[key] || key}»: некорректный JSON`);
           }
         }
         if (type === 'number' && value !== '') value = Number(value);
@@ -852,20 +910,22 @@ function ProductsPanel({ onError, onFlash }) {
                     <td className="picker-name">{row['название']}</td>
                     <td>{money(row['цена'])}</td>
                     <td>
-                      <button
-                        className="link-button"
-                        onClick={() => startEdit(row)}
-                        type="button"
-                      >
-                        Изменить
-                      </button>{' '}
-                      <button
-                        className="link-button"
-                        onClick={() => remove(row)}
-                        type="button"
-                      >
-                        Удалить
-                      </button>
+                      <div className="admin-row-actions">
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => startEdit(row)}
+                          type="button"
+                        >
+                          Изменить
+                        </button>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => remove(row)}
+                          type="button"
+                        >
+                          Удалить
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -878,7 +938,11 @@ function ProductsPanel({ onError, onFlash }) {
           <div className="panel-head">
             <h3>{editingId ? `Товар #${editingId}` : 'Новый товар'}</h3>
             {editingId && (
-              <button className="link-button" onClick={startCreate} type="button">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={startCreate}
+                type="button"
+              >
                 Отменить
               </button>
             )}
@@ -887,7 +951,7 @@ function ProductsPanel({ onError, onFlash }) {
           <div className="admin-fields">
             {fields.map(([key, type]) => (
               <label className="field" key={key}>
-                <span>{key}</span>
+                <span>{FIELD_LABELS[key] || key}</span>
                 {type === 'boolean' ? (
                   <input
                     checked={Boolean(form[key])}
@@ -952,7 +1016,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
   }
 
   return (
-    <div className="picker-wrap">
+    <div className="picker-wrap admin-prebuilt">
       <table className="picker">
         <thead>
           <tr>
@@ -981,7 +1045,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
               </td>
               <td>
                 <button
-                  className="link-button"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => save(item)}
                   type="button"
                 >
@@ -1041,7 +1105,7 @@ function StockRequestsPanel({ onError, onFlash }) {
                 request.status === 'обработан' ? 'is-done' : 'is-progress'
               }`}
             >
-              {request.status}
+              {REQUEST_STATUS_LABELS[request.status] || request.status}
             </span>
           </header>
           {request.status === 'новый' && (
@@ -1159,7 +1223,7 @@ function EmailsPanel({ onError, onFlash }) {
               {item.error && <div className="small faint">Ошибка: {item.error}</div>}
             </div>
             <span className={`status-badge ${item.sent ? 'is-done' : 'is-progress'}`}>
-              {item.sent ? 'отправлено' : 'не отправлено'}
+              {item.sent ? 'Отправлено' : 'Не отправлено'}
             </span>
           </header>
           {!item.sent && (

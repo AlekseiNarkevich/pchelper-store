@@ -86,6 +86,59 @@ function mapOrderPosition(row) {
   };
 }
 
+/** Таблицы, где хранится остаток готовых сборок. */
+const PREBUILT_TABLE = 'ГотовыеКонфигурации';
+
+/**
+ * Меняет остаток товаров заказа: +1 при отмене, -1 при возврате в работу.
+ *
+ * Ошибки склада не отменяют изменение статуса: заказ важнее, а расхождение
+ * остатка видно администратору и его можно исправить вручную.
+ *
+ * @param {string} orderId Идентификатор заказа.
+ * @param {number} direction 1 — вернуть на склад, -1 — списать снова.
+ * @returns {Promise<void>}
+ */
+async function adjustOrderStock(orderId, direction) {
+  const { data: positions, error } = await supabase
+    .from('Заказ_Позиции')
+    .select('*')
+    .eq('заказ_id', Number(orderId));
+  if (error) {
+    console.error('[admin] позиции для склада:', error.message);
+    return;
+  }
+
+  for (const position of positions || []) {
+    const category = position['тип_компонента'];
+    const table =
+      category === 'prebuilt' ? PREBUILT_TABLE : CATEGORY_BY_ID.get(category)?.table;
+    if (!table) continue;
+
+    const productId = Number(position['идентификатор']);
+    const qty = Number(position['количество'] || 1);
+    const { data: product, error: readError } = await supabase
+      .from(table)
+      .select('id,количество')
+      .eq('id', productId)
+      .maybeSingle();
+    if (readError) {
+      console.error(`[admin] остаток ${category}:${productId}:`, readError.message);
+      continue;
+    }
+    if (!product) continue;
+
+    const next = Math.max(0, Number(product['количество'] || 0) + direction * qty);
+    const updated = await supabase
+      .from(table)
+      .update({ количество: next })
+      .eq('id', productId);
+    if (updated.error) {
+      console.error(`[admin] склад ${category}:${productId}:`, updated.error.message);
+    }
+  }
+}
+
 /**
  * Список всех заказов с данными покупателя и составом.
  *
@@ -172,6 +225,15 @@ export async function listOrderPositions(orderId) {
  */
 export async function updateOrder(orderId, data, adminId) {
   requireDatabase();
+  const current = await supabase
+    .from('Заказы')
+    .select('id,статус')
+    .eq('id', Number(orderId))
+    .maybeSingle();
+  if (current.error) throw databaseError('прочитать заказ', current.error);
+  if (!current.data) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+  const previousStatus = current.data['статус'];
+
   const updates = { обновлён_в: new Date().toISOString() };
 
   if (data.status !== undefined) {
@@ -203,6 +265,18 @@ export async function updateOrder(orderId, data, adminId) {
   });
   if (history.error) {
     console.error('[admin] история заказа:', history.error.message);
+  }
+
+  // Отмена возвращает товары на склад, возврат в работу — снова списывает.
+  // Для уже доставленного или завершённого заказа склад не трогаем:
+  // товар у покупателя, возврат остатка был бы ошибкой.
+  const finished = ['Доставлен', 'Завершён'];
+  if (data.status !== undefined && data.status !== previousStatus) {
+    if (data.status === 'Отменён' && !finished.includes(previousStatus)) {
+      await adjustOrderStock(orderId, 1);
+    } else if (previousStatus === 'Отменён' && !finished.includes(data.status)) {
+      await adjustOrderStock(orderId, -1);
+    }
   }
 
   const user = await supabase

@@ -14,6 +14,13 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
 import {
+  deleteReview,
+  listAll,
+  listApproved,
+  moderate,
+  parseProductId,
+} from '../src/repositories/reviews.repository.js';
+import {
   sendAccountBlockedEmail,
   sendAccountDeletedEmail,
   sendAccountUnblockedEmail,
@@ -313,4 +320,20 @@ test('без SMTP письмо не отправляется, но попада�
       else process.env[key] = value;
     }
   }
+});
+
+test('идентификатор товара в отзыве разбирается и проверяется', () => {
+  assert.deepEqual(parseProductId('case:12'), { category: 'case', id: 12 });
+  assert.throws(() => parseProductId('case'), /Некорректный/);
+  assert.throws(() => parseProductId('case:0'), /Некорректный/);
+  assert.throws(() => parseProductId(''), /Некорректный/);
+});
+
+test('без базы отзывы пустые, а модерация недоступна', async () => {
+  const approved = await listApproved('case:1');
+  assert.deepEqual(approved, { items: [], average: 0, count: 0 });
+  const all = await listAll('');
+  assert.deepEqual(all, { items: [], total: 0 });
+  await assert.rejects(() => moderate('1', 'опубликован'), /Supabase/);
+  await assert.rejects(() => deleteReview('1'), /Supabase/);
 });
