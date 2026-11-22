@@ -310,6 +310,7 @@ router.patch(
         to: review.email,
         name: review.author,
         productId: review.productId,
+        productName: review.productName,
         status: review.status,
         comment: reason,
       });
@@ -328,6 +329,7 @@ router.delete(
         to: review.email,
         name: review.author,
         productId: review.productId,
+        productName: review.productName,
         comment: reason || 'Решение модератора',
       });
     }

@@ -198,7 +198,7 @@ async function deliver({ to, subject, text, orderId }) {
  * @returns {Promise<void>}
  */
 export async function sendOrderConfirmation({ to, order }) {
-  await deliver({
+  return await deliver({
     to,
     orderId: order.id,
     subject: `PCHelper: заказ ${order.number} оформлен`,
@@ -226,7 +226,7 @@ export async function sendOrderStatusEmail({ to, order, status, comment }) {
     'PCHelper',
   ].join('\n');
 
-  await deliver({
+  return await deliver({
     to,
     orderId: order.id,
     subject: `PCHelper: заказ ${order.number} — ${status}`,
@@ -253,7 +253,7 @@ export async function sendAccountBlockedEmail({ to, name, reason }) {
     'PCHelper',
   ].join('\n');
 
-  await deliver({ to, subject: 'PCHelper: аккаунт заблокирован', text });
+  return await deliver({ to, subject: 'PCHelper: аккаунт заблокирован', text });
 }
 
 /**
@@ -272,7 +272,7 @@ export async function sendAccountUnblockedEmail({ to, name, comment }) {
     'PCHelper',
   ].join('\n');
 
-  await deliver({ to, subject: 'PCHelper: аккаунт разблокирован', text });
+  return await deliver({ to, subject: 'PCHelper: аккаунт разблокирован', text });
 }
 
 /**
@@ -296,7 +296,7 @@ export async function sendAccountDeletedEmail({ to, name, reason }) {
     'PCHelper',
   ].join('\n');
 
-  await deliver({ to, subject: 'PCHelper: аккаунт удалён', text });
+  return await deliver({ to, subject: 'PCHelper: аккаунт удалён', text });
 }
 
 /** Русские названия ролей для писем. */
@@ -322,7 +322,7 @@ export async function sendRoleChangedEmail({ to, name, role, comment }) {
     'PCHelper',
   ].join('\n');
 
-  await deliver({ to, subject: 'PCHelper: изменена роль аккаунта', text });
+  return await deliver({ to, subject: 'PCHelper: изменена роль аккаунта', text });
 }
 
 /**
@@ -335,14 +335,16 @@ export async function sendReviewModeratedEmail({
   to,
   name,
   productId,
+  productName,
   status,
   comment,
 }) {
   const action = status === 'опубликован' ? 'опубликован' : 'отклонён';
+  const product = productName ? `«${productName}»` : `«${productId}»`;
   const text = [
     name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
     '',
-    `Ваш отзыв на товар ${productId} ${action}.`,
+    `Ваш отзыв на товар ${product} ${action}.`,
     comment ? `Комментарий модератора: ${comment}` : '',
     '',
     `Если у вас есть вопросы, напишите в поддержку: ${SUPPORT_EMAIL}.`,
@@ -350,7 +352,7 @@ export async function sendReviewModeratedEmail({
     'PCHelper',
   ].join('\n');
 
-  await deliver({ to, subject: `PCHelper: отзыв ${action}`, text });
+  return await deliver({ to, subject: `PCHelper: отзыв ${action}`, text });
 }
 
 /**
@@ -359,11 +361,18 @@ export async function sendReviewModeratedEmail({
  * @param {{to: string, name?: string, productId: string, comment?: string}} data Данные.
  * @returns {Promise<void>}
  */
-export async function sendReviewDeletedEmail({ to, name, productId, comment }) {
+export async function sendReviewDeletedEmail({
+  to,
+  name,
+  productId,
+  productName,
+  comment,
+}) {
+  const product = productName ? `«${productName}»` : `«${productId}»`;
   const text = [
     name ? `Здравствуйте, ${name}!` : 'Здравствуйте!',
     '',
-    `Ваш отзыв на товар ${productId} удалён.`,
+    `Ваш отзыв на товар ${product} удалён.`,
     comment ? `Причина: ${comment}` : '',
     '',
     `Если это ошибка, напишите в поддержку: ${SUPPORT_EMAIL}.`,
@@ -371,7 +380,7 @@ export async function sendReviewDeletedEmail({ to, name, productId, comment }) {
     'PCHelper',
   ].join('\n');
 
-  await deliver({ to, subject: 'PCHelper: отзыв удалён', text });
+  return await deliver({ to, subject: 'PCHelper: отзыв удалён', text });
 }
 
 /**

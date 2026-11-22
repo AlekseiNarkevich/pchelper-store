@@ -6,6 +6,7 @@
  * или отклонить отзыв.
  */
 
+import { CATEGORY_BY_ID } from '../domain/catalog.js';
 import { apiError } from '../domain/errors.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 
@@ -47,6 +48,38 @@ export function parseProductId(productId) {
     throw apiError(400, 'VALIDATION_ERROR', 'Некорректный идентификатор товара');
   }
   return { category, id };
+}
+
+/**
+ * Названия товаров для отзывов: «case:1» → «DeepCool CH360».
+ *
+ * @param {object[]} rows Строки отзывов.
+ * @returns {Promise<Map<string, string>>}
+ */
+async function productNames(rows) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const category = row['товар_категория'];
+    if (!grouped.has(category)) grouped.set(category, new Set());
+    grouped.get(category).add(Number(row['товар_id']));
+  }
+
+  const names = new Map();
+  await Promise.all(
+    [...grouped.entries()].map(async ([categoryId, ids]) => {
+      const category = CATEGORY_BY_ID.get(categoryId);
+      if (!category) return;
+      const { data, error } = await supabase
+        .from(category.table)
+        .select('id,название')
+        .in('id', [...ids]);
+      if (error) throw databaseError('получить названия товаров', error);
+      for (const product of data || []) {
+        names.set(`${categoryId}:${product.id}`, product['название']);
+      }
+    }),
+  );
+  return names;
 }
 
 /**
@@ -164,6 +197,12 @@ export async function listAll(status) {
       createdAt: row['создан_в'],
     };
   });
+
+  const names = await productNames(data || []);
+  for (const item of items) {
+    item.productName = names.get(item.productId) || '';
+  }
+
   return { items, total: items.length };
 }
 
@@ -189,9 +228,13 @@ async function reviewDetails(reviewId) {
     .maybeSingle();
   if (user.error) throw databaseError('прочитать автора отзыва', user.error);
 
+  const productId = `${row['товар_категория']}:${row['товар_id']}`;
+  const names = await productNames([row]);
+
   return {
     id: String(row.id),
-    productId: `${row['товар_категория']}:${row['товар_id']}`,
+    productId,
+    productName: names.get(productId) || '',
     rating: Number(row['оценка']),
     text: row['текст'] || '',
     status: row['статус'],

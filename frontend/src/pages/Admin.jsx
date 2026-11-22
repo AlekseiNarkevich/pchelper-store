@@ -1511,7 +1511,7 @@ function ReviewsPanel({ onError, onFlash }) {
             <header>
               <div>
                 <h3>
-                  {review.productId} · {review.rating} / 5
+                  {review.productName || review.productId} · {review.rating} / 5
                 </h3>
                 <div className="small faint">
                   {review.author} · {review.email} ·{' '}

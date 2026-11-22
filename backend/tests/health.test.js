@@ -13,7 +13,18 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
-import { sendRawEmail } from '../src/services/mail.service.js';
+import {
+  sendAccountBlockedEmail,
+  sendAccountDeletedEmail,
+  sendAccountUnblockedEmail,
+  sendOrderConfirmation,
+  sendOrderStatusEmail,
+  sendRawEmail,
+  sendRestockEmail,
+  sendReviewDeletedEmail,
+  sendReviewModeratedEmail,
+  sendRoleChangedEmail,
+} from '../src/services/mail.service.js';
 import { sendTestEmail } from '../src/repositories/mail.repository.js';
 
 // Порт и базовый URL заполняются в before(), когда сервер уже поднят.
@@ -181,4 +192,125 @@ test('проверка почты на тестовый адрес не отпр
   const result = await sendTestEmail('test@example.com');
   assert.equal(result.sent, false);
   assert.match(result.error, /Тестовый адрес/);
+});
+
+test('письма об аккаунте пишутся в журнал для тестовых адресов', async () => {
+  const results = await Promise.all([
+    sendAccountBlockedEmail({
+      to: 'blocked@example.com',
+      name: 'Тест',
+      reason: 'Нарушение правил',
+    }),
+    sendAccountUnblockedEmail({
+      to: 'unblocked@example.com',
+      name: 'Тест',
+      comment: 'Проверка завершена',
+    }),
+    sendAccountDeletedEmail({
+      to: 'deleted@example.com',
+      name: 'Тест',
+      reason: 'Аккаунт больше не нужен',
+    }),
+    sendRoleChangedEmail({
+      to: 'role@example.com',
+      name: 'Тест',
+      role: 'manager',
+      comment: 'Новая роль',
+    }),
+  ]);
+  for (const result of results) {
+    assert.equal(result.sent, false);
+    assert.match(result.error, /Тестовый адрес/);
+  }
+});
+
+test('письма об отзывах содержат название товара', async () => {
+  const results = await Promise.all([
+    sendReviewModeratedEmail({
+      to: 'review@example.com',
+      name: 'Тест',
+      productId: 'case:1',
+      productName: 'DeepCool CH360',
+      status: 'опубликован',
+      comment: 'Отзыв по делу',
+    }),
+    sendReviewModeratedEmail({
+      to: 'review@example.com',
+      name: 'Тест',
+      productId: 'case:1',
+      productName: 'DeepCool CH360',
+      status: 'отклонён',
+      comment: 'Не по правилам',
+    }),
+    sendReviewDeletedEmail({
+      to: 'review@example.com',
+      name: 'Тест',
+      productId: 'case:1',
+      productName: 'DeepCool CH360',
+      comment: 'Удалён по просьбе',
+    }),
+  ]);
+  for (const result of results) {
+    assert.equal(result.sent, false);
+    assert.match(result.error, /Тестовый адрес/);
+  }
+});
+
+test('письма о заказе и поступлении тоже уходят в журнал', async () => {
+  const order = {
+    id: '1',
+    number: 'PCH-TEST-1',
+    items: [{ name: 'Тестовый товар', qty: 2, price: 10 }],
+    itemsTotal: 20,
+    deliveryCost: 10,
+    deliveryMethod: 'courier',
+    address: 'г. Минск, ул. Тестовая, 1',
+    deliveryZone: 'minsk',
+    distanceKm: 0,
+    total: 30,
+  };
+  const results = await Promise.all([
+    sendOrderConfirmation({ to: 'order@example.com', order }),
+    sendOrderStatusEmail({
+      to: 'order@example.com',
+      order,
+      status: 'Отправлен',
+      comment: 'Передан в доставку',
+    }),
+    sendRestockEmail({
+      to: 'restock@example.com',
+      product: { name: 'Тестовый товар', price: 10 },
+    }),
+  ]);
+  for (const result of results) {
+    assert.equal(result.sent, false);
+    assert.match(result.error, /Тестовый адрес/);
+  }
+});
+
+test('без SMTP письмо не отправляется, но попадает в журнал', async () => {
+  const saved = {
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_USER: process.env.SMTP_USER,
+    SMTP_PASS: process.env.SMTP_PASS,
+  };
+  delete process.env.SMTP_HOST;
+  delete process.env.SMTP_PORT;
+  delete process.env.SMTP_USER;
+  delete process.env.SMTP_PASS;
+  try {
+    const result = await sendRawEmail({
+      to: 'noreply@pchelper-store.by',
+      subject: 'Проверка без SMTP',
+      text: 'Проверка без SMTP',
+    });
+    assert.equal(result.sent, false);
+    assert.match(result.error, /SMTP не настроен/);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });
