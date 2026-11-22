@@ -526,8 +526,19 @@ export default function Builder() {
     const gpu = gpuParam ? find(lists.gpu, gpuParam) : null;
     const psu = psuParam ? find(lists.psu, psuParam) : null;
 
-    setSelection((current) => ({ ...current, cpu, gpu, psu }));
+    setSelection({
+      cpu,
+      motherboard: null,
+      ram: null,
+      cooling: null,
+      gpu,
+      storage: [],
+      psu,
+      case: null,
+    });
     setSkipGpu(!gpu && hasIntegratedGraphics(cpu));
+    setBuildName('');
+    setNote('');
     setStep(0);
     setHydrated(true);
   }, [buildId, cpuParam, gpuParam, psuParam, loading, lists]);
