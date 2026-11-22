@@ -14,7 +14,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -32,24 +32,43 @@ if (!dbUrl) {
 
 const output = path.join(ROOT, 'db', 'schema_live.sql');
 mkdirSync(path.dirname(output), { recursive: true });
+const outputRelative = path.relative(ROOT, output);
 
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 console.log('Снимаем структуру public...');
-execFileSync(
-  npx,
-  [
-    '--yes',
-    'supabase',
-    'db',
-    'dump',
-    `--remote=${dbUrl}`,
-    '--schema',
-    'public',
-    '--file',
-    output,
-  ],
-  { cwd: ROOT, stdio: 'inherit' },
-);
+try {
+  execFileSync(
+    npx,
+    [
+      '--yes',
+      'supabase',
+      'db',
+      'dump',
+      `--remote=${dbUrl}`,
+      '--schema',
+      'public',
+      '--file',
+      outputRelative,
+    ],
+    { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' },
+  );
+} catch {
+  console.error(
+    'Не удалось выполнить supabase db dump. Проверьте Docker Desktop, пароль, сеть и доступ к Session pooler.',
+  );
+  process.exit(1);
+}
+
+// Подписываем файл: так видно, когда и откуда снята схема.
+const header = [
+  '-- PCHelper: структура базы public из Supabase.',
+  `-- Снято: ${new Date().toISOString()}`,
+  '-- Команда: cd backend && npm run db:schema',
+  '-- Данные не включены.',
+  '',
+  '',
+].join('\n');
+writeFileSync(output, header + readFileSync(output, 'utf8'), 'utf8');
 
 console.log(`Готово: ${output}`);
 console.log('Файл не содержит данных и его можно коммитить.');

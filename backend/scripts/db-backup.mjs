@@ -30,22 +30,32 @@ if (!dbUrl) {
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const dir = path.join(ROOT, 'backups');
 mkdirSync(dir, { recursive: true });
+const relative = (name) => path.join('backups', name);
 
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 const run = (args, label) => {
   console.log(label);
-  execFileSync(npx, ['--yes', 'supabase', 'db', 'dump', `--remote=${dbUrl}`, ...args], {
-    cwd: ROOT,
-    stdio: 'inherit',
-  });
+  try {
+    execFileSync(
+      npx,
+      ['--yes', 'supabase', 'db', 'dump', `--remote=${dbUrl}`, ...args],
+      {
+        cwd: ROOT,
+        stdio: 'inherit',
+        shell: process.platform === 'win32',
+      },
+    );
+  } catch {
+    console.error(
+      'Не удалось выполнить supabase db dump. Проверьте пароль, сеть и доступ к Session pooler.',
+    );
+    process.exit(1);
+  }
 };
 
+run(['--schema', 'public', '--file', relative(`schema-${stamp}.sql`)], 'Структура...');
 run(
-  ['--schema', 'public', '--file', path.join(dir, `schema-${stamp}.sql`)],
-  'Структура...',
-);
-run(
-  ['--data-only', '--schema', 'public', '--file', path.join(dir, `data-${stamp}.sql`)],
+  ['--data-only', '--schema', 'public', '--file', relative(`data-${stamp}.sql`)],
   'Данные...',
 );
 
