@@ -12,13 +12,16 @@ import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 import { deleteAccount, findById } from './users.repository.js';
 import { notifyPendingRequests } from './stock.repository.js';
 
-/** Допустимые статусы заказа. */
+/** Допустимые статусы заказа.
+ *
+ * «Отправлен» убран: для ПВЗ используется «Готов к выдаче»,
+ * для курьера — «Доставлен», «Завершён» ставится после получения.
+ */
 export const ORDER_STATUSES = [
   'Новый',
   'В обработке',
   'Собран',
   'Готов к выдаче',
-  'Отправлен',
   'Доставлен',
   'Завершён',
   'Отменён',

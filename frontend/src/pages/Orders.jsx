@@ -15,12 +15,7 @@ function statusClass(status) {
   // остальные промежуточные — жёлтые.
   if (status === 'Новый') return 'is-new';
   if (status === 'Отменён') return 'is-cancel';
-  if (
-    status === 'Отправлен' ||
-    status === 'Доставлен' ||
-    status === 'Готов к выдаче' ||
-    status === 'Завершён'
-  ) {
+  if (status === 'Доставлен' || status === 'Готов к выдаче' || status === 'Завершён') {
     return 'is-done';
   }
   return 'is-progress';

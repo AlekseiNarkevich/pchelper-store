@@ -11,7 +11,10 @@
  */
 import { Router } from 'express';
 
-import { sendOrderConfirmation } from '../services/mail.service.js';
+import {
+  sendOrderConfirmation,
+  sendOrderStatusEmail,
+} from '../services/mail.service.js';
 import { requireAuth } from './auth.js';
 import { getProduct } from '../repositories/catalog.repository.js';
 import {
@@ -130,7 +133,15 @@ router.get(
 router.post(
   '/orders/:id/complete',
   asyncHandler(async (req, res) => {
-    res.status(200).json(await completeOrder(req.user.id, req.params.id));
+    const order = await completeOrder(req.user.id, req.params.id);
+    // Покупатель подтвердил получение — отправляем письмо о завершении.
+    void sendOrderStatusEmail({
+      to: req.user.email,
+      order,
+      status: order.status,
+      comment: 'Получение подтверждено покупателем',
+    });
+    res.status(200).json(order);
   }),
 );
 

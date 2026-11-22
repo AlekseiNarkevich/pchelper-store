@@ -650,6 +650,7 @@ export async function completeOrder(userId, orderId) {
         id: String(updated.data.id),
         number: updated.data.номер,
         status: updated.data.статус,
+        total: Number(updated.data['итоговая_сумма'] || 0),
       };
     } catch (error) {
       if (error.status) throw error;
@@ -665,7 +666,12 @@ export async function completeOrder(userId, orderId) {
   }
   order.status = 'Завершён';
   order.comment = 'Получение подтверждено покупателем';
-  return { id: order.id, number: order.number, status: order.status };
+  return {
+    id: order.id,
+    number: order.number,
+    status: order.status,
+    total: Number(order.total || 0),
+  };
 }
 
 export async function listOrders(userId) {

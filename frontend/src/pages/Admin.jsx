@@ -180,13 +180,16 @@ const FIELD_LABELS = {
   количество: 'Количество на складе',
 };
 
-/** Статусы заказа. */
+/** Статусы заказа.
+ *
+ * «Отправлен» не используется: для ПВЗ достаточно «Готов к выдаче»,
+ * для курьера — «Доставлен», а «Завершён» ставится после получения.
+ */
 const ORDER_STATUSES = [
   'Новый',
   'В обработке',
   'Собран',
   'Готов к выдаче',
-  'Отправлен',
   'Доставлен',
   'Завершён',
   'Отменён',
@@ -495,14 +498,24 @@ function OrdersPanel({ onError, onFlash }) {
   // чтобы увидеть историю и актуальное состояние из базы.
   async function save(order) {
     try {
-      const updated = await updateOrder(order.id, draft(order));
+      const next = draft(order);
+      const updated = await updateOrder(order.id, next);
       setOrders((current) =>
         current.map((item) =>
           item.id === updated.id ? { ...item, ...updated } : item,
         ),
       );
       clearDraft(order.id);
-      onFlash(`Заказ ${order.number} обновлён`);
+
+      // Завершённый заказ уходит из «Активных»: показываем, куда он делся.
+      if (next.status === 'Завершён' && order.status !== 'Завершён') {
+        setFilter('completed');
+      }
+      onFlash(
+        next.status === 'Завершён'
+          ? `Заказ ${order.number} завершён и перенесён в «Завершённые»`
+          : `Заказ ${order.number} обновлён`,
+      );
     } catch (error) {
       onError(error.message);
     }
@@ -588,8 +601,8 @@ function OrdersPanel({ onError, onFlash }) {
     }
   }
 
-  // Уже отменённый заказ удаляем сразу: письмо и причина не нужны.
-  async function removeCancelled(order) {
+  // Финальные заказы удаляем сразу: письмо и причина не нужны.
+  async function removeFinal(order) {
     try {
       await deleteOrder(order.id);
       setOrders((current) => current.filter((item) => item.id !== order.id));
@@ -601,9 +614,12 @@ function OrdersPanel({ onError, onFlash }) {
   }
 
   const visibleOrders = orders.filter((order) => {
+    // Финальные заказы не забивают активный список. Они доступны
+    // в отдельных вкладках «Отменённые» и «Завершённые».
     if (filter === 'cancelled') return order.status === 'Отменён';
+    if (filter === 'completed') return order.status === 'Завершён';
     if (filter === 'all') return true;
-    return order.status !== 'Отменён';
+    return !['Отменён', 'Завершён'].includes(order.status);
   });
 
   if (loading) return <div className="state">Загружаем заказы…</div>;
@@ -616,6 +632,7 @@ function OrdersPanel({ onError, onFlash }) {
         {[
           ['active', 'Активные'],
           ['cancelled', 'Отменённые'],
+          ['completed', 'Завершённые'],
           ['all', 'Все'],
         ].map(([value, label]) => (
           <button
@@ -704,8 +721,8 @@ function OrdersPanel({ onError, onFlash }) {
                   <button
                     className="btn btn-danger"
                     onClick={() =>
-                      order.status === 'Отменён'
-                        ? removeCancelled(order)
+                      ['Отменён', 'Завершён'].includes(order.status)
+                        ? removeFinal(order)
                         : openCancel(order, 'delete')
                     }
                     type="button"

@@ -281,7 +281,7 @@ test('письма о заказе и поступлении тоже уходя
     sendOrderStatusEmail({
       to: 'order@example.com',
       order,
-      status: 'Отправлен',
+      status: 'Доставлен',
       comment: 'Передан в доставку',
     }),
     sendRestockEmail({

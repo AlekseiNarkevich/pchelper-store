@@ -143,6 +143,8 @@ export default function Header() {
                 value={term}
               />
               {term && (
+                // Свой крестик в конце поля: системный в Chrome стоит
+                // не там, где ожидает пользователь.
                 <button
                   aria-label="Очистить поиск"
                   className="search-clear"
