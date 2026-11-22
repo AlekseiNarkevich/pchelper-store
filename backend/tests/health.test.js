@@ -25,6 +25,7 @@ import {
   sendAccountDeletedEmail,
   sendAccountUnblockedEmail,
   sendOrderConfirmation,
+  sendOrderRefusedNotice,
   sendOrderStatusEmail,
   sendRawEmail,
   sendRestockEmail,
@@ -284,6 +285,18 @@ test('письма о заказе и поступлении тоже уходя
       status: 'Доставлен',
       comment: 'Передан в доставку',
     }),
+    sendOrderStatusEmail({
+      to: 'order@example.com',
+      order,
+      status: 'Готов к выдаче',
+      comment: 'Ждёт в ПВЗ',
+    }),
+    sendOrderStatusEmail({
+      to: 'order@example.com',
+      order,
+      status: 'Завершён',
+      comment: 'Получение подтверждено покупателем',
+    }),
     sendRestockEmail({
       to: 'restock@example.com',
       product: { name: 'Тестовый товар', price: 10 },
@@ -293,6 +306,15 @@ test('письма о заказе и поступлении тоже уходя
     assert.equal(result.sent, false);
     assert.match(result.error, /Тестовый адрес/);
   }
+
+  // Письмо магазину идёт на реальный адрес поддержки, поэтому проверяем
+  // только то, что без SMTP оно не отправляется, а не текст ошибки.
+  const refused = await sendOrderRefusedNotice({
+    order,
+    reason: 'Товар не подошёл',
+    customerEmail: 'order@example.com',
+  });
+  assert.equal(refused.sent, false);
 });
 
 test('без SMTP письмо не отправляется, но попадает в журнал', async () => {

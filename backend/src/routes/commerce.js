@@ -8,11 +8,14 @@
  *   POST   /api/v1/cart/clear
  *   GET    /api/v1/orders
  *   POST   /api/v1/orders
+ *   POST   /api/v1/orders/:id/complete
+ *   POST   /api/v1/orders/:id/refuse
  */
 import { Router } from 'express';
 
 import {
   sendOrderConfirmation,
+  sendOrderRefusedNotice,
   sendOrderStatusEmail,
 } from '../services/mail.service.js';
 import { requireAuth } from './auth.js';
@@ -25,6 +28,7 @@ import {
   getCart,
   listOrderHistory,
   listOrders,
+  refuseOrder,
   removeItem,
   updateItem,
 } from '../repositories/commerce.repository.js';
@@ -140,6 +144,27 @@ router.post(
       order,
       status: order.status,
       comment: 'Получение подтверждено покупателем',
+    });
+    res.status(200).json(order);
+  }),
+);
+
+router.post(
+  '/orders/:id/refuse',
+  asyncHandler(async (req, res) => {
+    const reason = String((req.body || {}).reason || '').trim();
+    const order = await refuseOrder(req.user.id, req.params.id, reason);
+    // Покупателю — подтверждение отмены, магазину — уведомление об отказе.
+    void sendOrderStatusEmail({
+      to: req.user.email,
+      order,
+      status: order.status,
+      comment: `Отказ покупателя: ${reason}`,
+    });
+    void sendOrderRefusedNotice({
+      order,
+      reason,
+      customerEmail: req.user.email,
     });
     res.status(200).json(order);
   }),

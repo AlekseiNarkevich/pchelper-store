@@ -102,7 +102,7 @@ const PREBUILT_TABLE = 'ГотовыеКонфигурации';
  * @param {number} direction 1 — вернуть на склад, -1 — списать снова.
  * @returns {Promise<void>}
  */
-async function adjustOrderStock(orderId, direction) {
+export async function adjustOrderStock(orderId, direction) {
   const { data: positions, error } = await supabase
     .from('Заказ_Позиции')
     .select('*')
@@ -313,10 +313,17 @@ export async function updateOrder(orderId, data, adminId) {
  */
 export async function deleteOrder(orderId) {
   requireDatabase();
+  // Защита от случайного удаления всей таблицы: id должен быть
+  // положительным целым, иначе PostgREST может получить NaN.
+  const id = Number(orderId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw apiError(400, 'INVALID_ORDER_ID', 'Некорректный номер заказа');
+  }
+
   const { data: row, error } = await supabase
     .from('Заказы')
     .select('id,номер,статус')
-    .eq('id', Number(orderId))
+    .eq('id', id)
     .maybeSingle();
   if (error) throw databaseError('получить заказ', error);
   if (!row) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
@@ -328,7 +335,7 @@ export async function deleteOrder(orderId) {
     );
   }
 
-  const removal = await supabase.from('Заказы').delete().eq('id', Number(orderId));
+  const removal = await supabase.from('Заказы').delete().eq('id', id);
   if (removal.error) throw databaseError('удалить заказ', removal.error);
 
   return { id: String(row.id), number: row['номер'] };

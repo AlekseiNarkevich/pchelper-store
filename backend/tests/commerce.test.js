@@ -5,10 +5,13 @@ import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createApp } from '../src/app.js';
+import { listOrders } from '../src/repositories/commerce.repository.js';
+import { isDatabaseConnected } from '../src/services/supabase.service.js';
 
 let server;
 let BASE;
 let token;
+let userId;
 let productId;
 
 before(async () => {
@@ -21,6 +24,7 @@ before(async () => {
     body: { email: 'demo@pchelper.by', password: 'demo1234' },
   });
   token = login.body.accessToken;
+  userId = login.body.user.id;
 
   const catalog = await request('/api/v1/products?category=cpu&limit=1');
   productId = catalog.body.items[0].id;
@@ -145,6 +149,81 @@ test('оформление заказа очищает корзину и соз�
   assert.equal(orders.status, 200);
   assert.equal(orders.body.items.length, 1);
 });
+
+test(
+  'покупатель может отказаться от получения',
+  { skip: isDatabaseConnected() },
+  async () => {
+    await request('/api/v1/cart/items', {
+      method: 'POST',
+      body: { id: productId, qty: 1 },
+    });
+    const created = await request('/api/v1/orders', {
+      method: 'POST',
+      body: {
+        deliveryMethod: 'pickup',
+        phone: '+375291234567',
+        paymentMethod: 'cash',
+      },
+    });
+    assert.equal(created.status, 201);
+
+    // В памяти заказ хранится тем же объектом: переводим его в состояние,
+    // в котором покупатель уже может забрать товар.
+    const stored = await listOrders(userId);
+    const order = stored.find((item) => item.id === created.body.id);
+    assert.ok(order);
+    order.status = 'Готов к выдаче';
+
+    const refused = await request(`/api/v1/orders/${created.body.id}/refuse`, {
+      method: 'POST',
+      body: { reason: 'Товар не подошёл' },
+    });
+    assert.equal(refused.status, 200);
+    assert.equal(refused.body.status, 'Отменён');
+
+    const refreshed = await request('/api/v1/orders');
+    const saved = refreshed.body.items.find((item) => item.id === created.body.id);
+    assert.equal(saved.status, 'Отменён');
+    assert.equal(saved.managerComment, 'Отказ покупателя: Товар не подошёл');
+  },
+);
+
+test(
+  'покупатель может подтвердить получение',
+  { skip: isDatabaseConnected() },
+  async () => {
+    await request('/api/v1/cart/items', {
+      method: 'POST',
+      body: { id: productId, qty: 1 },
+    });
+    const created = await request('/api/v1/orders', {
+      method: 'POST',
+      body: {
+        deliveryMethod: 'pickup',
+        phone: '+375291234567',
+        paymentMethod: 'cash',
+      },
+    });
+    assert.equal(created.status, 201);
+
+    const stored = await listOrders(userId);
+    const order = stored.find((item) => item.id === created.body.id);
+    assert.ok(order);
+    order.status = 'Готов к выдаче';
+
+    const completed = await request(`/api/v1/orders/${created.body.id}/complete`, {
+      method: 'POST',
+    });
+    assert.equal(completed.status, 200);
+    assert.equal(completed.body.status, 'Завершён');
+
+    const refreshed = await request('/api/v1/orders');
+    const saved = refreshed.body.items.find((item) => item.id === created.body.id);
+    assert.equal(saved.status, 'Завершён');
+    assert.equal(saved.managerComment, 'Получение подтверждено покупателем');
+  },
+);
 
 test('доставка за МКАД считается по километрам', async () => {
   const email = `delivery-${Date.now()}@example.com`;

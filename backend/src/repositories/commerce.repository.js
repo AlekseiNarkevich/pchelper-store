@@ -7,6 +7,7 @@
  */
 import { CATEGORY_BY_ID } from '../domain/catalog.js';
 import { getProduct } from './catalog.repository.js';
+import { adjustOrderStock } from './admin.repository.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 
 /** @type {Map<string, Array<object>>} */
@@ -666,6 +667,113 @@ export async function completeOrder(userId, orderId) {
   }
   order.status = 'Завершён';
   order.comment = 'Получение подтверждено покупателем';
+  order.managerComment = order.comment;
+  return {
+    id: order.id,
+    number: order.number,
+    status: order.status,
+    total: Number(order.total || 0),
+  };
+}
+
+/**
+ * Покупатель отказывается от получения заказа.
+ *
+ * Доступно для «Готов к выдаче» и «Доставлен». Заказ становится
+ * «Отменён», товар возвращается на склад, причина сохраняется в истории
+ * и комментарии менеджера.
+ *
+ * @param {string} userId Пользователь.
+ * @param {string} orderId Заказ.
+ * @param {string} reason Причина отказа.
+ * @returns {Promise<object>}
+ */
+export async function refuseOrder(userId, orderId, reason) {
+  const comment = String(reason || '').trim();
+  if (!comment) {
+    throw apiError(400, 'REASON_REQUIRED', 'Укажите причину отказа');
+  }
+
+  if (useSupabase()) {
+    try {
+      const { data: row, error } = await supabase
+        .from('Заказы')
+        .select('*')
+        .eq('id', Number(orderId))
+        .eq('пользователь_id', Number(userId))
+        .maybeSingle();
+      if (error) throw error;
+      if (!row) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+      if (!['Готов к выдаче', 'Доставлен'].includes(row.статус)) {
+        throw apiError(
+          400,
+          'ORDER_NOT_READY',
+          'Отказаться можно только после готовности заказа',
+        );
+      }
+
+      // В базе есть защита: заказ нельзя отменить напрямую из «Доставлен».
+      // Для отказа покупателя сначала возвращаем его в «Готов к выдаче»,
+      // затем отменяем — это разрешённый переход.
+      if (row.статус === 'Доставлен') {
+        const step = await supabase
+          .from('Заказы')
+          .update({ статус: 'Готов к выдаче', обновлён_в: new Date().toISOString() })
+          .eq('id', Number(orderId))
+          .select('*')
+          .single();
+        if (step.error) throw step.error;
+      }
+
+      const updated = await supabase
+        .from('Заказы')
+        .update({
+          статус: 'Отменён',
+          комментарий_менеджера: `Отказ покупателя: ${comment}`,
+          обновлён_в: new Date().toISOString(),
+        })
+        .eq('id', Number(orderId))
+        .select('*')
+        .single();
+      if (updated.error) throw updated.error;
+
+      // Товар не получен — возвращаем его на склад.
+      await adjustOrderStock(orderId, 1);
+
+      const history = await supabase.from('ИсторияЗаказов').insert({
+        заказ_id: Number(orderId),
+        статус: 'Отменён',
+        комментарий: `Отказ покупателя: ${comment}`,
+      });
+      if (history.error) {
+        console.error('[commerce] история отказа:', history.error.message);
+      }
+
+      return {
+        id: String(updated.data.id),
+        number: updated.data.номер,
+        status: updated.data.статус,
+        total: Number(updated.data['итоговая_сумма'] || 0),
+      };
+    } catch (error) {
+      if (error.status) throw error;
+      throw databaseFailure('отказаться от заказа', error);
+    }
+  }
+
+  const list = orders.get(key(userId)) || [];
+  const order = list.find((item) => item.id === String(orderId));
+  if (!order) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+  if (!['Готов к выдаче', 'Доставлен'].includes(order.status)) {
+    throw apiError(
+      400,
+      'ORDER_NOT_READY',
+      'Отказаться можно только после готовности заказа',
+    );
+  }
+  order.status = 'Отменён';
+  order.comment = `Отказ покупателя: ${comment}`;
+  order.managerComment = order.comment;
   return {
     id: order.id,
     number: order.number,

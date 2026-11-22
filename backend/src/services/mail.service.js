@@ -245,6 +245,22 @@ export async function sendOrderConfirmation({ to, order }) {
  * @returns {Promise<void>}
  */
 export async function sendOrderStatusEmail({ to, order, status, comment }) {
+  const instructions = [];
+  if (status === 'Готов к выдаче') {
+    instructions.push(
+      'Заказ ждёт вас в пункте выдачи: г. Минск, пер. Корженевского, 6, пом. 1.',
+      'Если товар получен и всё в порядке, зайдите в личный кабинет → «Мои заказы» и нажмите «Всё устраивает, товар получен». Заказ станет «Завершён».',
+      'Если товар не подошёл или вы решили отказаться, там же нажмите «Отказаться от получения» и укажите причину. Заказ будет отменён, товар вернётся на склад.',
+    );
+  } else if (status === 'Доставлен') {
+    instructions.push(
+      'Курьер передал заказ. Если всё в порядке, подтвердите получение в личном кабинете → «Мои заказы». Заказ станет «Завершён».',
+      'Если товар не подошёл, нажмите там же «Отказаться от получения» и укажите причину. Заказ будет отменён, товар вернётся на склад.',
+    );
+  } else if (status === 'Завершён') {
+    instructions.push('Спасибо, что забрали заказ. Будем рады видеть вас снова.');
+  }
+
   const text = [
     'Здравствуйте!',
     '',
@@ -253,8 +269,8 @@ export async function sendOrderStatusEmail({ to, order, status, comment }) {
     '',
     `Сумма заказа: ${order.total} BYN`,
     '',
-    'Подробности — в личном кабинете.',
-    '',
+    ...instructions,
+    instructions.length ? '' : 'Подробности — в личном кабинете.',
     'PCHelper',
   ].join('\n');
 
@@ -262,6 +278,37 @@ export async function sendOrderStatusEmail({ to, order, status, comment }) {
     to,
     orderId: order.id,
     subject: `PCHelper: заказ ${order.number} — ${status}`,
+    text,
+  });
+}
+
+/**
+ * Сообщает магазину об отказе покупателя от заказа.
+ *
+ * Письмо уходит на адрес поддержки, чтобы администратор увидел отказ
+ * не только в панели, но и на почте.
+ *
+ * @param {{order: object, reason: string, customerEmail: string}} data Данные.
+ * @returns {Promise<void>}
+ */
+export async function sendOrderRefusedNotice({ order, reason, customerEmail }) {
+  const text = [
+    'Покупатель отказался от получения заказа.',
+    '',
+    `Заказ: ${order.number}`,
+    `Сумма: ${order.total} BYN`,
+    `Покупатель: ${customerEmail}`,
+    `Причина: ${reason}`,
+    '',
+    'Заказ переведён в «Отменён», товар возвращён на склад.',
+    '',
+    'PCHelper',
+  ].join('\n');
+
+  return await deliver({
+    to: SUPPORT_EMAIL,
+    orderId: order.id,
+    subject: `PCHelper: отказ от заказа ${order.number}`,
     text,
   });
 }

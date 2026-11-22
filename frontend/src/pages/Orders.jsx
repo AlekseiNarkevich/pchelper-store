@@ -7,7 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { money } from '../api.js';
-import { completeOrder, getOrderHistory, listOrders } from '../commerce.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import {
+  completeOrder,
+  getOrderHistory,
+  listOrders,
+  refuseOrder,
+} from '../commerce.js';
 import { onDataChanged } from '../dataBus.js';
 
 /** Класс значка по статусу заказа. */
@@ -32,19 +38,26 @@ export default function Orders() {
   const [openHistory, setOpenHistory] = useState(null);
   const [history, setHistory] = useState({});
   const [notice, setNotice] = useState('');
+  const [completeTarget, setCompleteTarget] = useState(null);
+  const [completing, setCompleting] = useState(false);
+  const [refuseTarget, setRefuseTarget] = useState(null);
+  const [refuseReason, setRefuseReason] = useState('');
+  const [refusing, setRefusing] = useState(false);
   const location = useLocation();
   // Если пользователь только что оформил заказ, показываем его сверху.
   const created = location.state?.order || null;
 
-  // Подтверждение получения доступно для «Готов к выдаче» и «Доставлен»;
-  // серверная проверка повторяет это правило.
-  async function complete(order) {
-    if (!window.confirm(`Подтвердить получение заказа ${order.number}?`)) return;
+  // Подтверждение получения доступно для «Готов к выдаче» и «Доставлен».
+  // После подтверждения заказ сразу становится «Завершён», письмо уже
+  // отправляет backend; администратор увидит новый статус.
+  async function complete() {
+    if (!completeTarget || completing) return;
+    setCompleting(true);
     try {
-      await completeOrder(order.id);
+      await completeOrder(completeTarget.id);
       setOrders((current) =>
         current.map((item) =>
-          item.id === order.id
+          item.id === completeTarget.id
             ? {
                 ...item,
                 status: 'Завершён',
@@ -53,11 +66,50 @@ export default function Orders() {
             : item,
         ),
       );
-      setHistory((current) => ({ ...current, [order.id]: null }));
-      setNotice(`Заказ ${order.number} завершён`);
+      setHistory((current) => ({ ...current, [completeTarget.id]: null }));
+      setNotice(`Спасибо! Заказ ${completeTarget.number} завершён`);
+      setCompleteTarget(null);
     } catch (reason) {
       setError(reason.message);
+    } finally {
+      setCompleting(false);
     }
+  }
+
+  // Покупатель отказался от получения: заказ отменяется, товар
+  // возвращается на склад, причина сохраняется в истории.
+  async function refuseToReceive() {
+    const reason = refuseReason.trim();
+    if (!refuseTarget || !reason || refusing) return;
+    setRefusing(true);
+    try {
+      const updated = await refuseOrder(refuseTarget.id, reason);
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === updated.id
+            ? {
+                ...item,
+                status: updated.status,
+                managerComment: `Отказ покупателя: ${reason}`,
+              }
+            : item,
+        ),
+      );
+      setHistory((current) => ({ ...current, [updated.id]: null }));
+      setNotice(`Заказ ${refuseTarget.number} отменён, товар вернётся на склад`);
+      setRefuseTarget(null);
+      setRefuseReason('');
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setRefusing(false);
+    }
+  }
+
+  function closeRefuse() {
+    if (refusing) return;
+    setRefuseTarget(null);
+    setRefuseReason('');
   }
 
   // История переходов подгружается один раз при первом раскрытии заказа.
@@ -186,16 +238,39 @@ export default function Orders() {
               <span>Итого</span>
               <strong>{money(order.total)}</strong>
             </div>
+
+            {['Готов к выдаче', 'Доставлен'].includes(order.status) && (
+              <div className="order-received">
+                <div>
+                  <strong>Товар получен?</strong>
+                  <div className="small faint">
+                    Подтвердите — заказ станет «Завершён», и магазин увидит, что вы его
+                    забрали.
+                  </div>
+                </div>
+                <div className="order-received-actions">
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setCompleteTarget(order)}
+                    type="button"
+                  >
+                    Всё устраивает, товар получен
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setRefuseTarget(order);
+                      setRefuseReason('');
+                    }}
+                    type="button"
+                  >
+                    Отказаться от получения
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="order-actions">
-              {['Готов к выдаче', 'Доставлен'].includes(order.status) && (
-                <button
-                  className="btn btn-sm"
-                  onClick={() => complete(order)}
-                  type="button"
-                >
-                  Подтвердить получение
-                </button>
-              )}
               <button
                 className="link-button"
                 onClick={() => toggleHistory(order)}
@@ -220,6 +295,71 @@ export default function Orders() {
           </article>
         ))}
       </div>
+
+      {/* Подтверждение получения: после «Да» заказ сразу становится
+          «Завершён», без ручной правки статуса администратором. */}
+      <ConfirmDialog
+        confirmLabel={completing ? 'Завершаем…' : 'Да, всё в порядке'}
+        danger={false}
+        onCancel={() => {
+          if (!completing) setCompleteTarget(null);
+        }}
+        onConfirm={complete}
+        open={Boolean(completeTarget)}
+        text="Если товар у вас и всё в порядке, подтвердите получение. Заказ сразу станет «Завершён»."
+        title={
+          completeTarget
+            ? `Заказ ${completeTarget.number} получен?`
+            : 'Подтвердить получение?'
+        }
+      />
+
+      {/* Отказ от получения: причина обязательна, заказ становится
+          «Отменён», а товар возвращается на склад. */}
+      {refuseTarget && (
+        <div className="modal-backdrop" onClick={closeRefuse} role="presentation">
+          <div
+            aria-labelledby="refuse-title"
+            aria-modal="true"
+            className="modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <h3 id="refuse-title">Отказаться от заказа {refuseTarget.number}?</h3>
+            <p className="muted">
+              Заказ станет «Отменён», товар вернётся на склад. Причина уйдёт в магазин и
+              сохранится в истории заказа.
+            </p>
+            <label className="field">
+              <span>Причина отказа</span>
+              <textarea
+                onChange={(event) => setRefuseReason(event.target.value)}
+                placeholder="Например: товар не подошёл"
+                rows={3}
+                value={refuseReason}
+              />
+            </label>
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                disabled={refusing}
+                onClick={closeRefuse}
+                type="button"
+              >
+                Не отказываться
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={refusing || !refuseReason.trim()}
+                onClick={refuseToReceive}
+                type="button"
+              >
+                {refusing ? 'Отменяем…' : 'Отказаться и отменить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@
  */
 
 import { readAuth, refreshAccessToken } from './auth.js';
+import { notifyDataChanged } from './dataBus.js';
 
 const BASE = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '');
 
@@ -45,6 +46,9 @@ async function request(path, options = {}) {
   if (!response.ok) {
     throw new Error(data?.error?.message || `Ошибка сервера ${response.status}`);
   }
+
+  // Оформление, отмена и завершение заказа меняют данные админки.
+  if (method !== 'GET') notifyDataChanged('commerce');
   return data;
 }
 
@@ -157,5 +161,22 @@ export function getOrderHistory(id) {
 export function completeOrder(id) {
   return request(`/orders/${encodeURIComponent(id)}/complete`, {
     method: 'POST',
+  });
+}
+
+/**
+ * Отказаться от получения заказа.
+ *
+ * Backend переводит заказ в «Отменён», возвращает товар на склад
+ * и сохраняет причину в истории.
+ *
+ * @param {string} id Идентификатор заказа.
+ * @param {string} reason Причина отказа.
+ * @returns {Promise<object>}
+ */
+export function refuseOrder(id, reason) {
+  return request(`/orders/${encodeURIComponent(id)}/refuse`, {
+    method: 'POST',
+    body: { reason },
   });
 }
