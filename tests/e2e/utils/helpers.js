@@ -11,14 +11,25 @@ export async function loginAs(page, email = 'demo@pchelper.by', password = 'demo
 }
 
 /**
- * Возвращает id первого доступного товара.
+ * Возвращает id товара с нужным остатком.
  *
  * В CI backend работает на фикстуре без Supabase, поэтому жёстко заданный
  * `cpu:1` может отсутствовать. Берём id из API — тест работает и на фикстуре,
- * и на реальной базе.
+ * и на реальной базе, где часть товаров специально без остатка.
+ *
+ * @param {import('@playwright/test').APIRequestContext} request Контекст запросов.
+ * @param {number} minStock Минимальный остаток.
+ * @returns {Promise<string>}
  */
-export async function firstProductId(request) {
-  const response = await request.get(`${API}/products?limit=1`);
+export async function productIdWithStock(request, minStock = 1) {
+  const response = await request.get(`${API}/products?limit=100`);
   const body = await response.json();
-  return body.items[0].id;
+  const items = body.items || [];
+  const found = items.find((item) => Number(item.stock ?? 0) >= minStock);
+  return (found || items[0]).id;
+}
+
+/** Возвращает id первого товара, который есть в наличии. */
+export async function firstProductId(request) {
+  return productIdWithStock(request, 1);
 }

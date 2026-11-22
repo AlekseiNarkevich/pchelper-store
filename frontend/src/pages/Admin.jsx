@@ -10,10 +10,10 @@ import { getCategories, money } from '../api.js';
 import { readAuth } from '../auth.js';
 import {
   createProduct,
+  deleteOrder,
   deleteProduct,
   deleteUser,
   getEmails,
-  getOrderPositions,
   getOrders,
   getPrebuiltStock,
   getProducts,
@@ -139,6 +139,60 @@ const ORDER_STATUSES = [
   'Отменён',
 ];
 
+/** Русские подписи способов оплаты для админки. */
+const PAYMENT_LABELS = {
+  card: 'Картой',
+  cash: 'Наличными',
+  invoice: 'По счёту',
+};
+
+/**
+ * Способ получения и адрес одной строкой.
+ *
+ * @param {object} order Заказ.
+ * @returns {string}
+ */
+function deliveryText(order) {
+  const address = String(order.address || '').replace(/Г\.\s*Минск/g, 'г. Минск');
+  if (order.deliveryMethod === 'pickup') {
+    return `Самовывоз${address ? `, ${address}` : ''}`;
+  }
+  const zone =
+    order.deliveryZone === 'outside'
+      ? ', за МКАД'
+      : order.deliveryZone === 'minsk'
+        ? ', по Минску'
+        : '';
+  return `Курьером${zone}${address ? `, ${address}` : ''}`;
+}
+
+/**
+ * Согласует слово «позиция» с числом.
+ *
+ * @param {number} count Количество.
+ * @returns {string}
+ */
+function positionsText(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  let word = 'позиций';
+  if (mod10 === 1 && mod100 !== 11) word = 'позиция';
+  else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    word = 'позиции';
+  }
+  return `${count} ${word}`;
+}
+
+/**
+ * Русская подпись способа оплаты.
+ *
+ * @param {string} value Значение из базы.
+ * @returns {string}
+ */
+function paymentText(value) {
+  return PAYMENT_LABELS[value] || value || '—';
+}
+
 /**
  * Административная панель: заказы, товары, готовые ПК, запросы,
  * письма, пользователи и отзывы.
@@ -241,16 +295,25 @@ export default function Admin() {
   );
 }
 
-/** Заказы и статусы. */
+/** Заказы, статусы и отмена с причиной. */
 function OrdersPanel({ onError, onFlash }) {
   const [orders, setOrders] = useState([]);
   const [drafts, setDrafts] = useState({});
-  const [positions, setPositions] = useState({});
+  const [filter, setFilter] = useState('active');
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    let alive = true;
     getOrders()
-      .then((data) => setOrders(data.items))
-      .catch((reason) => onError(reason.message));
+      .then((data) => {
+        if (alive) setOrders(data.items);
+      })
+      .catch((error) => onError(error.message));
+    return () => {
+      alive = false;
+    };
   }, [onError]);
 
   // Черновик хранит несохранённые изменения конкретного заказа.
@@ -271,153 +334,294 @@ function OrdersPanel({ onError, onFlash }) {
     }));
   }
 
+  function clearDraft(orderId) {
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[orderId];
+      return next;
+    });
+  }
+
   // Сохраняем статус, трек-номер и комментарий; список перечитываем,
   // чтобы увидеть историю и актуальное состояние из базы.
   async function save(order) {
     try {
-      await updateOrder(order.id, draft(order));
-      const data = await getOrders();
-      setOrders(data.items);
+      const updated = await updateOrder(order.id, draft(order));
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === updated.id ? { ...item, ...updated } : item,
+        ),
+      );
+      clearDraft(order.id);
       onFlash(`Заказ ${order.number} обновлён`);
-    } catch (reason) {
-      onError(reason.message);
+    } catch (error) {
+      onError(error.message);
     }
   }
 
   // Быстрое подтверждение нового заказа: «Новый» → «В обработке».
   async function confirmOrder(order) {
     try {
-      await updateOrder(order.id, {
+      const updated = await updateOrder(order.id, {
         status: 'В обработке',
         comment: 'Заказ подтверждён администратором',
       });
-      const data = await getOrders();
-      setOrders(data.items);
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === updated.id ? { ...item, ...updated } : item,
+        ),
+      );
       onFlash(`Заказ ${order.number} подтверждён`);
-    } catch (reason) {
-      onError(reason.message);
+    } catch (error) {
+      onError(error.message);
     }
   }
 
-  // Состав заказа запрашивается по требованию, чтобы не грузить всё сразу.
-  async function togglePositions(order) {
-    if (positions[order.id]) {
-      setPositions((current) => ({ ...current, [order.id]: null }));
-      return;
-    }
+  // «Удалить» и выбор статуса «Отменён» ведут в одно окно причины.
+  function openCancel(order) {
+    setCancelTarget(order);
+    setReason('');
+  }
+
+  function closeCancel() {
+    if (busy) return;
+    setCancelTarget(null);
+    setReason('');
+  }
+
+  async function confirmCancel() {
+    const value = reason.trim();
+    if (!cancelTarget || !value) return;
+    setBusy(true);
     try {
-      const data = await getOrderPositions(order.id);
-      setPositions((current) => ({ ...current, [order.id]: data.items }));
-    } catch (reason) {
-      onError(reason.message);
+      const updated = await updateOrder(cancelTarget.id, {
+        status: 'Отменён',
+        comment: value,
+      });
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === updated.id ? { ...item, ...updated } : item,
+        ),
+      );
+      clearDraft(cancelTarget.id);
+      onFlash(
+        `Заказ ${cancelTarget.number} отменён — покупателю отправлено письмо с причиной`,
+      );
+      setCancelTarget(null);
+      setReason('');
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setBusy(false);
     }
   }
+
+  // Уже отменённый заказ удаляем сразу: письмо и причина не нужны.
+  async function removeCancelled(order) {
+    try {
+      await deleteOrder(order.id);
+      setOrders((current) => current.filter((item) => item.id !== order.id));
+      clearDraft(order.id);
+      onFlash(`Заказ ${order.number} удалён из списка`);
+    } catch (error) {
+      onError(error.message);
+    }
+  }
+
+  const visibleOrders = orders.filter((order) => {
+    if (filter === 'cancelled') return order.status === 'Отменён';
+    if (filter === 'all') return true;
+    return order.status !== 'Отменён';
+  });
 
   if (!orders.length) return <div className="state">Заказов пока нет.</div>;
 
   return (
-    <div className="admin-list">
-      {orders.map((order) => (
-        <article className="admin-order" key={order.id}>
-          <header>
-            <div>
-              <h3>Заказ {order.number}</h3>
-              <div className="small faint">
-                {order.userName} · {order.userEmail} · {order.phone}
-              </div>
-              <div className="small faint">
-                {new Date(order.createdAt).toLocaleString('ru-RU')} ·{' '}
-                {order.positionsCount} позиций
-              </div>
-            </div>
-            <strong>{money(order.total)}</strong>
-          </header>
+    <>
+      {/* Отменённые заказы не забивают список, но остаются доступны. */}
+      <div className="chips order-filter" role="group" aria-label="Фильтр заказов">
+        {[
+          ['active', 'Активные'],
+          ['cancelled', 'Отменённые'],
+          ['all', 'Все'],
+        ].map(([value, label]) => (
+          <button
+            className={`chip${filter === value ? ' is-on' : ''}`}
+            key={value}
+            onClick={() => setFilter(value)}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-          <div className="admin-order-grid">
+      {!visibleOrders.length ? (
+        <div className="state">
+          {filter === 'cancelled' ? 'Отменённых заказов нет.' : 'Заказов пока нет.'}
+        </div>
+      ) : (
+        <div className="admin-list">
+          {visibleOrders.map((order) => (
+            <article className="admin-order" key={order.id}>
+              <header>
+                <div>
+                  <h3>Заказ {order.number}</h3>
+                  <div className="small faint">
+                    {order.userName} · {order.userEmail} · {order.phone}
+                  </div>
+                  <div className="small faint">
+                    {new Date(order.createdAt).toLocaleString('ru-RU')} ·{' '}
+                    {positionsText(order.positionsCount)}
+                  </div>
+                </div>
+                <strong>{money(order.total)}</strong>
+              </header>
+
+              <div className="admin-order-grid">
+                <label className="field">
+                  <span>Статус</span>
+                  <select
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === 'Отменён') {
+                        if (order.status !== 'Отменён') openCancel(order);
+                        return;
+                      }
+                      change(order, 'status', value);
+                    }}
+                    value={draft(order).status}
+                  >
+                    {ORDER_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Трек-номер</span>
+                  <input
+                    onChange={(event) => change(order, 'track', event.target.value)}
+                    type="text"
+                    value={draft(order).track || ''}
+                  />
+                </label>
+                <label className="field">
+                  <span>Комментарий менеджера</span>
+                  <input
+                    onChange={(event) => change(order, 'comment', event.target.value)}
+                    type="text"
+                    value={draft(order).comment || ''}
+                  />
+                </label>
+                <div className="admin-actions">
+                  {order.status === 'Новый' && (
+                    <button
+                      className="btn"
+                      onClick={() => confirmOrder(order)}
+                      type="button"
+                    >
+                      Подтвердить заказ
+                    </button>
+                  )}
+                  <button className="btn" onClick={() => save(order)} type="button">
+                    Сохранить
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() =>
+                      order.status === 'Отменён'
+                        ? removeCancelled(order)
+                        : openCancel(order)
+                    }
+                    type="button"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </div>
+
+              <div className="small faint">
+                Доставка: {deliveryText(order)}. Оплата:{' '}
+                {paymentText(order.paymentMethod)}. Стоимость доставки:{' '}
+                {money(order.deliveryCost)}.
+              </div>
+
+              <div className="order-positions">
+                <div className="order-positions-head">Состав заказа</div>
+                <div className="picker-wrap">
+                  <table className="picker">
+                    <thead>
+                      <tr>
+                        <th>Товар</th>
+                        <th>Количество</th>
+                        <th>Сумма</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(order.positions || []).map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.name}</td>
+                          <td>{item.qty}</td>
+                          <td>{money(item.sum)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {cancelTarget && (
+        <div className="modal-backdrop" onClick={closeCancel} role="presentation">
+          <div
+            aria-labelledby="cancel-order-title"
+            aria-modal="true"
+            className="modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <h3 id="cancel-order-title">Отменить заказ {cancelTarget.number}?</h3>
+            <p className="muted">
+              Заказ получит статус «Отменён» и исчезнет из активного списка. Покупателю
+              уйдёт письмо с указанной причиной.
+            </p>
             <label className="field">
-              <span>Статус</span>
-              <select
-                onChange={(event) => change(order, 'status', event.target.value)}
-                value={draft(order).status}
-              >
-                {ORDER_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Трек-номер</span>
-              <input
-                onChange={(event) => change(order, 'track', event.target.value)}
-                type="text"
-                value={draft(order).track || ''}
+              <span>Причина отмены</span>
+              <textarea
+                autoFocus
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Например: товара нет в наличии, покупатель попросил отменить"
+                rows={4}
+                value={reason}
               />
             </label>
-            <label className="field">
-              <span>Комментарий менеджера</span>
-              <input
-                onChange={(event) => change(order, 'comment', event.target.value)}
-                type="text"
-                value={draft(order).comment || ''}
-              />
-            </label>
-            <div className="admin-actions">
-              {order.status === 'Новый' && (
-                <button
-                  className="btn"
-                  onClick={() => confirmOrder(order)}
-                  type="button"
-                >
-                  Подтвердить заказ
-                </button>
-              )}
-              <button className="btn" onClick={() => save(order)} type="button">
-                Сохранить
-              </button>
+            <div className="modal-actions">
               <button
                 className="btn btn-secondary"
-                onClick={() => togglePositions(order)}
+                disabled={busy}
+                onClick={closeCancel}
                 type="button"
               >
-                {positions[order.id] ? 'Скрыть состав' : 'Состав'}
+                Не отменять
+              </button>
+              <button
+                className="btn btn-danger"
+                disabled={busy || !reason.trim()}
+                onClick={confirmCancel}
+                type="button"
+              >
+                {busy ? 'Отменяем…' : 'Отменить заказ'}
               </button>
             </div>
           </div>
-
-          <div className="small faint">
-            Доставка: {order.deliveryMethod === 'pickup' ? 'самовывоз' : 'курьер'}
-            {order.deliveryZone ? ` (${order.deliveryZone})` : ''}
-            {order.address ? `, ${order.address}` : ''}. Оплата: {order.paymentMethod}.
-            Доставка: {money(order.deliveryCost)}.
-          </div>
-
-          {positions[order.id] && (
-            <div className="picker-wrap">
-              <table className="picker">
-                <thead>
-                  <tr>
-                    <th>Товар</th>
-                    <th>Количество</th>
-                    <th>Сумма</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {positions[order.id].map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td>{item.qty}</td>
-                      <td>{money(item.sum)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </article>
-      ))}
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 

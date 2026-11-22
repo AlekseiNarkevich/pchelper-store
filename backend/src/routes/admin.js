@@ -21,6 +21,7 @@ import { Router } from 'express';
 
 import {
   createProduct,
+  deleteOrder,
   deleteProduct,
   deleteUser,
   getSummary,
@@ -123,6 +124,13 @@ router.patch(
       });
     }
     res.status(200).json(order);
+  }),
+);
+
+router.delete(
+  '/orders/:id',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deleteOrder(req.params.id));
   }),
 );
 

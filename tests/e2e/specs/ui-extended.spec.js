@@ -6,7 +6,7 @@ import HomePage from '../pages/HomePage.js';
 import LoginPage from '../pages/LoginPage.js';
 import ProductPage from '../pages/ProductPage.js';
 import ProfilePage from '../pages/ProfilePage.js';
-import { firstProductId, loginAs } from '../utils/helpers.js';
+import { firstProductId, loginAs, productIdWithStock } from '../utils/helpers.js';
 
 test.describe('PCHelper — расширенные UI-сценарии', () => {
   test('LR9-01: пустая корзина имеет h1', async ({ page }) => {
@@ -86,11 +86,13 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     await expect(cart.rows()).toHaveCount(1);
   });
 
-  test('количество меняет сумму в корзине', async ({ page }) => {
-    const catalog = new CatalogPage(page);
+  test('количество меняет сумму в корзине', async ({ page, request }) => {
     const cart = new CartPage(page);
-    await catalog.goto('/catalog');
-    await catalog.addFirstToCart();
+    const product = new ProductPage(page);
+    // Для увеличения количества нужен товар хотя бы с двумя единицами.
+    const id = await productIdWithStock(request, 2);
+    await product.goto(`/product/${id}`);
+    await product.addToCart();
     await cart.goto('/cart');
     const before = await cart.total().innerText();
     await cart.increaseFirstQty();
@@ -174,7 +176,10 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     await expect(page.locator('body')).toContainText('Такой страницы нет');
   });
 
-  test('мобильная вёрстка товара и каталога без переполнения', async ({ page }) => {
+  test('мобильная вёрстка товара и каталога без переполнения', async ({
+    page,
+    request,
+  }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     await page.goto('/catalog');
@@ -182,7 +187,9 @@ test.describe('PCHelper — расширенные UI-сценарии', () => {
     expect(sort).not.toBeNull();
     expect(sort.x + sort.width).toBeLessThanOrEqual(391);
 
-    await page.goto('/product/cooling:1');
+    // Берём товар в наличии: у отсутствующего кнопки покупки нет.
+    const id = await firstProductId(request);
+    await page.goto(`/product/${id}`);
     const add = page.getByRole('button', { name: 'Добавить в корзину' });
     await expect(add).toBeVisible();
     const button = await add.boundingBox();

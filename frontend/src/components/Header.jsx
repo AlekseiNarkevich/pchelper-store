@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 import { getProducts, money } from '../api.js';
 import { cartCount, clearLocalCart, onCartChange } from '../cart.js';
@@ -25,6 +25,7 @@ export default function Header() {
   const [preview, setPreview] = useState([]);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => onCartChange(() => setCount(cartCount())), []);
   useEffect(() => onAuthChange(() => setUser(readAuth().user)), []);
@@ -170,14 +171,19 @@ export default function Header() {
 
           {user ? (
             <>
-              {user.role === 'admin' && (
-                <Link className="nav-pill" to="/admin">
-                  Админка
+              {/* Администратору не нужен личный профиль: он работает в админке.
+                  На самой админке ссылка тоже скрыта, чтобы не дублировать раздел. */}
+              {user.role === 'admin' ? (
+                location.pathname !== '/admin' && (
+                  <Link className="nav-pill" to="/admin">
+                    Админка
+                  </Link>
+                )
+              ) : (
+                <Link className="nav-pill" to="/profile">
+                  {user.name || user.email}
                 </Link>
               )}
-              <Link className="nav-pill" to="/profile">
-                {user.name || user.email}
-              </Link>
               <button
                 className="link-button"
                 onClick={async () => {

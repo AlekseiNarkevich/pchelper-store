@@ -57,6 +57,8 @@ export const updateOrder = (id, data) =>
     method: 'PATCH',
     body: data,
   });
+export const deleteOrder = (id) =>
+  request(`/admin/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 export const getUsers = () => request('/admin/users');
 export const updateUser = (id, data) =>

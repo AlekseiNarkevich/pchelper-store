@@ -1158,6 +1158,24 @@
   gap: 14px;
 }
 
+/* Фильтр заказов: активные по умолчанию, отменённые — по кнопке. */
+.order-filter {
+  margin: 0 0 14px;
+}
+
+.order-positions {
+  margin-top: 14px;
+}
+
+.order-positions-head {
+  margin-bottom: 6px;
+  color: var(--text-muted, #555);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .admin-order {
   padding: 16px;
   border: 1px solid var(--border, #e8e8e8);
@@ -1416,12 +1434,21 @@
   margin: 0 0 8px;
 }
 
+.modal p {
+  margin: 0 0 16px;
+}
+
 .modal-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+.modal textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 /* --- Карта доставки в оформлении --- */

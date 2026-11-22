@@ -69,7 +69,25 @@ function categoryOf(category) {
 }
 
 /**
- * Список всех заказов с данными покупателя.
+ * Приводит строку «Заказ_Позиции» к виду для интерфейса.
+ *
+ * @param {object} row Строка Supabase.
+ * @returns {object}
+ */
+function mapOrderPosition(row) {
+  return {
+    id: String(row.id),
+    category: row['тип_компонента'],
+    productId: Number(row['идентификатор']),
+    name: row['название'],
+    price: Number(row['цена_за_единицу'] || 0),
+    qty: Number(row['количество'] || 1),
+    sum: Number(row['сумма'] || 0),
+  };
+}
+
+/**
+ * Список всех заказов с данными покупателя и составом.
  *
  * @returns {Promise<{items: object[], total: number}>}
  */
@@ -83,21 +101,23 @@ export async function listOrders() {
 
   const [users, positions] = await Promise.all([
     supabase.from('Пользователи').select('id,email,имя,телефон'),
-    supabase.from('Заказ_Позиции').select('заказ_id'),
+    supabase.from('Заказ_Позиции').select('*').order('id'),
   ]);
   if (users.error) throw databaseError('получить пользователей', users.error);
   if (positions.error) throw databaseError('получить позиции заказов', positions.error);
 
   const userMap = new Map((users.data || []).map((row) => [Number(row.id), row]));
-  const counts = new Map();
+  const byOrder = new Map();
   for (const row of positions.data || []) {
     const id = Number(row['заказ_id']);
-    counts.set(id, (counts.get(id) || 0) + 1);
+    if (!byOrder.has(id)) byOrder.set(id, []);
+    byOrder.get(id).push(mapOrderPosition(row));
   }
 
   const items = (data || []).map((row) => {
     const user = userMap.get(Number(row['пользователь_id'])) || {};
     const deliveryCost = Number(row['стоимость_доставки'] || 0);
+    const orderPositions = byOrder.get(Number(row.id)) || [];
     return {
       id: String(row.id),
       number: row['номер'],
@@ -117,7 +137,8 @@ export async function listOrders() {
       track: row['трек_номер'] || '',
       managerComment: row['комментарий_менеджера'] || '',
       email: row['эл_почта'] || user.email || '',
-      positionsCount: counts.get(Number(row.id)) || 0,
+      positionsCount: orderPositions.length,
+      positions: orderPositions,
       createdAt: row['создан_в'],
     };
   });
@@ -139,15 +160,7 @@ export async function listOrderPositions(orderId) {
     .eq('заказ_id', Number(orderId))
     .order('id');
   if (error) throw databaseError('получить позиции заказа', error);
-  return (data || []).map((row) => ({
-    id: String(row.id),
-    category: row['тип_компонента'],
-    productId: Number(row['идентификатор']),
-    name: row['название'],
-    price: Number(row['цена_за_единицу'] || 0),
-    qty: Number(row['количество'] || 1),
-    sum: Number(row['сумма'] || 0),
-  }));
+  return (data || []).map(mapOrderPosition);
 }
 
 /**
@@ -209,6 +222,34 @@ export async function updateOrder(orderId, data, adminId) {
     email: user.data?.email || row['эл_почта'] || '',
     total: Number(row['итоговая_сумма'] || 0),
   };
+}
+
+/**
+ * Удаляет отменённый заказ вместе с позициями и историей.
+ *
+ * Неотменённый заказ сначала нужно отменить: это защищает от случайной
+ * потери активного заказа. Письмо при удалении не отправляется.
+ *
+ * @param {string} orderId Идентификатор.
+ * @returns {Promise<{id: string, number: string}>}
+ */
+export async function deleteOrder(orderId) {
+  requireDatabase();
+  const { data: row, error } = await supabase
+    .from('Заказы')
+    .select('id,номер,статус')
+    .eq('id', Number(orderId))
+    .maybeSingle();
+  if (error) throw databaseError('получить заказ', error);
+  if (!row) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+  if (row['статус'] !== 'Отменён') {
+    throw apiError(409, 'ORDER_NOT_CANCELLED', 'Удалить можно только отменённый заказ');
+  }
+
+  const removal = await supabase.from('Заказы').delete().eq('id', Number(orderId));
+  if (removal.error) throw databaseError('удалить заказ', removal.error);
+
+  return { id: String(row.id), number: row['номер'] };
 }
 
 /**

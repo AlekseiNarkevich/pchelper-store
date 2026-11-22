@@ -54,14 +54,17 @@
   min-height: 44px;
 }
 
-/* Резиновая типографика и отсутствие горизонтального скролла. */
+/* Резиновая типографика и отсутствие горизонтального скролла.
+   clip, а не hidden: hidden на html/body ломает position: sticky у шапки. */
 html {
   scroll-padding-top: 76px;
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 :where(.h1, h1) {
@@ -168,8 +171,32 @@ body {
 /* Формы входа и регистрации (ЛР8). */
 .auth-page {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding-top: 32px;
+  /* Высота видимой области без шапки и закреплённого подвала:
+     карточка входа стоит по центру экрана, а не прижимается к верху. */
+  min-height: calc(100vh - 258px);
+  padding: 24px 0;
+}
+
+@media (max-width: 900px) {
+  .auth-page {
+    min-height: calc(100vh - 380px);
+  }
+}
+
+/* Если браузер умеет :has, карточка входа центрируется в реальной
+   свободной области между закреплёнными шапкой и подвалом. */
+.app-main:has(.auth-page) {
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.app-main:has(.auth-page) .auth-page {
+  flex: 1;
+  min-height: 0;
 }
 
 .auth-card {
