@@ -302,10 +302,11 @@ export async function updateOrder(orderId, data, adminId) {
 }
 
 /**
- * Удаляет отменённый заказ вместе с позициями и историей.
+ * Удаляет финальный заказ (отменённый или завершённый) вместе с позициями.
  *
- * Неотменённый заказ сначала нужно отменить: это защищает от случайной
- * потери активного заказа. Письмо при удалении не отправляется.
+ * Активный заказ сначала нужно отменить: это защищает от случайной
+ * потери заказа, который ещё в работе. Письмо при удалении не отправляется:
+ * покупатель уже получил письмо об отмене или завершении.
  *
  * @param {string} orderId Идентификатор.
  * @returns {Promise<{id: string, number: string}>}
@@ -319,8 +320,12 @@ export async function deleteOrder(orderId) {
     .maybeSingle();
   if (error) throw databaseError('получить заказ', error);
   if (!row) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
-  if (row['статус'] !== 'Отменён') {
-    throw apiError(409, 'ORDER_NOT_CANCELLED', 'Удалить можно только отменённый заказ');
+  if (!['Отменён', 'Завершён'].includes(row['статус'])) {
+    throw apiError(
+      409,
+      'ORDER_NOT_FINAL',
+      'Удалить можно только отменённый или завершённый заказ',
+    );
   }
 
   const removal = await supabase.from('Заказы').delete().eq('id', Number(orderId));
@@ -670,6 +675,9 @@ export async function updatePrebuiltStock(id, stock) {
 /**
  * Сводка для панели администратора.
  *
+ * Удалённые аккаунты остаются в таблице обезличенными, но в счётчик
+ * «Пользователи» не попадают — иначе цифра не совпадает со списком.
+ *
  * @returns {Promise<object>}
  */
 export async function getSummary() {
@@ -678,7 +686,10 @@ export async function getSummary() {
   }
   const results = await Promise.all([
     supabase.from('Заказы').select('id', { count: 'exact', head: true }),
-    supabase.from('Пользователи').select('id', { count: 'exact', head: true }),
+    supabase
+      .from('Пользователи')
+      .select('id', { count: 'exact', head: true })
+      .not('удалён', 'is', true),
     supabase
       .from('Отзывы')
       .select('id', { count: 'exact', head: true })

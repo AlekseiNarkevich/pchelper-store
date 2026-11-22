@@ -451,8 +451,16 @@
   background: var(--surface-2, #f2f4f7);
 }
 
+/* Выбранная строка в таблицах выбора (конфигуратор, калькулятор БП):
+   мягкий жёлтый фон и полоска слева, чтобы выбор было видно не только
+   по галочке, но и цветом — как в конфигураторе 3 курса. */
 .picker tbody tr.is-on {
-  background: var(--primary-soft, #e3f0ff);
+  background: #fff3c4;
+  box-shadow: inset 3px 0 0 #e6a700;
+}
+
+.picker tbody tr.is-on:hover {
+  background: #ffeaa0;
 }
 
 .picker tbody tr:focus-visible {
@@ -1496,6 +1504,35 @@
 
 .admin-products .picker tbody tr {
   cursor: default;
+}
+
+/* Блок загрузки фото товара: файл, подсказка и предпросмотр. */
+.admin-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  /* Блок занимает обе колонки формы: иначе имя файла и предпросмотр
+     не помещаются рядом со ссылкой. */
+  grid-column: 1 / -1;
+  padding: 10px;
+  border: 1px dashed var(--border, #d8dbe2);
+  border-radius: 8px;
+  background: var(--surface-2, #f8f9fb);
+}
+
+.admin-photo input[type='file'] {
+  max-width: 100%;
+  font: inherit;
+}
+
+.admin-photo-preview {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .admin-products .picker th:last-child,

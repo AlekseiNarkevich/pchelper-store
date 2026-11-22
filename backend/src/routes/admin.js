@@ -14,11 +14,14 @@
  *   POST   /api/v1/admin/products
  *   PUT    /api/v1/admin/products/:category/:id
  *   DELETE /api/v1/admin/products/:category/:id
+ *   POST   /api/v1/admin/uploads
  *   GET    /api/v1/admin/reviews
  *   PATCH  /api/v1/admin/reviews/:id
  */
 import { Router } from 'express';
+import multer from 'multer';
 
+import { apiError } from '../domain/errors.js';
 import {
   createProduct,
   deleteOrder,
@@ -55,9 +58,17 @@ import {
   sendReviewModeratedEmail,
   sendRoleChangedEmail,
 } from '../services/mail.service.js';
+import { uploadProductImage } from '../services/storage.service.js';
 import { requireAdmin } from './auth.js';
 
 const router = Router();
+
+// Файл держим в памяти: он сразу уходит в Supabase Storage,
+// на диск сервера ничего не пишем.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 /**
  * Оборачивает асинхронный обработчик.
@@ -89,6 +100,26 @@ function adminAccess(req, res, next) {
 }
 
 router.use(adminAccess);
+
+// Загрузка фото товара в Supabase Storage. Отдельный маршрут,
+// потому что здесь не JSON, а файл multipart/form-data.
+router.post(
+  '/uploads',
+  (req, res, next) => {
+    upload.single('file')(req, res, (error) => {
+      if (!error) return next();
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return next(apiError(400, 'FILE_TOO_LARGE', 'Файл больше 5 МБ'));
+      }
+      return next(
+        apiError(400, 'UPLOAD_ERROR', 'Не удалось прочитать файл изображения'),
+      );
+    });
+  },
+  asyncHandler(async (req, res) => {
+    res.status(201).json(await uploadProductImage(req.file));
+  }),
+);
 
 router.get(
   '/summary',

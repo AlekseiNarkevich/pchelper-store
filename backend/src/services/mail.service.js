@@ -142,6 +142,38 @@ function orderText(order) {
 }
 
 /**
+ * Переводит частые ошибки SMTP на русский.
+ *
+ * Технический текст остаётся в консоли сервера, а в журнале админки
+ * пользователь видит понятную причину, а не английское сообщение Node.
+ *
+ * @param {string} message Ошибка nodemailer.
+ * @returns {string}
+ */
+function humanizeMailError(message) {
+  const text = String(message || '');
+  if (/self[- ]signed certificate|certificate in certificate chain/i.test(text)) {
+    return 'Ошибка TLS: самоподписанный сертификат в цепочке. Проверьте антивирус или настройки SMTP.';
+  }
+  if (/certificate/i.test(text)) {
+    return 'Ошибка сертификата TLS при подключении к серверу SMTP.';
+  }
+  if (/invalid login|username and password not accepted|badcredentials/i.test(text)) {
+    return 'Сервер SMTP отклонил логин или пароль приложения.';
+  }
+  if (/etimedout|timeout|timed out/i.test(text)) {
+    return 'Сервер SMTP не ответил вовремя. Попробуйте отправить письмо ещё раз.';
+  }
+  if (/enotfound|eai_again|getaddrinfo/i.test(text)) {
+    return 'Не удалось найти сервер SMTP. Проверьте адрес в настройках.';
+  }
+  if (/econnection|econnrefused|esocket|connection/i.test(text)) {
+    return 'Не удалось подключиться к серверу SMTP. Проверьте сеть и порт.';
+  }
+  return 'Не удалось отправить письмо. Подробности записаны в журнал сервера.';
+}
+
+/**
  * Отправляет письмо и пишет его в журнал.
  *
  * @param {{to: string, subject: string, text: string, orderId: string}} data Письмо.
@@ -180,7 +212,7 @@ async function deliver({ to, subject, text, orderId }) {
       });
       sent = true;
     } catch (reason) {
-      error = reason.message;
+      error = humanizeMailError(reason.message);
       console.error('[mail] отправка:', reason.message);
     }
   } else {

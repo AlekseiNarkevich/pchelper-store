@@ -76,6 +76,46 @@ export const getProducts = (category) =>
   request(`/admin/products?category=${encodeURIComponent(category)}`);
 export const createProduct = (category, data) =>
   request('/admin/products', { method: 'POST', body: { category, data } });
+
+/**
+ * Загружает фото товара в Supabase Storage.
+ *
+ * Форма отправляется как multipart/form-data, поэтому общий JSON-помощник
+ * не подходит: здесь свой запрос и такое же обновление токена.
+ *
+ * @param {File} file Выбранный файл изображения.
+ * @returns {Promise<{url: string, path: string}>}
+ */
+export async function uploadProductImage(file) {
+  const form = new FormData();
+  form.append('file', file);
+
+  let token = readAuth().accessToken;
+  if (!token) throw new Error('Требуется вход');
+
+  const send = (accessToken) =>
+    fetch(`${BASE}/admin/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: form,
+    });
+
+  let response = await send(token);
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed?.accessToken) {
+      token = refreshed.accessToken;
+      response = await send(token);
+    }
+  }
+
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `Ошибка загрузки ${response.status}`);
+  }
+  return data;
+}
 export const updateProduct = (category, id, data) =>
   request(`/admin/products/${encodeURIComponent(category)}/${id}`, {
     method: 'PUT',

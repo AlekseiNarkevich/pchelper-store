@@ -30,6 +30,7 @@ import {
   updateProduct,
   updateStockRequest,
   updateUser,
+  uploadProductImage,
 } from '../admin.js';
 
 /** Поля товаров по категориям: [имя поля, тип]. */
@@ -209,6 +210,19 @@ const ROLE_LABELS = {
   admin: 'Администратор',
 };
 
+/** Русские названия категорий для запросов на поступление:
+ *  в базе хранится служебный id вроде «motherboard:9». */
+const CATEGORY_LABELS = {
+  cpu: 'Процессор',
+  motherboard: 'Материнская плата',
+  ram: 'Оперативная память',
+  gpu: 'Видеокарта',
+  psu: 'Блок питания',
+  storage: 'Накопитель',
+  case: 'Корпус',
+  cooling: 'Охлаждение',
+};
+
 /** Русские подписи статусов отзыва. */
 const REVIEW_STATUS_LABELS = {
   'на модерации': 'На модерации',
@@ -221,6 +235,17 @@ const REQUEST_STATUS_LABELS = {
   новый: 'Новый',
   обработан: 'Обработан',
 };
+
+/**
+ * Название позиции по служебному id вида «motherboard:9».
+ *
+ * @param {string} productId Идентификатор из запроса на поступление.
+ * @returns {string}
+ */
+function productRef(productId) {
+  const [category, id] = String(productId || '').split(':');
+  return `${CATEGORY_LABELS[category] || category || 'Товар'} #${id || '—'}`;
+}
 
 /**
  * Способ получения и адрес одной строкой.
@@ -832,6 +857,7 @@ function ProductsPanel({ onError, onFlash }) {
   const [form, setForm] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   useEffect(() => {
     getCategories()
@@ -884,6 +910,24 @@ function ProductsPanel({ onError, onFlash }) {
       ...current,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  }
+
+  // Фото можно не искать в интернете, а загрузить файлом: backend кладёт
+  // его в Supabase Storage и возвращает публичную ссылку в фото_url.
+  async function uploadPhoto(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      const result = await uploadProductImage(file);
+      setForm((current) => ({ ...current, фото_url: result.url }));
+      onFlash('Фото загружено — ссылка подставлена в форму');
+    } catch (reason) {
+      onError(reason.message);
+    } finally {
+      setPhotoBusy(false);
+    }
   }
 
   // Перед отправкой приводим типы полей и проверяем JSON.
@@ -1014,32 +1058,58 @@ function ProductsPanel({ onError, onFlash }) {
 
           <div className="admin-fields">
             {fields.map(([key, type]) => (
-              <label className="field" key={key}>
-                <span>{FIELD_LABELS[key] || key}</span>
-                {type === 'boolean' ? (
-                  <input
-                    checked={Boolean(form[key])}
-                    name={key}
-                    onChange={changeField}
-                    type="checkbox"
-                  />
-                ) : type === 'json' ? (
-                  <textarea
-                    name={key}
-                    onChange={changeField}
-                    rows={3}
-                    value={form[key] || ''}
-                  />
-                ) : (
-                  <input
-                    name={key}
-                    onChange={changeField}
-                    step={type === 'number' ? 'any' : undefined}
-                    type={type}
-                    value={form[key] ?? ''}
-                  />
+              <React.Fragment key={key}>
+                <label className="field">
+                  <span>{FIELD_LABELS[key] || key}</span>
+                  {type === 'boolean' ? (
+                    <input
+                      checked={Boolean(form[key])}
+                      name={key}
+                      onChange={changeField}
+                      type="checkbox"
+                    />
+                  ) : type === 'json' ? (
+                    <textarea
+                      name={key}
+                      onChange={changeField}
+                      rows={3}
+                      value={form[key] || ''}
+                    />
+                  ) : (
+                    <input
+                      name={key}
+                      onChange={changeField}
+                      step={type === 'number' ? 'any' : undefined}
+                      type={type}
+                      value={form[key] ?? ''}
+                    />
+                  )}
+                </label>
+
+                {/* Загрузка фото прямо в форму: ссылка и предпросмотр. */}
+                {key === 'фото_url' && (
+                  <div className="admin-photo">
+                    <input
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      disabled={photoBusy}
+                      onChange={uploadPhoto}
+                      type="file"
+                    />
+                    <span className="small faint">
+                      {photoBusy
+                        ? 'Загружаем фото…'
+                        : 'Файл до 5 МБ: JPG, PNG, WebP или GIF. Ссылка заполнится сама.'}
+                    </span>
+                    {form[key] && (
+                      <img
+                        alt="Предпросмотр товара"
+                        className="admin-photo-preview"
+                        src={form[key]}
+                      />
+                    )}
+                  </div>
                 )}
-              </label>
+              </React.Fragment>
             ))}
           </div>
 
@@ -1168,7 +1238,7 @@ function StockRequestsPanel({ onError, onFlash }) {
             <div>
               <h3>{request.productName}</h3>
               <div className="small faint">
-                {request.productId} · {request.email || 'без e-mail'} ·{' '}
+                {productRef(request.productId)} · {request.email || 'без e-mail'} ·{' '}
                 {request.phone || 'без телефона'}
               </div>
               <div className="small faint">
