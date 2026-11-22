@@ -141,16 +141,30 @@
   text-decoration: underline;
 }
 
-/* Несовместимые по остатку строки видны, но выбрать их нельзя. */
-.builder-picker .picker tbody tr.is-out,
-.psu-list .picker tbody tr.is-out {
+/* Конфигуратор: отсутствующие строки видны, но выбрать нельзя. */
+.builder-picker .picker tbody tr.is-out {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.builder-picker .picker tbody tr.is-out:hover,
-.psu-list .picker tbody tr.is-out:hover {
+.builder-picker .picker tbody tr.is-out:hover {
   background: transparent;
+}
+
+/* Калькулятор БП: отсутствующий товар можно выбрать для расчёта. */
+.psu-list .picker tbody tr.is-out {
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.psu-list .picker tbody tr.is-out:hover {
+  background: var(--surface-2, #f2f4f7);
+}
+
+.psu-stock-warning {
+  color: var(--danger, #c62828);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .picker-out {

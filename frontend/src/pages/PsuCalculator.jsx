@@ -51,10 +51,13 @@ function ProductList({ items, selectedId, onPick, emptyText }) {
               <tr
                 className={`${selected ? 'is-on' : ''}${outOfStock ? ' is-out' : ''}`}
                 key={product.id}
-                onClick={() => {
-                  if (!outOfStock) onPick(product);
-                }}
-                tabIndex={outOfStock ? -1 : 0}
+                onClick={() => onPick(product)}
+                title={
+                  outOfStock
+                    ? 'Нет в наличии — можно выбрать для расчёта, но не для сборки'
+                    : undefined
+                }
+                tabIndex={0}
               >
                 <td>
                   <span className="picker-check" aria-hidden="true">
@@ -147,7 +150,15 @@ export default function PsuCalculator() {
   }, [integrated, gpuId, gpus]);
 
   const selectedPsu = result?.items.find((item) => item.id === psuId) || null;
-  const canBuild = Boolean(cpuId && psuId && (gpuId || integrated));
+  const selectedGpu = useMemo(
+    () => gpus.find((product) => product.id === gpuId) || null,
+    [gpus, gpuId],
+  );
+  const unavailable = [selectedCpu, selectedGpu, selectedPsu].filter(
+    (product) => product && Number(product.stock ?? 0) <= 0,
+  );
+  const selectionComplete = Boolean(cpuId && (gpuId || integrated));
+  const canBuild = selectionComplete && unavailable.length === 0;
 
   function pickCpu(product) {
     setCpuId(product.id);
@@ -181,10 +192,12 @@ export default function PsuCalculator() {
   }
 
   // Передаём выбранные детали в конфигуратор через query-параметры.
+  // БП не обязателен: без него откроем конфигуратор с CPU и видеокартой.
   function buildPc() {
     if (!canBuild) return;
-    const params = new URLSearchParams({ cpu: cpuId, psu: psuId });
+    const params = new URLSearchParams({ cpu: cpuId });
     if (gpuId) params.set('gpu', gpuId);
+    if (psuId) params.set('psu', psuId);
     navigate(`/builder?${params.toString()}`);
   }
 
@@ -210,8 +223,12 @@ export default function PsuCalculator() {
           onClick={buildPc}
           title={
             canBuild
-              ? 'Открыть конфигуратор с выбранными деталями'
-              : 'Сначала выберите процессор, видеокарту и блок питания'
+              ? psuId
+                ? 'Открыть конфигуратор с выбранными деталями'
+                : 'Открыть конфигуратор с процессором и видеокартой — блок питания выберете там'
+              : selectionComplete
+                ? 'В выбранной сборке есть товары не в наличии — расчёт доступен, собрать ПК нельзя'
+                : 'Сначала выберите процессор и видеокарту'
           }
           type="button"
         >
@@ -282,6 +299,12 @@ export default function PsuCalculator() {
                   ? 'встроенная графика'
                   : 'видеокарта не выбрана'}
             </span>
+            {unavailable.length > 0 && (
+              <span className="psu-stock-warning">
+                Нет в наличии: {unavailable.map((item) => item.name).join(', ')}. Расчёт
+                доступен, но собрать ПК нельзя.
+              </span>
+            )}
           </div>
         </>
       )}
@@ -322,6 +345,11 @@ export default function PsuCalculator() {
               <span className="small faint">Выбран: {selectedPsu.name}</span>
             )}
           </div>
+          <p className="hint">
+            Выберите блок питания, чтобы сразу перенести его в конфигуратор. Можно не
+            выбирать — тогда откроем конфигуратор с процессором и видеокартой, а БП
+            подберёте там.
+          </p>
 
           {result.items.length === 0 ? (
             <div className="state">В каталоге нет блоков питания такой мощности.</div>
@@ -347,10 +375,13 @@ export default function PsuCalculator() {
                       <tr
                         className={`${selected ? 'is-on' : ''}${outOfStock ? ' is-out' : ''}`}
                         key={item.id}
-                        onClick={() => {
-                          if (!outOfStock) setPsuId(item.id);
-                        }}
-                        tabIndex={outOfStock ? -1 : 0}
+                        onClick={() => setPsuId(selected ? '' : item.id)}
+                        title={
+                          outOfStock
+                            ? 'Нет в наличии — можно выбрать для расчёта, но не для сборки'
+                            : undefined
+                        }
+                        tabIndex={0}
                       >
                         <td>
                           <span className="picker-check" aria-hidden="true">
