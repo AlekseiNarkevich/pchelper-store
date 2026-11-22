@@ -14,15 +14,64 @@ const PAGE_SIZE = 12;
 
 /** Какие характеристики показывать в фильтрах каждой категории. */
 const FILTER_LABELS = {
-  cpu: ['Производитель', 'Сокет', 'Встроенная графика', 'Память'],
-  motherboard: ['Сокет', 'Чипсет', 'Тип памяти', 'Форм-фактор', 'Слоты M.2'],
-  ram: ['Тип', 'Объём', 'Частота'],
-  gpu: ['Производитель', 'Память', 'Вентиляторы'],
-  psu: ['Стандарт', 'Сертификат 80 PLUS', 'Модульный', 'PCIe 5.0'],
-  storage: ['Тип', 'Интерфейс'],
-  case: ['Форм-фактор', 'Поддержка СЖО'],
-  cooling: ['Тип', 'Рассеиваемая мощность'],
+  cpu: [
+    'Производитель',
+    'Сокет',
+    'Ядра / потоки',
+    'Частота',
+    'TDP',
+    'Встроенная графика',
+    'Память',
+  ],
+  motherboard: [
+    'Сокет',
+    'Чипсет',
+    'Тип памяти',
+    'Форм-фактор',
+    'Фазы питания',
+    'Максимум памяти',
+    'Слоты M.2',
+    'Порты SATA',
+  ],
+  ram: ['Тип', 'Объём', 'Частота', 'Тайминги', 'Профили разгона'],
+  gpu: ['Производитель', 'Память', 'Длина', 'TDP', 'Вентиляторы', 'Толщина'],
+  psu: [
+    'Мощность',
+    'Стандарт',
+    'Сертификат 80 PLUS',
+    'Cybenetics',
+    'Модульный',
+    'Разъёмы PCIe',
+    'Разъёмы CPU',
+    'PCIe 5.0',
+  ],
+  storage: [
+    'Тип',
+    'Объём',
+    'Интерфейс',
+    'Скорость чтения / записи',
+    'DRAM-буфер',
+    'Радиатор',
+  ],
+  case: [
+    'Форм-фактор',
+    'Максимальная длина видеокарты',
+    'Максимальная высота кулера',
+    'Поддержка СЖО',
+    'Радиатор СЖО',
+    'Вентиляторы в комплекте',
+  ],
+  cooling: [
+    'Тип',
+    'Рассеиваемая мощность',
+    'Высота',
+    'Длина радиатора',
+    'Максимальный шум',
+  ],
 };
+
+/** Сколько значений фильтра показывать до «Показать ещё». */
+const FILTER_VISIBLE = 7;
 
 /**
  * Каталог: категории, поиск, сортировка, фильтр по цене и страницы.
@@ -49,7 +98,9 @@ export default function Catalog() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [filters, setFilters] = useState({});
-  const [filterOptions, setFilterOptions] = useState({});
+  const [filterProducts, setFilterProducts] = useState([]);
+  const [filterSearch, setFilterSearch] = useState({});
+  const [filterExpanded, setFilterExpanded] = useState({});
   const [filtersLoading, setFiltersLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,11 +113,14 @@ export default function Catalog() {
       .catch(() => setCategories([]));
   }, []);
 
-  // Для выбранной категории собираем доступные значения характеристик.
+  // Для выбранной категории загружаем все товары: по ним считаем
+  // доступные значения фильтров и количество для каждого варианта.
   useEffect(() => {
     setFilters({});
+    setFilterSearch({});
+    setFilterExpanded({});
     if (!category) {
-      setFilterOptions({});
+      setFilterProducts([]);
       return undefined;
     }
 
@@ -74,25 +128,10 @@ export default function Catalog() {
     setFiltersLoading(true);
     getProducts({ category, limit: 100 })
       .then((data) => {
-        if (!alive) return;
-        const options = {};
-        for (const label of FILTER_LABELS[category] || []) {
-          const values = new Set();
-          for (const product of data.items) {
-            for (const spec of product.specs || []) {
-              if (spec.label === label && spec.value) values.add(spec.value);
-            }
-          }
-          if (values.size) {
-            options[label] = [...values].sort((a, b) =>
-              String(a).localeCompare(String(b), 'ru', { numeric: true }),
-            );
-          }
-        }
-        setFilterOptions(options);
+        if (alive) setFilterProducts(data.items);
       })
       .catch(() => {
-        if (alive) setFilterOptions({});
+        if (alive) setFilterProducts([]);
       })
       .finally(() => {
         if (alive) setFiltersLoading(false);
@@ -109,6 +148,44 @@ export default function Catalog() {
     0,
   );
 
+  function matchesFilters(product, values, skipLabel) {
+    return Object.entries(values).every(([label, selected]) => {
+      if (!selected.length || label === skipLabel) return true;
+      return product.specs.some(
+        (spec) => spec.label === label && selected.includes(spec.value),
+      );
+    });
+  }
+
+  // Считаем варианты с учётом остальных выбранных фильтров:
+  // недоступные комбинации становятся серыми, но не исчезают.
+  const filterGroups = (FILTER_LABELS[category] || [])
+    .map((label) => {
+      const counts = new Map();
+      for (const product of filterProducts) {
+        for (const spec of product.specs || []) {
+          if (spec.label === label && spec.value && !counts.has(spec.value)) {
+            counts.set(spec.value, 0);
+          }
+        }
+      }
+      for (const product of filterProducts) {
+        if (!matchesFilters(product, filters, label)) continue;
+        for (const spec of product.specs || []) {
+          if (spec.label !== label || !spec.value) continue;
+          counts.set(spec.value, (counts.get(spec.value) || 0) + 1);
+        }
+      }
+      for (const value of filters[label] || []) {
+        if (!counts.has(value)) counts.set(value, 0);
+      }
+      const options = [...counts.entries()].sort((a, b) =>
+        String(a[0]).localeCompare(String(b[0]), 'ru', { numeric: true }),
+      );
+      return { label, options };
+    })
+    .filter((group) => group.options.length);
+
   function toggleFilter(label, value) {
     setFilters((current) => {
       const values = current[label] || [];
@@ -124,6 +201,7 @@ export default function Catalog() {
 
   function clearFilters() {
     setFilters({});
+    setFilterSearch({});
     setOffset(0);
   }
 
@@ -249,29 +327,83 @@ export default function Catalog() {
 
             {filtersLoading && <div className="small faint">Загружаем фильтры…</div>}
 
-            {!filtersLoading && !Object.keys(filterOptions).length && (
+            {!filtersLoading && !filterGroups.length && (
               <div className="small faint">Для этой категории фильтров нет.</div>
             )}
 
             {!filtersLoading &&
-              Object.entries(filterOptions).map(([label, values]) => (
-                <div className="filter-group" key={label}>
-                  <div className="filter-title">{label}</div>
-                  {values.slice(0, 12).map((value) => (
-                    <label className="filter-option" key={value}>
+              filterGroups.map(({ label, options }) => {
+                const query = (filterSearch[label] || '').toLowerCase();
+                const matched = options.filter(([value]) =>
+                  String(value).toLowerCase().includes(query),
+                );
+                const expanded = Boolean(filterExpanded[label]);
+                const shown = expanded ? matched : matched.slice(0, FILTER_VISIBLE);
+                const selected = filters[label] || [];
+
+                return (
+                  <div className="filter-group" key={label}>
+                    <div className="filter-title">{label}</div>
+
+                    {options.length > 4 && (
                       <input
-                        checked={(filters[label] || []).includes(value)}
-                        onChange={() => toggleFilter(label, value)}
-                        type="checkbox"
+                        aria-label={`Поиск в фильтре «${label}»`}
+                        className="filter-search"
+                        onChange={(event) =>
+                          setFilterSearch((current) => ({
+                            ...current,
+                            [label]: event.target.value,
+                          }))
+                        }
+                        placeholder="Поиск в фильтре…"
+                        type="search"
+                        value={filterSearch[label] || ''}
                       />
-                      <span>{value}</span>
-                    </label>
-                  ))}
-                  {values.length > 12 && (
-                    <div className="small faint">ещё {values.length - 12}…</div>
-                  )}
-                </div>
-              ))}
+                    )}
+
+                    {shown.map(([value, count]) => {
+                      const isSelected = selected.includes(value);
+                      const disabled = count === 0 && !isSelected;
+                      return (
+                        <label
+                          className={`filter-option${disabled ? ' is-disabled' : ''}`}
+                          key={value}
+                        >
+                          <input
+                            checked={isSelected}
+                            disabled={disabled}
+                            onChange={() => toggleFilter(label, value)}
+                            type="checkbox"
+                          />
+                          <span>{value}</span>
+                          <span className="filter-count">{count}</span>
+                        </label>
+                      );
+                    })}
+
+                    {!matched.length && (
+                      <div className="small faint">Ничего не найдено</div>
+                    )}
+
+                    {matched.length > FILTER_VISIBLE && (
+                      <button
+                        className="link-button filter-more"
+                        onClick={() =>
+                          setFilterExpanded((current) => ({
+                            ...current,
+                            [label]: !expanded,
+                          }))
+                        }
+                        type="button"
+                      >
+                        {expanded
+                          ? 'Свернуть'
+                          : `Показать ещё ${matched.length - FILTER_VISIBLE}`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
           </aside>
         )}
 
