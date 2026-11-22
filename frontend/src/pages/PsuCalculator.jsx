@@ -217,23 +217,6 @@ export default function PsuCalculator() {
             Выберите процессор, видеокарту и блок питания — расчёт с запасом 25%
           </div>
         </div>
-        <button
-          className="btn"
-          disabled={!canBuild}
-          onClick={buildPc}
-          title={
-            canBuild
-              ? psuId
-                ? 'Открыть конфигуратор с выбранными деталями'
-                : 'Открыть конфигуратор с процессором и видеокартой — блок питания выберете там'
-              : selectionComplete
-                ? 'В выбранной сборке есть товары не в наличии — расчёт доступен, собрать ПК нельзя'
-                : 'Сначала выберите процессор и видеокарту'
-          }
-          type="button"
-        >
-          Собрать ПК
-        </button>
       </div>
 
       {loading ? (
@@ -290,6 +273,29 @@ export default function PsuCalculator() {
             >
               {calculating ? 'Считаем…' : 'Рассчитать мощность'}
             </button>
+            <button
+              className="btn"
+              disabled={!canBuild}
+              onClick={buildPc}
+              title={
+                canBuild
+                  ? psuId
+                    ? 'Открыть конфигуратор с выбранными деталями'
+                    : 'Открыть конфигуратор с процессором и видеокартой — блок питания выберете там'
+                  : selectionComplete
+                    ? 'В выбранной сборке есть товары не в наличии — расчёт доступен, собрать ПК нельзя'
+                    : 'Сначала выберите процессор и видеокарту'
+              }
+              type="button"
+            >
+              Собрать ПК
+            </button>
+            {unavailable.length > 0 && (
+              <span className="psu-stock-warning">
+                Нет в наличии: {unavailable.map((item) => item.name).join(', ')}. Расчёт
+                доступен, но собрать ПК нельзя.
+              </span>
+            )}
             <span className="small faint">
               {selectedCpu?.name || 'Процессор не выбран'}
               {' · '}
@@ -299,12 +305,6 @@ export default function PsuCalculator() {
                   ? 'встроенная графика'
                   : 'видеокарта не выбрана'}
             </span>
-            {unavailable.length > 0 && (
-              <span className="psu-stock-warning">
-                Нет в наличии: {unavailable.map((item) => item.name).join(', ')}. Расчёт
-                доступен, но собрать ПК нельзя.
-              </span>
-            )}
           </div>
         </>
       )}

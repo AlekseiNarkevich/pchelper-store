@@ -342,6 +342,14 @@ select {
   background: var(--primary-hover);
 }
 
+.btn:disabled,
+.btn:disabled:hover {
+  border-color: #c7ccd4;
+  background: #c7ccd4;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
 .btn-secondary {
   background: var(--surface);
   color: var(--text-muted);
