@@ -23,7 +23,7 @@ router.get('/hello', (req, res) => {
   res.status(200).json({
     message: 'Hello, PCHelper! Серверное окружение работает корректно.',
     service: 'pchelper-api',
-    version: process.env.APP_VERSION || '1.0.0',
+    version: process.env.APP_VERSION || '1.1.0',
     environment: process.env.NODE_ENV || 'development',
     uptimeSeconds: Math.floor((Date.now() - STARTED_AT) / 1000),
     container: process.env.HOSTNAME || 'local',
