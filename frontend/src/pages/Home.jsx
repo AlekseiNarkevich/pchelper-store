@@ -80,8 +80,8 @@ export default function Home() {
       <section className="hero">
         <div className="h1">PCHelper — помощник ПК-энтузиасту</div>
         <p>
-          Комплектующие, готовые сборки и расчёт мощности блока питания. Цены в
-          белорусских рублях, характеристики — из базы магазина.
+          Комплектующие, готовые сборки и расчёт мощности блока питания. Характеристики
+          — из базы магазина.
         </p>
         <div
           style={{ marginTop: 18, display: 'flex', gap: 10, justifyContent: 'center' }}

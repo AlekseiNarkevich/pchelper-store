@@ -266,6 +266,13 @@ select {
   font-size: 14px;
 }
 
+/* Кнопка «Выйти» выглядит как такая же пилюля, как ссылки в шапке. */
+button.nav-pill {
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .nav-pill.is-active {
   background: var(--primary);
   border-color: var(--primary);

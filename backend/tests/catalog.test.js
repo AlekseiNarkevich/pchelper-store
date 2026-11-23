@@ -13,6 +13,7 @@ import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createApp } from '../src/app.js';
+import { recommendForCart } from '../src/repositories/recommendations.repository.js';
 
 let server;
 let baseUrl;
@@ -193,4 +194,32 @@ test('готовые сборки: три конфигурации, цена с�
     assert.ok(item.components.length >= 7);
     assert.equal(item.currency, 'BYN');
   }
+});
+
+test('рекомендации: учитывают совместные покупки и не повторяют корзину', async () => {
+  const fakeClient = {
+    from: () => ({
+      select: async () => ({
+        data: [
+          { заказ_id: 1, тип_компонента: 'cpu', идентификатор: 8 },
+          { заказ_id: 1, тип_компонента: 'case', идентификатор: 1 },
+          { заказ_id: 2, тип_компонента: 'cpu', идентификатор: 8 },
+          { заказ_id: 2, тип_компонента: 'cooling', идентификатор: 1 },
+        ],
+        error: null,
+      }),
+    }),
+  };
+
+  const result = await recommendForCart(['cpu:8'], 2, fakeClient);
+  assert.equal(result.items.length, 2);
+  assert.ok(result.items.some((item) => item.id === 'case:1'));
+  assert.ok(result.items.some((item) => item.id === 'cooling:1'));
+  assert.ok(!result.items.some((item) => item.id === 'cpu:8'));
+});
+
+test('рекомендации: без истории добирают товары из каталога', async () => {
+  const result = await recommendForCart(['cpu:8'], 2, null);
+  assert.equal(result.items.length, 2);
+  assert.ok(!result.items.some((item) => item.id === 'cpu:8'));
 });

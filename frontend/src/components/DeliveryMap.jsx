@@ -52,7 +52,8 @@ export default function DeliveryMap({ mode, point, onPick, pickEnabled = true })
     const map = L.map(containerRef.current, {
       center: [PICKUP_POINT.lat, PICKUP_POINT.lng],
       zoom: 10,
-      scrollWheelZoom: false,
+      // Колесо мыши тоже меняет масштаб: так удобнее выбирать точку.
+      scrollWheelZoom: true,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

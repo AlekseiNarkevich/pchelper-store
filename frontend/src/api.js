@@ -51,6 +51,16 @@ export const getCategories = () => request('/categories');
 
 export const getProducts = (params = {}) => request(`/products${query(params)}`);
 
+/**
+ * Рекомендации «с этим товаром часто покупают».
+ *
+ * @param {string[]} ids Товары в корзине.
+ * @param {number} [limit] Сколько вернуть.
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export const getRecommendations = (ids, limit = 4) =>
+  request(`/recommendations?ids=${encodeURIComponent(ids.join(','))}&limit=${limit}`);
+
 export const getProduct = (id) => request(`/products/${encodeURIComponent(id)}`);
 
 export const getPrebuilt = () => request('/prebuilt');

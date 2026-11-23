@@ -23,6 +23,23 @@ const MAP_LINK = 'https://yandex.by/maps/?text=';
  * Доставка: самовывоз бесплатен; курьер по Минску — бесплатно от 500 BYN,
  * иначе 10 BYN; за МКАД — 15 BYN + 3 BYN за километр.
  */
+/**
+ * Русское склонение для количества товаров.
+ *
+ * @param {number} count Количество.
+ * @param {string} one Форма для 1.
+ * @param {string} few Форма для 2–4.
+ * @param {string} many Форма для 5+.
+ * @returns {string}
+ */
+function plural(count, one, few, many) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
 export default function Checkout() {
   // Телефон и адрес подставляются из профиля, но пользователь может их изменить.
   const [items, setItems] = useState(readCart);
@@ -39,6 +56,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [deliveryPoint, setDeliveryPoint] = useState(null);
   const [mapFullscreen, setMapFullscreen] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const navigate = useNavigate();
 
   // Esc закрывает полноэкранную карту.
@@ -54,8 +72,14 @@ export default function Checkout() {
   const itemsTotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   // Доставка повторяет серверные правила, чтобы итог был виден до заказа.
   const distance = Number(form.distanceKm) || 0;
-  const deliveryCost =
-    form.deliveryMethod === 'pickup'
+  const pointCheck = deliveryPoint
+    ? calculateDelivery(deliveryPoint.lat, deliveryPoint.lng, itemsTotal)
+    : null;
+  const deliveryBlocked =
+    form.deliveryMethod === 'courier' && Boolean(pointCheck && !pointCheck.reachable);
+  const deliveryCost = deliveryBlocked
+    ? 0
+    : form.deliveryMethod === 'pickup'
       ? 0
       : form.deliveryZone === 'outside'
         ? 15 + 3 * Math.ceil(Math.max(0, distance))
@@ -112,6 +136,47 @@ export default function Checkout() {
     setError(result.reachable ? '' : result.message || 'Доставка недоступна');
   }
 
+  // Ищет адрес через OpenStreetMap и ставит точку на карте.
+  // Нужен, чтобы не заставлять пользователя искать дом вручную.
+  async function geocodeAddress() {
+    const query = form.address.trim();
+    if (!query) {
+      setError('Сначала введите адрес доставки');
+      return;
+    }
+    setGeocoding(true);
+    setError('');
+    try {
+      const search = async (value) => {
+        const queryWithCountry = /беларусь/i.test(value) ? value : `${value}, Беларусь`;
+        const url =
+          'https://nominatim.openstreetmap.org/search?format=json&limit=1' +
+          `&countrycodes=by&accept-language=ru&q=${encodeURIComponent(queryWithCountry)}`;
+        const response = await fetch(url, {
+          headers: { Accept: 'application/json' },
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      };
+
+      let data = await search(query);
+      if (!data.length) {
+        // Если дома нет в OSM, пробуем найти хотя бы улицу.
+        const street = query.replace(/,?\s*\d+[а-яa-z]?\.?$/i, '').trim();
+        if (street && street !== query) data = await search(street);
+      }
+      if (!data.length) {
+        setError('Адрес не найден. Уточните улицу и номер дома.');
+        return;
+      }
+      handleMapPick(Number(data[0].lat), Number(data[0].lon));
+    } catch {
+      setError('Не удалось найти адрес. Выберите точку на карте вручную.');
+    } finally {
+      setGeocoding(false);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setError('');
@@ -139,8 +204,19 @@ export default function Checkout() {
       form.deliveryZone === 'outside' &&
       distance > 50
     ) {
-      setError('Доставка только по Минскому району: не более 50 км от МКАД');
+      setError('Доставка только по Минскому району: не более 50 км от города');
       return;
+    }
+    if (form.deliveryMethod === 'courier' && deliveryPoint) {
+      const pointCheck = calculateDelivery(
+        deliveryPoint.lat,
+        deliveryPoint.lng,
+        itemsTotal,
+      );
+      if (!pointCheck.reachable) {
+        setError(pointCheck.message || 'Доставка по этой точке недоступна');
+        return;
+      }
     }
 
     setLoading(true);
@@ -193,8 +269,14 @@ export default function Checkout() {
             Оформление заказа
           </div>
           <div className="sub">
-            {items.reduce((sum, item) => sum + item.qty, 0)} единиц товара на{' '}
-            {money(itemsTotal)}
+            {items.reduce((sum, item) => sum + item.qty, 0)}{' '}
+            {plural(
+              items.reduce((sum, item) => sum + item.qty, 0),
+              'единица',
+              'единицы',
+              'единиц',
+            )}{' '}
+            товара на {money(itemsTotal)}
           </div>
         </div>
         <Link className="btn btn-secondary" to="/cart">
@@ -217,6 +299,10 @@ export default function Checkout() {
                 type="tel"
                 value={form.phone}
               />
+            </label>
+            <label className="field">
+              <span>E-mail для писем</span>
+              <input readOnly type="email" value={user?.email || ''} />
             </label>
           </section>
 
@@ -262,14 +348,24 @@ export default function Checkout() {
               <div className="delivery-fields">
                 <label className="field">
                   <span>Адрес доставки</span>
-                  <input
-                    autoComplete="street-address"
-                    name="address"
-                    onChange={changeField}
-                    placeholder="Минск, ул. Примерная, 1"
-                    type="text"
-                    value={form.address}
-                  />
+                  <div className="address-row">
+                    <input
+                      autoComplete="street-address"
+                      name="address"
+                      onChange={changeField}
+                      placeholder="Минск, ул. Примерная, 1"
+                      type="text"
+                      value={form.address}
+                    />
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={geocoding}
+                      onClick={geocodeAddress}
+                      type="button"
+                    >
+                      {geocoding ? 'Ищем…' : 'Найти на карте'}
+                    </button>
+                  </div>
                 </label>
 
                 <div className="choice-list">
@@ -305,7 +401,7 @@ export default function Checkout() {
                   </label>
                 </div>
 
-                {form.deliveryZone === 'outside' && (
+                {form.deliveryZone === 'outside' && !deliveryBlocked && (
                   <label className="field">
                     <span>Расстояние от МКАД, км</span>
                     <input
@@ -331,9 +427,11 @@ export default function Checkout() {
                 <span className="small faint">
                   {form.deliveryMethod === 'pickup'
                     ? 'Самовывоз'
-                    : form.deliveryZone === 'outside'
-                      ? `За МКАД, ${form.distanceKm || 0} км`
-                      : 'В пределах МКАД'}
+                    : deliveryBlocked
+                      ? 'Доставка недоступна'
+                      : form.deliveryZone === 'outside'
+                        ? `За МКАД, ${form.distanceKm || 0} км`
+                        : 'В пределах МКАД'}
                 </span>
                 <a href={mapHref} rel="noreferrer" target="_blank">
                   Открыть в Яндекс Картах
@@ -422,7 +520,13 @@ export default function Checkout() {
                 itemsTotal < 500 &&
                 ' (до 500 BYN)'}
             </span>
-            <strong>{deliveryCost === 0 ? 'бесплатно' : money(deliveryCost)}</strong>
+            <strong>
+              {deliveryBlocked
+                ? 'недоступна'
+                : deliveryCost === 0
+                  ? 'бесплатно'
+                  : money(deliveryCost)}
+            </strong>
           </div>
           <div className="checkout-total">
             <span>Итого</span>
@@ -437,7 +541,7 @@ export default function Checkout() {
               {error}
             </div>
           )}
-          <button className="btn" disabled={loading} type="submit">
+          <button className="btn" disabled={loading || deliveryBlocked} type="submit">
             {loading ? 'Оформляем…' : 'Подтвердить заказ'}
           </button>
         </aside>
@@ -458,9 +562,11 @@ export default function Checkout() {
               <span className="small faint">
                 {form.deliveryMethod === 'pickup'
                   ? 'Самовывоз'
-                  : form.deliveryZone === 'outside'
-                    ? `За МКАД, ${form.distanceKm || 0} км`
-                    : 'В пределах МКАД'}
+                  : deliveryBlocked
+                    ? 'Доставка недоступна'
+                    : form.deliveryZone === 'outside'
+                      ? `За МКАД, ${form.distanceKm || 0} км`
+                      : 'В пределах МКАД'}
               </span>
             </div>
             <button

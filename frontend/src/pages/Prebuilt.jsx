@@ -76,9 +76,7 @@ export default function Prebuilt() {
           <div className="h1" style={{ fontSize: 26 }}>
             Готовые сборки
           </div>
-          <div className="sub">
-            {items.length} конфигурации под разные задачи, цены в белорусских рублях
-          </div>
+          <div className="sub">{items.length} конфигурации под разные задачи</div>
         </div>
         <Link className="btn btn-secondary" to="/catalog">
           Собрать самому

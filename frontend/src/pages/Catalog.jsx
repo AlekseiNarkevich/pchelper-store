@@ -451,7 +451,7 @@ export default function Catalog() {
               </div>
               <div className="sub">
                 {search ? `Поиск: «${search}». ` : ''}
-                {total} товаров, цены в белорусских рублях
+                {total} товаров
               </div>
             </div>
             <div className="controls">

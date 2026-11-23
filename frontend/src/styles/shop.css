@@ -289,6 +289,66 @@ select {
   flex-wrap: wrap;
 }
 
+/* Гостю объясняем, почему для заказа нужен аккаунт, но корзину не теряем. */
+.cart-guest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid #cddfff;
+  border-radius: var(--radius);
+  background: #f3f8ff;
+}
+
+.cart-guest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Адрес и кнопка поиска на карте стоят в одной строке. */
+.address-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.address-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.address-row .btn {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .address-row {
+    flex-direction: column;
+  }
+}
+
+.cart-recommendations {
+  margin-top: 34px;
+}
+
+.cart-recommendations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-4);
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .cart-guest {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .search input {
   border: 0;
   outline: 0;

@@ -20,8 +20,9 @@ export default function Footer() {
       <div className="container footer-inner">
         <div className="footer-top">
           <div className="footer-about">
-            <strong>PCHelper</strong> — подбор комплектующих, готовые сборки и расчёт
-            мощности блока питания. Доставка по Минску и Минскому району.
+            <strong>PCHelper</strong> — интернет-магазин комплектующих, готовых сборок с
+            конфигуратором ПК, расчётом мощности блока питания и советами по
+            диагностике. Доставка по Минску и Минскому району.
           </div>
 
           <nav aria-label="Разделы в подвале" className="footer-links">

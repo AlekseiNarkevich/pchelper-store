@@ -2,6 +2,7 @@
  * PCHelper (ЛР7) — маршруты каталога.
  *
  *   GET /api/v1/categories          восемь категорий с количеством товаров
+ *   GET /api/v1/recommendations     «с этим товаром часто покупают»
  *   GET /api/v1/products            список с фильтрами, сортировкой и страницами
  *   GET /api/v1/products/:id        один товар по составному идентификатору
  *   GET /api/v1/prebuilt            готовые сборки с составом и ценой
@@ -21,6 +22,7 @@ import {
   listPrebuilt,
   listProducts,
 } from '../repositories/catalog.repository.js';
+import { recommendForCart } from '../repositories/recommendations.repository.js';
 
 const router = Router();
 
@@ -123,6 +125,20 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await listCategories();
     res.status(200).json(data);
+  }),
+);
+
+/** GET /api/v1/recommendations?ids=cpu:1,case:2 */
+router.get(
+  '/recommendations',
+  asyncHandler(async (req, res) => {
+    const ids = String(req.query.ids || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+    const limit = Number(req.query.limit) || 4;
+    res.status(200).json(await recommendForCart(ids, limit));
   }),
 );
 

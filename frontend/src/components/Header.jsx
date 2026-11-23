@@ -201,7 +201,7 @@ export default function Header() {
                 </Link>
               )}
               <button
-                className="link-button"
+                className="nav-pill"
                 onClick={async () => {
                   await logout();
                   clearLocalCart();

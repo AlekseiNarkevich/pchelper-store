@@ -1,30 +1,16 @@
 /**
  * PCHelper — расчёт зоны доставки по точке на карте.
  *
- * МКАД представлен приближённым многоугольником: для учебного проекта
- * этого достаточно, чтобы отличить Минск от области. Если точка внутри —
- * действует городской тариф; если снаружи — считается расстояние до
- * ближайшей точки кольцевой и тариф «15 BYN + 3 BYN за километр».
+ * Используем реальные упрощённые границы Минска и Минского района из
+ * OpenStreetMap. Внутри города действует городской тариф; за городом,
+ * но внутри района — 15 BYN + 3 BYN за километр от границы города.
+ * За пределами района доставка недоступна.
  */
+
+import { MINSK_CITY_RINGS, MINSK_DISTRICT_RINGS } from './minskBoundaries.js';
 
 /** Координаты пункта выдачи (пер. Корженевского, 6). */
 export const PICKUP_POINT = { lat: 53.8450073, lng: 27.5279668 };
-
-/** Приближённый контур МКАД: пары [широта, долгота]. */
-const MKAD = [
-  [53.975, 27.55],
-  [53.965, 27.64],
-  [53.935, 27.7],
-  [53.895, 27.725],
-  [53.855, 27.705],
-  [53.82, 27.645],
-  [53.8, 27.56],
-  [53.815, 27.47],
-  [53.85, 27.405],
-  [53.89, 27.375],
-  [53.935, 27.39],
-  [53.965, 27.46],
-];
 
 /** Переводит градусы в радианы. */
 function rad(value) {
@@ -43,7 +29,7 @@ function distanceKm(a, b) {
 }
 
 /**
- * Проверяет, лежит ли точка внутри многоугольника (алгоритм лучей).
+ * Проверяет, лежит ли точка внутри одного многоугольника (алгоритм лучей).
  *
  * @param {number} lat Широта.
  * @param {number} lng Долгота.
@@ -64,16 +50,28 @@ function insidePolygon(lat, lng, polygon) {
 }
 
 /**
+ * Точка внутри хотя бы одного контура (у района есть небольшие exclave-ы).
+ *
+ * @param {number} lat Широта.
+ * @param {number} lng Долгота.
+ * @param {number[][][]} rings Контуры.
+ * @returns {boolean}
+ */
+function insideAnyRing(lat, lng, rings) {
+  return rings.some((ring) => insidePolygon(lat, lng, ring));
+}
+
+/**
  * Расстояние от точки до отрезка на местности, в километрах.
  *
- * Для коротких расстояний используем плоскую проекцию вокруг точки — так
- * проще и точнее, чем считать сферическую геометрию для города.
+ * @param {{lat: number, lng: number}} point Точка.
+ * @param {{lat: number, lng: number}} start Начало отрезка.
+ * @param {{lat: number, lng: number}} end Конец отрезка.
+ * @returns {number}
  */
 function distanceToSegment(point, start, end) {
   const latScale = 111.32;
   const lngScale = 111.32 * Math.cos(rad(point.lat));
-  const px = 0;
-  const py = 0;
   const ax = (start.lng - point.lng) * lngScale;
   const ay = (start.lat - point.lat) * latScale;
   const bx = (end.lng - point.lng) * lngScale;
@@ -82,9 +80,28 @@ function distanceToSegment(point, start, end) {
   const dy = by - ay;
   const length = dx * dx + dy * dy;
   const t = length === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / length));
-  const x = ax + t * dx;
-  const y = ay + t * dy;
-  return Math.hypot(x - px, y - py);
+  return Math.hypot(ax + t * dx, ay + t * dy);
+}
+
+/**
+ * Минимальное расстояние до границы города.
+ *
+ * @param {{lat: number, lng: number}} point Точка.
+ * @returns {number}
+ */
+function distanceToCity(point) {
+  let distance = Infinity;
+  for (const ring of MINSK_CITY_RINGS) {
+    for (let i = 0; i < ring.length; i += 1) {
+      const start = { lat: ring[i][0], lng: ring[i][1] };
+      const end = {
+        lat: ring[(i + 1) % ring.length][0],
+        lng: ring[(i + 1) % ring.length][1],
+      };
+      distance = Math.min(distance, distanceToSegment(point, start, end));
+    }
+  }
+  return distance;
 }
 
 /**
@@ -97,7 +114,20 @@ function distanceToSegment(point, start, end) {
  */
 export function calculateDelivery(lat, lng, itemsTotal) {
   const point = { lat, lng };
-  if (insidePolygon(lat, lng, MKAD)) {
+  const inCity = insideAnyRing(lat, lng, MINSK_CITY_RINGS);
+  const inDistrict = inCity || insideAnyRing(lat, lng, MINSK_DISTRICT_RINGS);
+
+  if (!inDistrict) {
+    return {
+      zone: 'outside',
+      distanceKm: 0,
+      cost: 0,
+      reachable: false,
+      message: 'Доставляем только по Минску и Минскому району',
+    };
+  }
+
+  if (inCity) {
     return {
       zone: 'minsk',
       distanceKm: 0,
@@ -106,24 +136,15 @@ export function calculateDelivery(lat, lng, itemsTotal) {
     };
   }
 
-  let distance = Infinity;
-  for (let i = 0; i < MKAD.length; i += 1) {
-    const start = { lat: MKAD[i][0], lng: MKAD[i][1] };
-    const end = {
-      lat: MKAD[(i + 1) % MKAD.length][0],
-      lng: MKAD[(i + 1) % MKAD.length][1],
-    };
-    distance = Math.min(distance, distanceToSegment(point, start, end));
-  }
-
-  const rounded = Math.max(0.1, Math.round(distance * 10) / 10);
+  // Точка внутри района, но за городом: считаем километры от границы.
+  const rounded = Math.max(0.1, Math.round(distanceToCity(point) * 10) / 10);
   if (rounded > 50) {
     return {
       zone: 'outside',
       distanceKm: rounded,
       cost: 0,
       reachable: false,
-      message: 'Доставка только по Минскому району: не более 50 км от МКАД',
+      message: 'Доставка только по Минскому району: не более 50 км от города',
     };
   }
 
@@ -136,14 +157,14 @@ export function calculateDelivery(lat, lng, itemsTotal) {
 }
 
 /**
- * Проверяет, находится ли точка внутри МКАД.
+ * Находится ли точка внутри города Минска.
  *
  * @param {number} lat Широта.
  * @param {number} lng Долгота.
  * @returns {boolean}
  */
 export function insideMkad(lat, lng) {
-  return insidePolygon(lat, lng, MKAD);
+  return insideAnyRing(lat, lng, MINSK_CITY_RINGS);
 }
 
 export { distanceKm };
