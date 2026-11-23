@@ -6,6 +6,8 @@
  * состояние пользователя после входа, выхода и смены профиля.
  */
 
+/* global __PCH_BUILD__ */
+
 import React, { useEffect, useState } from 'react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
@@ -29,7 +31,7 @@ import RequireAdmin from './components/RequireAdmin.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import SavedBuilds from './pages/SavedBuilds.jsx';
 import { mergeCartWithServer } from './cart.js';
-import { readAuth } from './auth.js';
+import { readAuth, resetAuth } from './auth.js';
 import { onError } from './errorBus.js';
 
 /**
@@ -78,14 +80,32 @@ export default function App() {
   const location = useLocation();
 
   useEffect(() => {
-    // В desktop-приложении при первом запуске сразу показываем вход:
-    // так на новой машине не откроется чужая сессия или админка.
-    // Если пользователь уже входил, localStorage сохранён — сессия остаётся.
-    if (
-      window.pchelperDesktop &&
-      !readAuth().accessToken &&
-      location.pathname === '/'
-    ) {
+    // В desktop-приложении сессия привязана к конкретной сборке и режиму.
+    // При установке новой версии или переходе Portable ↔ Setup показываем
+    // вход: старая сессия администратора не должна открываться автоматически.
+    // Внутри одной сборки повторный вход не требуется.
+    if (!window.pchelperDesktop) return;
+
+    const buildId = typeof __PCH_BUILD__ !== 'undefined' ? __PCH_BUILD__ : 'dev';
+    const mode = window.pchelperDesktop.mode || 'installed';
+    const buildKey = 'pchelper-desktop-build';
+    const modeKey = 'pchelper-desktop-mode';
+    const storedBuild = localStorage.getItem(buildKey);
+    const storedMode = localStorage.getItem(modeKey);
+    const hasAuth = Boolean(readAuth().accessToken);
+
+    const isNewBuild = storedBuild !== buildId;
+    const isNewMode = storedMode !== mode;
+
+    if (isNewBuild || isNewMode) {
+      resetAuth();
+      localStorage.setItem(buildKey, buildId);
+      localStorage.setItem(modeKey, mode);
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    if (!hasAuth && location.pathname === '/') {
       navigate('/login', { replace: true });
     }
     // Проверяем только при старте приложения.

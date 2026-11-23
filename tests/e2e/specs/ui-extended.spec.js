@@ -137,7 +137,7 @@ test.describe("PCHelper — расширенные UI-сценарии", () => {
 
   test("desktop без сессии открывает страницу входа", async ({ page }) => {
     await page.addInitScript(() => {
-      window.pchelperDesktop = { platform: "win32" };
+      window.pchelperDesktop = { platform: "win32", mode: "installed" };
       try {
         localStorage.clear();
       } catch {
@@ -146,6 +146,28 @@ test.describe("PCHelper — расширенные UI-сценарии", () => {
     });
     await page.goto("/");
     await expect(page).toHaveURL(/\/login$/, { timeout: 10_000 });
+  });
+
+  test("desktop сохраняет вход между запусками", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.pchelperDesktop = { platform: "win32", mode: "installed" };
+      try {
+        // Чистим хранилище только при первом открытии: перезагрузка
+        // страницы имитирует повторный запуск уже вошедшего приложения.
+        if (!sessionStorage.getItem("pch-desktop-init")) {
+          localStorage.clear();
+          sessionStorage.setItem("pch-desktop-init", "1");
+        }
+      } catch {
+        // На about:blank localStorage ещё недоступен.
+      }
+    });
+    const login = new LoginPage(page);
+    await login.goto("/login");
+    await login.login("demo@pchelper.by", "demo1234");
+    await page.goto("/");
+    await expect(page).not.toHaveURL(/\/login$/);
+    await expect(page.getByText("Выйти")).toBeVisible();
   });
 
   test("регистрация нового пользователя", async ({ page }) => {

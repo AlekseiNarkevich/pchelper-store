@@ -15,6 +15,20 @@ const { spawn } = require('child_process');
  */
 
 const BACKEND_PORT = Number(process.env.PORT || 3001);
+
+// Portable-сборка запускается из временной папки, но по умолчанию хранит
+// сессию там же, где установленная версия. Из-за этого Portable подхватывал
+// вход администратора из Setup и сразу открывал админку. Даём Portable
+// отдельную папку данных: первый запуск начинается со страницы входа.
+const isPortable = Boolean(
+  process.env.PORTABLE_EXECUTABLE_DIR || process.env.PORTABLE_EXECUTABLE_FILE,
+);
+if (isPortable) {
+  const portableUserData = path.join(app.getPath('appData'), 'PCHelper-Portable');
+  fs.mkdirSync(portableUserData, { recursive: true });
+  app.setPath('userData', portableUserData);
+}
+
 let backendProcess = null;
 let splashWindow = null;
 let splashStartedAt = 0;

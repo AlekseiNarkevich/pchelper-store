@@ -10,6 +10,11 @@ import react from '@vitejs/plugin-react';
  */
 export default defineConfig({
   plugins: [react({ jsxRuntime: 'automatic' })],
+  // Уникальный идентификатор сборки: по нему приложение понимает,
+  // что установлена новая версия и старую сессию нужно сбросить.
+  define: {
+    __PCH_BUILD__: JSON.stringify(String(Date.now())),
+  },
   server: {
     port: 5173,
     proxy: {

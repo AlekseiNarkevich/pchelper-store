@@ -158,6 +158,16 @@ export async function refresh() {
 }
 
 /**
+ * Локально стирает сессию, не обращаясь к серверу.
+ *
+ * Нужно при первом запуске новой сборки desktop: старый токен больше
+ * не должен открывать чужой аккаунт или админку.
+ */
+export function resetAuth() {
+  writeAuth({ accessToken: null, refreshToken: null, user: null });
+}
+
+/**
  * Выполняет выход.
  */
 export async function logout() {
