@@ -436,7 +436,7 @@ export default function Admin() {
             <span>Отзывы на модерации</span>
             <strong>{summary.pendingReviews}</strong>
           </div>
-          <div>
+          <div className="summary-wide">
             <span>Выручка</span>
             <strong>{money(summary.revenue)}</strong>
           </div>

@@ -202,7 +202,17 @@ export default function Orders() {
         </Link>
       </div>
 
-      {notice && <div className="state success">{notice}</div>}
+      {notice && (
+        <div className="state success">
+          {notice}
+          {notice.includes('добавлен в корзину') && (
+            <>
+              {' '}
+              <Link to="/cart">Перейти в корзину</Link>
+            </>
+          )}
+        </div>
+      )}
       {created && (
         <div className="state success" role="status">
           Заказ <strong>{created.number}</strong> оформлен. Мы свяжемся с вами для

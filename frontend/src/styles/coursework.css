@@ -1407,6 +1407,14 @@
   font-size: 22px;
 }
 
+/* На широком экране выручка занимает две ячейки: 4 карточки сверху,
+   ровно 4 снизу, без пустого угла. */
+@media (min-width: 1201px) {
+  .admin-summary > .summary-wide {
+    grid-column: span 2;
+  }
+}
+
 .admin-tabs {
   display: flex;
   flex-wrap: wrap;
