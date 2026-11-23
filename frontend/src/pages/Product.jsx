@@ -126,7 +126,10 @@ export default function Product() {
   });
   function add() {
     if (stock <= 0) return;
-    addToCart(product);
+    if (!addToCart(product)) {
+      setAdded(false);
+      return;
+    }
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   }

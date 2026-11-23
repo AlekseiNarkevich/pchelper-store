@@ -53,13 +53,14 @@ export default function Prebuilt() {
       setNotice('Этой сборки нет на складе');
       return;
     }
-    addToCart({
+    const added = addToCart({
       id: `prebuilt:${build.id}`,
       name: build.name,
       price: build.price,
       imageUrl: build.imageUrl,
       stock: Number(build.stock ?? 0),
     });
+    if (!added) return;
     setNotice(`Сборка «${build.name}» добавлена в корзину`);
     setTimeout(() => setNotice(''), 2500);
   }

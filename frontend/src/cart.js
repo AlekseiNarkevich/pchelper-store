@@ -77,7 +77,7 @@ export function addToCart(product) {
   const stock = product.stock == null ? 99 : Number(product.stock);
   if (stock <= 0) {
     reportError(`Товара «${product.name}» нет на складе`);
-    return;
+    return false;
   }
 
   const items = readCart();
@@ -85,7 +85,7 @@ export function addToCart(product) {
   if (found) {
     if (found.qty >= stock) {
       reportError(`На складе только ${stock} шт. товара «${product.name}»`);
-      return;
+      return false;
     }
     found.qty += 1;
   } else {
@@ -100,6 +100,7 @@ export function addToCart(product) {
   }
   writeCart(items);
   void pushToServer((commerce) => commerce.addServerItem(product.id, 1));
+  return true;
 }
 
 /**
@@ -121,8 +122,11 @@ export function addBuildToCart(products) {
       skipped.push(product.name);
       continue;
     }
-    addToCart(product);
-    added.push(product.name);
+    if (addToCart(product)) {
+      added.push(product.name);
+    } else {
+      skipped.push(product.name);
+    }
   }
 
   if (skipped.length) {

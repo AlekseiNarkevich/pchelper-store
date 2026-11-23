@@ -87,7 +87,7 @@ export default function ProductCard({ product, onAdded }) {
 
   function add() {
     if (stock <= 0) return;
-    addToCart(product);
+    if (!addToCart(product)) return;
     if (onAdded) onAdded(product);
   }
 
