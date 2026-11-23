@@ -587,6 +587,36 @@ export async function updateOrder(orderId, data, adminId) {
 }
 
 /**
+ * Удаляет связанные с заказами строки: состав и историю.
+ *
+ * Внешних ключей с каскадом в базе нет, поэтому чистим вручную.
+ * Ошибка cleanup не отменяет удаление заказа: главное — убрать его
+ * из списка, а «висячие» строки только логируем.
+ *
+ * @param {number[]} orderIds Номера заказов.
+ * @returns {Promise<void>}
+ */
+async function deleteOrderChildren(orderIds) {
+  if (!orderIds.length) return;
+
+  const positions = await supabase
+    .from('Заказ_Позиции')
+    .delete()
+    .in('заказ_id', orderIds);
+  if (positions.error) {
+    console.error('[admin] очистка позиций заказов:', positions.error.message);
+  }
+
+  const history = await supabase
+    .from('ИсторияЗаказов')
+    .delete()
+    .in('заказ_id', orderIds);
+  if (history.error) {
+    console.error('[admin] очистка истории заказов:', history.error.message);
+  }
+}
+
+/**
  * Удаляет финальный заказ (отменённый или завершённый) вместе с позициями.
  *
  * Активный заказ сначала нужно отменить: это защищает от случайной
@@ -622,6 +652,9 @@ export async function deleteOrder(orderId) {
 
   const removal = await supabase.from('Заказы').delete().eq('id', id);
   if (removal.error) throw databaseError('удалить заказ', removal.error);
+
+  // Чистим состав и историю, чтобы в базе не оставалось строк без заказа.
+  await deleteOrderChildren([id]);
 
   return { id: String(row.id), number: row['номер'] };
 }
@@ -663,6 +696,10 @@ export async function deleteOrdersBulk(ids) {
     .in('id', finalIds)
     .select('id');
   if (removal.error) throw databaseError('удалить выбранные заказы', removal.error);
+
+  // Позиции и история удалённых заказов тоже больше не нужны.
+  await deleteOrderChildren(finalIds);
+
   return { deleted: (removal.data || []).length, skipped };
 }
 
