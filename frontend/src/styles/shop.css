@@ -382,7 +382,8 @@ select {
 .product-card .photo {
   height: 150px;
   border-radius: var(--radius-sm);
-  background: var(--surface-2);
+  /* Белый фон сливается с товарными фото; серый давал вид пустых полос. */
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;

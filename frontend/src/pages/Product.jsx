@@ -282,12 +282,18 @@ export default function Product() {
             Характеристики
           </div>
           <dl className="spec-table">
-            {product.specs.map((spec) => (
-              <div key={spec.label}>
-                <dt>{spec.label}</dt>
-                <dd>{spec.value}</dd>
-              </div>
-            ))}
+            {/* Нулевые необязательные поля (например, длина радиатора
+                у воздушного кулера) не показываем — они только путают. */}
+            {product.specs
+              .filter(
+                (spec) => !/^0(\s*(мм|гб|вт|дб))?$/i.test(String(spec.value).trim()),
+              )
+              .map((spec) => (
+                <div key={spec.label}>
+                  <dt>{spec.label}</dt>
+                  <dd>{spec.value}</dd>
+                </div>
+              ))}
           </dl>
         </div>
       </div>

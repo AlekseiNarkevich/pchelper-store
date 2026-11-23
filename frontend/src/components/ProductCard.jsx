@@ -13,8 +13,9 @@ import React from 'react';
 /**
  * Карточка товара в сетке каталога.
  *
- * Фотографии приходят из Supabase Storage; если ссылки нет, показывается
- * подпись «фото» — как в макетах ЛР5.
+ * Фотографии теперь локальные (frontend/public/images), но компонент
+ * также переживает ссылки из Supabase Storage. Если ссылки нет,
+ * показывается подпись «фото» — как в макетах ЛР5.
  */
 export default function ProductCard({ product, onAdded }) {
   const vendor =

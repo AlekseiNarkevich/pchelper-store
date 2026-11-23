@@ -1,3 +1,11 @@
+/**
+ * PCHelper — корневой компонент и маршруты приложения.
+ *
+ * Общая шапка и подвал остаются на всех страницах; личные и админские
+ * маршруты закрыты RequireAuth/RequireAdmin. Здесь же обновляется
+ * состояние пользователя после входа, выхода и смены профиля.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 

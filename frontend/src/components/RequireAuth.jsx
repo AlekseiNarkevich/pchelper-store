@@ -1,3 +1,10 @@
+/**
+ * PCHelper — защита личных маршрутов.
+ *
+ * Если сессии нет, запоминает адрес и отправляет на вход. При истечении
+ * refresh-токена подписка onAuthChange сразу уводит на страницу входа.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 

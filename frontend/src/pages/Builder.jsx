@@ -1,3 +1,12 @@
+/**
+ * PCHelper — конфигуратор ПК.
+ *
+ * Девять шагов: процессор, плата, память, охлаждение, видеокарта,
+ * накопители, блок питания, корпус и итог. Выбранные детали хранятся
+ * в черновике localStorage, несовместимые варианты отфильтровываются,
+ * а на шаге 9 проверяются совместимость, остатки и цена.
+ */
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 

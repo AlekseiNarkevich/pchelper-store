@@ -1,3 +1,11 @@
+/**
+ * PCHelper — защита административных маршрутов.
+ *
+ * Пропускает только пользователя с ролью admin; остальных возвращает
+ * на главную. Проверка на клиенте — удобство, окончательно права
+ * проверяет backend.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
