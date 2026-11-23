@@ -1,3 +1,7 @@
+/**
+ * PCHelper — конфигурация Vite: React, прокси API и метка сборки.
+ */
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 

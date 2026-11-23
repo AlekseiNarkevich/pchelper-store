@@ -180,17 +180,32 @@ export const updatePrebuiltStock = (id, stock) =>
     body: { stock },
   });
 
+export const getPrebuilts = () => request('/admin/prebuilt');
+export const createPrebuilt = (data) =>
+  request('/admin/prebuilt', { method: 'POST', body: { data } });
+export const updatePrebuilt = (id, data) =>
+  request(`/admin/prebuilt/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: { data },
+  });
+export const deletePrebuilt = (id) =>
+  request(`/admin/prebuilt/${encodeURIComponent(id)}`, { method: 'DELETE' });
+
 export const getStockRequests = () => request('/admin/stock-requests');
 export const updateStockRequest = (id, status) =>
   request(`/admin/stock-requests/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: { status },
   });
+export const deleteStockRequest = (id) =>
+  request(`/admin/stock-requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 export const getEmails = (limit = 100) =>
   request(`/admin/emails?limit=${encodeURIComponent(limit)}`);
 export const resendEmail = (id) =>
   request(`/admin/emails/${encodeURIComponent(id)}/resend`, { method: 'POST' });
+export const deleteEmail = (id) =>
+  request(`/admin/emails/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const sendTestEmail = (to) =>
   request('/admin/emails/test', { method: 'POST', body: { to } });
 

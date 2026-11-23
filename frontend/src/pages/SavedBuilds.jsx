@@ -222,7 +222,20 @@ export default function SavedBuilds() {
       <div className="saved-list">
         {items.map((build) => (
           <article className="saved-build" key={build.id}>
-            <header>
+            <header
+              aria-expanded={openId === build.id}
+              className="saved-build-head"
+              onClick={() => toggle(build)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  toggle(build);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              title="Показать состав и совместимость"
+            >
               <div>
                 <h3>{build.name}</h3>
                 <div className="small faint">

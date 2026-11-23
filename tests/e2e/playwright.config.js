@@ -1,4 +1,10 @@
-import { defineConfig, devices } from '@playwright/test';
+/**
+ * PCHelper — настройки Playwright для E2E-тестов витрины.
+ *
+ * Тесты запускаются против уже поднятого стека (backend и Vite).
+ */
+
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Тесты запускаются против уже поднятого стека:
@@ -8,30 +14,30 @@ import { defineConfig, devices } from '@playwright/test';
  * BASE_URL можно переопределить переменной окружения.
  */
 export default defineConfig({
-  testDir: './specs',
+  testDir: "./specs",
   timeout: 30_000,
   expect: { timeout: 10_000 },
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : 2,
-  reporter: [['list'], ['html', { open: 'never' }]],
-  snapshotPathTemplate: '{testDir}/__screenshots__/{arg}.png',
+  reporter: [["list"], ["html", { open: "never" }]],
+  snapshotPathTemplate: "{testDir}/__screenshots__/{arg}.png",
 
   use: {
-    baseURL: process.env.BASE_URL || 'http://127.0.0.1:5173',
-    channel: process.env.CI ? undefined : 'chrome',
+    baseURL: process.env.BASE_URL || "http://127.0.0.1:5173",
+    channel: process.env.CI ? undefined : "chrome",
     viewport: { width: 1440, height: 900 },
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    trace: "on-first-retry",
+    screenshot: "only-on-failure",
     // Видео требует отдельный ffmpeg; в ЛР9 достаточно скриншота и trace.
-    video: 'off',
+    video: "off",
   },
 
   projects: [
     {
-      name: 'chromium',
+      name: "chromium",
       use: {
-        ...devices['Desktop Chrome'],
-        channel: process.env.CI ? undefined : 'chrome',
+        ...devices["Desktop Chrome"],
+        channel: process.env.CI ? undefined : "chrome",
       },
     },
   ],

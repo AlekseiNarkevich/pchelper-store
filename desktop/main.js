@@ -1,3 +1,8 @@
+/**
+ * PCHelper — главный процесс desktop-версии: окно, заставка и запуск
+ * локального backend. Подробности работы описаны ниже по файлу.
+ */
+
 const { app, BrowserWindow, dialog, shell } = require('electron');
 const fs = require('fs');
 const http = require('http');

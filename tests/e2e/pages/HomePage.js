@@ -1,24 +1,28 @@
-import BasePage from './BasePage.js';
+/**
+ * PCHelper — главная страница в E2E-тестах: категории и подборки.
+ */
+
+import BasePage from "./BasePage.js";
 
 /** Главная страница витрины. */
 export default class HomePage extends BasePage {
   categoryCards() {
-    return this.page.locator('.feature');
+    return this.page.locator(".feature");
   }
 
   productCards() {
-    return this.page.locator('.product-card');
+    return this.page.locator(".product-card");
   }
 
   async openCatalog() {
-    await this.page.getByRole('link', { name: 'Каталог' }).click();
+    await this.page.getByRole("link", { name: "Каталог" }).click();
   }
 
   async openPrebuilt() {
-    await this.page.getByRole('link', { name: 'Готовые ПК' }).click();
+    await this.page.getByRole("link", { name: "Готовые ПК" }).click();
   }
 
   async openLogin() {
-    await this.page.getByRole('link', { name: 'Войти' }).click();
+    await this.page.getByRole("link", { name: "Войти" }).click();
   }
 }

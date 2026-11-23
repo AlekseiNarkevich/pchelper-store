@@ -8,17 +8,22 @@ import { Link } from 'react-router-dom';
 
 import { getCategories, money } from '../api.js';
 import { readAuth } from '../auth.js';
+import { checkCompatibility } from '../builds.js';
 import { onDataChanged } from '../dataBus.js';
 import { useAutoRefresh } from '../useAutoRefresh.js';
 import {
+  createPrebuilt,
   createProduct,
+  deleteEmail,
   deleteOrder,
+  deletePrebuilt,
   deleteProduct,
   deleteReview,
+  deleteStockRequest,
   deleteUser,
   getEmails,
   getOrders,
-  getPrebuiltStock,
+  getPrebuilts,
   getProducts,
   getReviews,
   getStockRequests,
@@ -28,7 +33,7 @@ import {
   resendEmail,
   sendTestEmail,
   updateOrder,
-  updatePrebuiltStock,
+  updatePrebuilt,
   updateProduct,
   updateStockRequest,
   updateUser,
@@ -239,6 +244,60 @@ const REQUEST_STATUS_LABELS = {
 };
 
 /**
+ * Категории, из которых собирается готовый ПК в админке.
+ * Порядок совпадает с порядком полей в форме.
+ */
+const PREBUILT_CATEGORIES = [
+  ['cpu', 'Процессор'],
+  ['motherboard', 'Материнская плата'],
+  ['ram', 'Оперативная память'],
+  ['gpu', 'Видеокарта'],
+  ['cooling', 'Система охлаждения'],
+  ['storage', 'Накопитель'],
+  ['psu', 'Блок питания'],
+  ['case', 'Корпус'],
+];
+
+/**
+ * Пустая форма готовой сборки.
+ *
+ * @returns {object}
+ */
+function emptyPrebuilt() {
+  return {
+    name: '',
+    task: '',
+    photoUrl: '',
+    stock: 0,
+    cpu: '',
+    motherboard: '',
+    ram: '',
+    gpu: '',
+    cooling: '',
+    storage: '',
+    psu: '',
+    case: '',
+  };
+}
+
+/**
+ * Собирает идентификаторы компонентов для проверки совместимости.
+ *
+ * @param {object} form Поля формы сборки.
+ * @returns {object} Например, { cpu: 'cpu:1', storage: ['storage:2'] }.
+ */
+function prebuiltComponentIds(form) {
+  const components = {};
+  for (const [category] of PREBUILT_CATEGORIES) {
+    const value = form[category];
+    if (!value) continue;
+    if (category === 'storage') components.storage = [`storage:${value}`];
+    else components[category] = `${category}:${value}`;
+  }
+  return components;
+}
+
+/**
  * Название позиции по служебному id вида «motherboard:9».
  *
  * @param {string} productId Идентификатор из запроса на поступление.
@@ -437,7 +496,7 @@ export default function Admin() {
             <strong>{summary.pendingReviews}</strong>
           </div>
           <div className="summary-wide">
-            <span>Выручка</span>
+            <span>Выручка за всё время</span>
             <strong>{money(summary.revenue)}</strong>
           </div>
           <div>
@@ -1164,18 +1223,31 @@ function ProductsPanel({ onError, onFlash }) {
   );
 }
 
-/** Остатки готовых компьютеров. */
+/** Готовые компьютеры: состав, остаток, добавление и удаление. */
 function PrebuiltStockPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
-  const [values, setValues] = useState({});
+  const [options, setOptions] = useState({});
+  const [form, setForm] = useState(emptyPrebuilt);
+  const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [check, setCheck] = useState(null);
+  const [checking, setChecking] = useState(false);
 
+  // Кроме сборок нужны каталоги всех категорий: из них выбирается состав.
   function load() {
     setLoading(true);
-    getPrebuiltStock()
-      .then((data) => {
-        setItems(data.items);
-        setValues(Object.fromEntries(data.items.map((item) => [item.id, item.stock])));
+    Promise.all([
+      getPrebuilts(),
+      ...PREBUILT_CATEGORIES.map(([category]) => getProducts(category)),
+    ])
+      .then(([list, ...productLists]) => {
+        setItems(list.items);
+        const next = {};
+        productLists.forEach((data, index) => {
+          next[PREBUILT_CATEGORIES[index][0]] = data.items;
+        });
+        setOptions(next);
       })
       .catch((reason) => onError(reason.message))
       .finally(() => setLoading(false));
@@ -1184,71 +1256,312 @@ function PrebuiltStockPanel({ onError, onFlash }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, []);
 
-  // Остатки могли изменить в соседней вкладке; форму не сбрасываем.
+  // Сборки могли изменить в соседней вкладке; форму не сбрасываем.
   useAutoRefresh(() => {
-    getPrebuiltStock()
-      .then((data) => {
-        setItems(data.items);
-        setValues(Object.fromEntries(data.items.map((item) => [item.id, item.stock])));
-      })
+    getPrebuilts()
+      .then((data) => setItems(data.items))
       .catch(() => {});
   });
 
-  async function save(item) {
+  function startCreate() {
+    setEditingId(null);
+    setForm(emptyPrebuilt());
+  }
+
+  function startEdit(item) {
+    setEditingId(item.id);
+    const next = emptyPrebuilt();
+    next.name = item.name || '';
+    next.task = item.task || '';
+    next.photoUrl = item.photoUrl || '';
+    next.stock = item.stock ?? 0;
+    for (const [category] of PREBUILT_CATEGORIES) {
+      const value =
+        category === 'storage' ? item.storage?.[0] : item.components?.[category];
+      next[category] = value ? String(value) : '';
+    }
+    setForm(next);
+  }
+
+  function changeField(event) {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  // Мини-конфигуратор: после каждого изменения проверяем совместимость
+  // тем же серверным правилом, что и основной сборщик. Запрос с задержкой,
+  // чтобы не отправлять его на каждую нажатую клавишу.
+  useEffect(() => {
+    const ids = prebuiltComponentIds(form);
+    if (!Object.keys(ids).length) {
+      setCheck(null);
+      setChecking(false);
+      return undefined;
+    }
+
+    let alive = true;
+    setChecking(true);
+    const timer = setTimeout(() => {
+      checkCompatibility(ids)
+        .then((result) => {
+          if (alive) setCheck(result);
+        })
+        .catch(() => {
+          if (alive) setCheck(null);
+        })
+        .finally(() => {
+          if (alive) setChecking(false);
+        });
+    }, 350);
+
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [form]);
+
+  async function save(event) {
+    event.preventDefault();
+    const name = form.name.trim();
+    if (!name) {
+      onError('Укажите название сборки');
+      return;
+    }
+
+    const ids = prebuiltComponentIds(form);
+    if (!Object.keys(ids).length) {
+      onError('Выберите комплектующие для сборки');
+      return;
+    }
+
+    const components = {};
+    for (const [category] of PREBUILT_CATEGORIES) {
+      const value = form[category];
+      if (!value) continue;
+      if (category === 'storage') components.storage = [Number(value)];
+      else components[category] = Number(value);
+    }
+
+    const data = {
+      name,
+      task: form.task.trim(),
+      photoUrl: form.photoUrl.trim(),
+      stock: Number(form.stock) || 0,
+      components,
+    };
+
+    setBusy(true);
     try {
-      await updatePrebuiltStock(item.id, Number(values[item.id]));
-      onFlash(`Остаток «${item.name}» обновлён`);
+      // Несовместимую сборку нельзя сохранить: в магазине она станет
+      // готовым ПК, который заведомо не заработает.
+      const result = await checkCompatibility(ids);
+      setCheck(result);
+      if (!result.compatible) {
+        onError(`Сборка несовместима: ${result.errors.join(' ')}`);
+        return;
+      }
+
+      if (editingId) {
+        await updatePrebuilt(editingId, data);
+        onFlash(`Сборка «${name}» сохранена`);
+      } else {
+        await createPrebuilt(data);
+        onFlash(`Сборка «${name}» добавлена`);
+      }
+      startCreate();
       load();
+    } catch (reason) {
+      onError(reason.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(item) {
+    if (!window.confirm(`Удалить сборку «${item.name}»?`)) return;
+    try {
+      await deletePrebuilt(item.id);
+      if (editingId === item.id) startCreate();
+      load();
+      onFlash('Сборка удалена');
     } catch (reason) {
       onError(reason.message);
     }
   }
 
   return (
-    <div className="picker-wrap admin-prebuilt">
-      {loading ? (
-        <div className="state">Загружаем остатки…</div>
-      ) : (
-        <table className="picker">
-          <thead>
-            <tr>
-              <th>Готовая сборка</th>
-              <th>На складе</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id}>
-                <td className="picker-name">{item.name}</td>
-                <td>
-                  <input
-                    className="input-price"
-                    min="0"
-                    onChange={(event) =>
-                      setValues((current) => ({
-                        ...current,
-                        [item.id]: event.target.value,
-                      }))
-                    }
-                    type="number"
-                    value={values[item.id] ?? 0}
-                  />
-                </td>
-                <td>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => save(item)}
-                    type="button"
-                  >
-                    Сохранить
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <div className="admin-products">
+      <div className="admin-products-grid">
+        <div>
+          <div className="panel-head">
+            <h3>Готовые сборки</h3>
+            <button className="btn btn-sm" onClick={startCreate} type="button">
+              + Добавить
+            </button>
+          </div>
+
+          <div className="picker-wrap">
+            {loading ? (
+              <div className="state">Загружаем сборки…</div>
+            ) : !items.length ? (
+              <div className="state">Сборок пока нет. Добавьте первую.</div>
+            ) : (
+              <table className="picker">
+                <thead>
+                  <tr>
+                    <th>Сборка</th>
+                    <th>Цена</th>
+                    <th>На складе</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="picker-name">
+                        {item.name}
+                        {item.task && <div className="small faint">{item.task}</div>}
+                      </td>
+                      <td>{money(item.price)}</td>
+                      <td>{item.stock}</td>
+                      <td>
+                        <div className="admin-row-actions">
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => startEdit(item)}
+                            type="button"
+                          >
+                            Изменить
+                          </button>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => remove(item)}
+                            type="button"
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        <form className="admin-editor" onSubmit={save}>
+          <div className="panel-head">
+            <h3>{editingId ? `Сборка #${editingId}` : 'Новая сборка'}</h3>
+            {editingId && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={startCreate}
+                type="button"
+              >
+                Отменить
+              </button>
+            )}
+          </div>
+
+          <div className="admin-fields">
+            <label className="field">
+              <span>Название</span>
+              <input name="name" onChange={changeField} required value={form.name} />
+            </label>
+
+            <label className="field">
+              <span>Для каких задач</span>
+              <input
+                name="task"
+                onChange={changeField}
+                placeholder="Офис, учёба, игры"
+                value={form.task}
+              />
+            </label>
+
+            <label className="field">
+              <span>Ссылка на фото</span>
+              <input
+                name="photoUrl"
+                onChange={changeField}
+                placeholder="/images/products/..."
+                value={form.photoUrl}
+              />
+            </label>
+
+            <label className="field">
+              <span>На складе, шт.</span>
+              <input
+                min="0"
+                name="stock"
+                onChange={changeField}
+                type="number"
+                value={form.stock}
+              />
+            </label>
+
+            {PREBUILT_CATEGORIES.map(([category, label]) => {
+              const selected = (options[category] || []).find(
+                (product) => String(product.id) === String(form[category]),
+              );
+              const selectedStock = Number(selected?.['количество'] ?? 0);
+              return (
+                <label className="field" key={category}>
+                  <span>{label}</span>
+                  <select name={category} onChange={changeField} value={form[category]}>
+                    <option value="">— не выбрано —</option>
+                    {(options[category] || []).map((product) => (
+                      <option key={product.id} value={String(product.id)}>
+                        {product['название']} — {money(product['цена'])}
+                      </option>
+                    ))}
+                  </select>
+                  {selected && (
+                    <span className="small faint">
+                      {selectedStock > 0
+                        ? `В наличии: ${selectedStock} шт.`
+                        : 'Нет в наличии'}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+
+          {checking && <div className="small faint">Проверяем совместимость…</div>}
+          {check && (
+            <>
+              <div className={`compat-badge${check.compatible ? ' is-ok' : ' is-bad'}`}>
+                {check.compatible
+                  ? 'Сборка совместима'
+                  : `Найдено проблем: ${check.errors.length}`}
+              </div>
+              {check.errors?.length > 0 && (
+                <ul className="compat-errors">
+                  {check.errors.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              )}
+              {check.warnings?.length > 0 && (
+                <ul className="compat-warnings">
+                  {check.warnings.map((text) => (
+                    <li key={text}>{text}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="small faint">
+                Стоимость комплектующих: {money(check.total)}
+              </div>
+            </>
+          )}
+
+          <button className="btn" disabled={busy || checking} type="submit">
+            {busy ? 'Сохраняем…' : editingId ? 'Сохранить сборку' : 'Добавить сборку'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
@@ -1285,6 +1598,17 @@ function StockRequestsPanel({ onError, onFlash }) {
     }
   }
 
+  async function remove(request) {
+    if (!window.confirm(`Удалить запрос на «${request.productName}»?`)) return;
+    try {
+      await deleteStockRequest(request.id);
+      load();
+      onFlash('Запрос удалён');
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
   if (loading) return <div className="state">Загружаем запросы…</div>;
   if (!items.length) return <div className="state">Запросов нет.</div>;
 
@@ -1311,9 +1635,24 @@ function StockRequestsPanel({ onError, onFlash }) {
               {REQUEST_STATUS_LABELS[request.status] || request.status}
             </span>
           </header>
-          {request.status === 'новый' && (
-            <button className="btn btn-sm" onClick={() => mark(request)} type="button">
-              Отметить обработанным
+          {request.status === 'новый' ? (
+            <div className="admin-row-actions">
+              <button
+                className="btn btn-sm"
+                onClick={() => mark(request)}
+                type="button"
+              >
+                Отметить обработанным
+              </button>
+              <span className="small faint">Удалить можно после ответа покупателю</span>
+            </div>
+          ) : (
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => remove(request)}
+              type="button"
+            >
+              Удалить
             </button>
           )}
         </article>
@@ -1385,6 +1724,17 @@ function EmailsPanel({ onError, onFlash }) {
     }
   }
 
+  async function remove(item) {
+    if (!window.confirm(`Удалить письмо «${item.subject}» из журнала?`)) return;
+    try {
+      await deleteEmail(item.id);
+      load();
+      onFlash('Письмо удалено из журнала');
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
   return (
     <div className="admin-list">
       <div className={`state ${configured ? 'success' : 'error'}`}>
@@ -1445,15 +1795,24 @@ function EmailsPanel({ onError, onFlash }) {
               {item.sent ? 'Отправлено' : 'Не отправлено'}
             </span>
           </header>
-          {!item.sent && (
+          <div className="admin-row-actions">
+            {!item.sent && (
+              <button
+                className="btn btn-sm"
+                onClick={() => sendAgain(item)}
+                type="button"
+              >
+                Отправить снова
+              </button>
+            )}
             <button
-              className="btn btn-sm"
-              onClick={() => sendAgain(item)}
+              className="btn btn-danger btn-sm"
+              onClick={() => remove(item)}
               type="button"
             >
-              Отправить снова
+              Удалить
             </button>
-          )}
+          </div>
         </article>
       ))}
     </div>

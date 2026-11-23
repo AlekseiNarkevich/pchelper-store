@@ -1,11 +1,19 @@
-import LoginPage from '../pages/LoginPage.js';
+/**
+ * PCHelper — общие помощники E2E: вход под тестовым покупателем.
+ */
 
-const API = process.env.API_URL || 'http://127.0.0.1:3001/api/v1';
+import LoginPage from "../pages/LoginPage.js";
+
+const API = process.env.API_URL || "http://127.0.0.1:3001/api/v1";
 
 /** Логинится демо-пользователем и возвращает страницу. */
-export async function loginAs(page, email = 'demo@pchelper.by', password = 'demo1234') {
+export async function loginAs(
+  page,
+  email = "demo@pchelper.by",
+  password = "demo1234",
+) {
   const login = new LoginPage(page);
-  await login.goto('/login');
+  await login.goto("/login");
   await login.login(email, password);
   return page;
 }

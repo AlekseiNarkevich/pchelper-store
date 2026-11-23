@@ -184,7 +184,7 @@ export default function Profile() {
               </form>
 
               <button
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-block profile-logout"
                 onClick={handleLogout}
                 type="button"
               >
@@ -199,7 +199,7 @@ export default function Profile() {
                     останутся обезличенными, войти в аккаунт больше не получится.
                   </p>
                   <button
-                    className="btn btn-danger"
+                    className="btn btn-danger btn-block"
                     onClick={handleDeleteAccount}
                     type="button"
                   >
@@ -228,15 +228,20 @@ export default function Profile() {
               <ul className="profile-builds">
                 {builds.map((build) => (
                   <li key={build.id}>
-                    <div>
-                      <Link to="/builds">{build.name}</Link>
-                      <div className="small faint">
-                        {build.updatedAt
-                          ? new Date(build.updatedAt).toLocaleDateString('ru-RU')
-                          : ''}
+                    <Link
+                      className="profile-build-row"
+                      to={`/builder?build=${build.id}`}
+                    >
+                      <div>
+                        <div className="profile-build-name">{build.name}</div>
+                        <div className="small faint">
+                          {build.updatedAt
+                            ? new Date(build.updatedAt).toLocaleDateString('ru-RU')
+                            : ''}
+                        </div>
                       </div>
-                    </div>
-                    <strong>{money(build.total)}</strong>
+                      <strong>{money(build.total)}</strong>
+                    </Link>
                   </li>
                 ))}
               </ul>

@@ -106,11 +106,11 @@ export async function listRequests() {
  * @returns {Promise<object>}
  */
 export async function updateRequest(requestId, status) {
-  if (!isDatabaseConnected()) {
-    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
-  }
   if (!['новый', 'обработан'].includes(status)) {
     throw apiError(400, 'VALIDATION_ERROR', 'Неизвестный статус запроса');
+  }
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
   }
   const { data: row, error } = await supabase
     .from('ЗапросыНаПоступление')
@@ -123,6 +123,51 @@ export async function updateRequest(requestId, status) {
   }
   if (!row) throw apiError(404, 'REQUEST_NOT_FOUND', 'Запрос не найден');
   return { id: String(row.id), status: row['статус'] };
+}
+
+/**
+ * Удаляет запрос на поступление.
+ *
+ * Необработанный запрос удалять нельзя: покупатель ждёт ответа, поэтому
+ * сначала нужно отметить запрос обработанным (или дождаться поступления
+ * товара, когда письмо уйдёт автоматически).
+ *
+ * @param {string} requestId Идентификатор.
+ * @returns {Promise<{id: string}>}
+ */
+export async function deleteRequest(requestId) {
+  const id = Number(requestId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Некорректный номер запроса');
+  }
+
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
+  }
+
+  const { data: row, error } = await supabase
+    .from('ЗапросыНаПоступление')
+    .select('id,статус')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось прочитать запрос');
+  }
+  if (!row) throw apiError(404, 'REQUEST_NOT_FOUND', 'Запрос не найден');
+
+  if (row['статус'] !== 'обработан') {
+    throw apiError(
+      409,
+      'REQUEST_NOT_PROCESSED',
+      'Запрос ещё не обработан. Сначала отметьте его обработанным — покупатель должен получить ответ.',
+    );
+  }
+
+  const removal = await supabase.from('ЗапросыНаПоступление').delete().eq('id', id);
+  if (removal.error) {
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось удалить запрос');
+  }
+  return { id: String(row.id) };
 }
 
 /**

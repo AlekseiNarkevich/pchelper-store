@@ -96,6 +96,44 @@ export async function resendEmail(id) {
 }
 
 /**
+ * Удаляет письмо из журнала.
+ *
+ * Удаляется только запись журнала: уже отправленное письмо у получателя
+ * не отзывается. Это удобно для чистки старых проверочных отправок.
+ *
+ * @param {string|number} id Идентификатор письма.
+ * @returns {Promise<{id: string}>}
+ */
+export async function deleteEmail(id) {
+  const letterId = Number(id);
+  if (!Number.isInteger(letterId) || letterId <= 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Некорректный номер письма');
+  }
+
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
+  }
+
+  const { data: row, error } = await supabase
+    .from('Письма')
+    .select('id')
+    .eq('id', letterId)
+    .maybeSingle();
+  if (error) {
+    console.error('[mail] поиск письма:', error.message);
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось прочитать письмо');
+  }
+  if (!row) throw apiError(404, 'LETTER_NOT_FOUND', 'Письмо не найдено');
+
+  const removal = await supabase.from('Письма').delete().eq('id', letterId);
+  if (removal.error) {
+    console.error('[mail] удаление письма:', removal.error.message);
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось удалить письмо');
+  }
+  return { id: String(row.id) };
+}
+
+/**
  * Отправляет проверочное письмо на указанный адрес.
  *
  * @param {string} to Получатель.

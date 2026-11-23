@@ -185,16 +185,18 @@ export function checkCompatibility(selection) {
   for (const category of REQUIRED_CATEGORIES) {
     const value = category === 'storage' ? storages : selection[category];
     if (!value || (Array.isArray(value) && value.length === 0)) {
-      const labels = {
-        cpu: 'процессор',
-        motherboard: 'материнская плата',
-        ram: 'модуль ОЗУ',
-        cooling: 'система охлаждения',
-        storage: 'накопитель',
-        psu: 'блок питания',
-        case: 'корпус',
+      // Формулировки согласованы с родом существительного: «не выбран
+      // процессор», но «не выбрана материнская плата».
+      const missing = {
+        cpu: 'Не выбран процессор.',
+        motherboard: 'Не выбрана материнская плата.',
+        ram: 'Не выбран модуль ОЗУ.',
+        cooling: 'Не выбрана система охлаждения.',
+        storage: 'Не выбран накопитель.',
+        psu: 'Не выбран блок питания.',
+        case: 'Не выбран корпус.',
       };
-      errors.push(`Не выбран ${labels[category]}.`);
+      errors.push(missing[category]);
     }
   }
 

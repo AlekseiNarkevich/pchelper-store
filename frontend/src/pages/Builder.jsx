@@ -23,6 +23,84 @@ import {
 } from '../productFields.js';
 
 /**
+ * Убирает из сборки компоненты, ставшие несовместимыми после выбора
+ * нового процессора, платы, охлаждения и т. п.
+ *
+ * Например, при смене процессора на другой сокет материнская плата
+ * сбрасывается, а остальные детали остаются. Так пользователь не тащит
+ * в итог заведомо конфликтующую сборку и видит только актуальный выбор.
+ *
+ * @param {object} selection Текущий выбор по категориям.
+ * @param {boolean} skipGpu Сборка без дискретной видеокарты.
+ * @returns {object} Новый выбор без несовместимых деталей.
+ */
+function pruneIncompatible(selection, skipGpu) {
+  let next = selection;
+
+  const cpuSocket = textOf(next.cpu, 'сокет', 'Сокет');
+  const boardSocket = textOf(next.motherboard, 'сокет', 'Сокет');
+  if (cpuSocket && boardSocket && cpuSocket !== boardSocket) {
+    next = { ...next, motherboard: null };
+  }
+
+  const memoryType = textOf(next.motherboard, 'тип_памяти', 'Тип памяти');
+  const ramType = textOf(next.ram, 'тип', 'Тип');
+  if (memoryType && ramType && memoryType !== ramType) {
+    next = { ...next, ram: null };
+  }
+
+  const cpuTdp = numberOf(next.cpu, 'tdp', 'TDP');
+  const coolerTdp = numberOf(next.cooling, 'tdp', 'Рассеиваемая мощность');
+  if (cpuTdp && coolerTdp && coolerTdp < cpuTdp) {
+    next = { ...next, cooling: null };
+  }
+
+  const gpuTdp = skipGpu ? 0 : numberOf(next.gpu, 'tdp', 'TDP');
+  const needWatts = Math.ceil((cpuTdp + gpuTdp) * 1.25);
+  const psuWatts = numberOf(next.psu, 'мощность_в_ваттах', 'Мощность');
+  if (needWatts && psuWatts && psuWatts < needWatts) {
+    next = { ...next, psu: null };
+  }
+
+  if (next.case) {
+    const boardRank = formRank(textOf(next.motherboard, 'форм_фактор', 'Форм-фактор'));
+    const caseRank = formRank(textOf(next.case, 'форм_фактор', 'Форм-фактор'));
+    const gpuLength = numberOf(next.gpu, 'длина', 'Длина');
+    const maxGpu = numberOf(
+      next.case,
+      'макс_длина_gpu',
+      'Максимальная длина видеокарты',
+    );
+    const coolerHeight = numberOf(next.cooling, 'высота', 'Высота');
+    const maxCooler = numberOf(
+      next.case,
+      'макс_высота_кулера',
+      'Максимальная высота кулера',
+    );
+    const coolingType = textOf(next.cooling, 'тип', 'Тип').toLowerCase();
+    const isLiquid = ['жидк', 'водян', 'сжо', 'aio'].some((word) =>
+      coolingType.includes(word),
+    );
+    const radiator = numberOf(next.cooling, 'длина_радиатора', 'Длина радиатора');
+    const maxRadiator = numberOf(
+      next.case,
+      'макс_длина_радиатора',
+      'Максимальная длина радиатора',
+    );
+
+    const caseTooSmall =
+      (boardRank > 0 && caseRank > 0 && caseRank < boardRank) ||
+      (gpuLength > 0 && maxGpu > 0 && gpuLength > maxGpu) ||
+      (coolerHeight > 0 && maxCooler > 0 && coolerHeight > maxCooler) ||
+      (isLiquid && radiator > 0 && maxRadiator > 0 && radiator > maxRadiator);
+
+    if (caseTooSmall) next = { ...next, case: null };
+  }
+
+  return next;
+}
+
+/**
  * Ключ черновика привязан к пользователю: сборка одного аккаунта
  * не должна всплывать в конфигураторе другого.
  *
@@ -658,7 +736,15 @@ export default function Builder() {
     }
 
     if (key === 'gpu') setSkipGpu(false);
-    setSelection((currentSelection) => ({ ...currentSelection, [key]: product }));
+    // Сразу убираем детали, которые конфликтуют с новым выбором.
+    const merged = { ...selection, [key]: product };
+    const pruned = pruneIncompatible(merged, key === 'gpu' ? false : skipGpu);
+    const removed = Object.keys(merged).filter(
+      (field) =>
+        field !== 'storage' && merged[field] && merged[field] !== pruned[field],
+    );
+    setSelection(pruned);
+    setMessage(removed.length ? 'Несовместимые компоненты убраны из сборки.' : '');
     setCheck(null);
   }
 

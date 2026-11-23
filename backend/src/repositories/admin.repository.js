@@ -8,6 +8,7 @@
 
 import { CATEGORY_BY_ID, CATEGORIES } from '../domain/catalog.js';
 import { apiError } from '../domain/errors.js';
+import { getProduct, listPrebuilt } from './catalog.repository.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 import { deleteAccount, findById } from './users.repository.js';
 import { notifyPendingRequests } from './stock.repository.js';
@@ -93,6 +94,268 @@ function mapOrderPosition(row) {
 const PREBUILT_TABLE = 'ГотовыеКонфигурации';
 
 /**
+ * Столбцы состава готовой сборки: код категории → поле в таблице.
+ *
+ * Накопителей может быть несколько, поэтому они лежат в отдельной
+ * таблице связей «КонфигурацияНакопители».
+ */
+const PREBUILT_FIELDS = {
+  cpu: 'процессор_id',
+  motherboard: 'материнская_плата_id',
+  ram: 'озу_id',
+  gpu: 'видеокарта_id',
+  psu: 'блокпитания_id',
+  case: 'корпус_id',
+  cooling: 'охлаждение_id',
+};
+
+/**
+ * Проверяет форму готовой сборки и приводит её к строке таблицы.
+ *
+ * @param {object} data Данные из админки.
+ * @returns {{row: object, storage: number[]}}
+ */
+export function prebuiltValues(data) {
+  const name = String(data.name ?? '').trim();
+  if (!name) throw apiError(400, 'VALIDATION_ERROR', 'Укажите название сборки');
+  if (name.length > 255) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Название длиннее 255 символов');
+  }
+
+  const stock = Number(data.stock ?? 0);
+  if (!Number.isInteger(stock) || stock < 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Количество должно быть неотрицательным');
+  }
+
+  const task = String(data.task ?? '').trim();
+  if (task.length > 255) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Описание длиннее 255 символов');
+  }
+
+  const components =
+    data.components && typeof data.components === 'object' ? data.components : {};
+  const row = {
+    название: name,
+    задачи: task || null,
+    фото_url: String(data.photoUrl ?? '').trim() || null,
+    количество: stock,
+  };
+  for (const [category, field] of Object.entries(PREBUILT_FIELDS)) {
+    const value = Number(components[category]);
+    row[field] = Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  const rawStorage = components.storage;
+  const storage = (Array.isArray(rawStorage) ? rawStorage : [rawStorage])
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+
+  return { row, storage: [...new Set(storage)] };
+}
+
+/**
+ * Перезаписывает список накопителей сборки.
+ *
+ * @param {number} prebuiltId Номер сборки.
+ * @param {number[]} storageIds Номера накопителей.
+ * @returns {Promise<void>}
+ */
+async function writeStorageLinks(prebuiltId, storageIds) {
+  const removed = await supabase
+    .from('КонфигурацияНакопители')
+    .delete()
+    .eq('конфигурация_id', Number(prebuiltId));
+  if (removed.error) {
+    throw databaseError('очистить накопители сборки', removed.error);
+  }
+  if (!storageIds.length) return;
+
+  const inserted = await supabase.from('КонфигурацияНакопители').insert(
+    storageIds.map((id) => ({
+      конфигурация_id: Number(prebuiltId),
+      накопитель_id: id,
+    })),
+  );
+  if (inserted.error) {
+    throw databaseError('сохранить накопители сборки', inserted.error);
+  }
+}
+
+/**
+ * Список готовых сборок для админки: состав и остаток.
+ *
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export async function listPrebuiltAdmin() {
+  if (!isDatabaseConnected()) return { items: [], total: 0 };
+
+  const { items } = await listPrebuilt();
+  const mapped = items.map((item) => {
+    const components = {};
+    const storage = [];
+    for (const component of item.components || []) {
+      if (component.category === 'storage') {
+        storage.push(component.productId);
+      } else {
+        components[component.category] = component.productId;
+      }
+    }
+    return {
+      id: String(item.id),
+      name: item.name,
+      task: item.task || '',
+      photoUrl: item.imageUrl || '',
+      stock: Number(item.stock || 0),
+      price: Number(item.price || 0),
+      components,
+      storage,
+    };
+  });
+  return { items: mapped, total: mapped.length };
+}
+
+/**
+ * Добавляет готовую сборку.
+ *
+ * @param {object} data Название, описание, остаток и состав.
+ * @returns {Promise<{id: string}>}
+ */
+export async function createPrebuilt(data) {
+  requireDatabase();
+  const { row, storage } = prebuiltValues(data);
+
+  const created = await supabase.from(PREBUILT_TABLE).insert(row).select('id').single();
+  if (created.error) throw databaseError('добавить готовую сборку', created.error);
+
+  await writeStorageLinks(created.data.id, storage);
+  return { id: String(created.data.id) };
+}
+
+/**
+ * Сохраняет изменения готовой сборки.
+ *
+ * @param {string} id Номер сборки.
+ * @param {object} data Новые значения.
+ * @returns {Promise<{id: string}>}
+ */
+export async function updatePrebuilt(id, data) {
+  requireDatabase();
+  const prebuiltId = Number(id);
+  if (!Number.isInteger(prebuiltId) || prebuiltId <= 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Некорректный номер сборки');
+  }
+
+  const { data: existing, error } = await supabase
+    .from(PREBUILT_TABLE)
+    .select('id')
+    .eq('id', prebuiltId)
+    .maybeSingle();
+  if (error) throw databaseError('найти готовую сборку', error);
+  if (!existing) throw apiError(404, 'PREBUILT_NOT_FOUND', 'Сборка не найдена');
+
+  const { row, storage } = prebuiltValues(data);
+  const updated = await supabase.from(PREBUILT_TABLE).update(row).eq('id', prebuiltId);
+  if (updated.error) throw databaseError('сохранить готовую сборку', updated.error);
+
+  await writeStorageLinks(prebuiltId, storage);
+  return { id: String(prebuiltId) };
+}
+
+/**
+ * Удаляет готовую сборку и связанные записи.
+ *
+ * Позиции уже оформленных заказов не трогаем: в них сохранено название
+ * и цена на момент покупки. Из корзин сборку убираем, чтобы не остались
+ * ссылки на несуществующий товар.
+ *
+ * @param {string} id Номер сборки.
+ * @returns {Promise<{id: string, name: string}>}
+ */
+export async function deletePrebuilt(id) {
+  requireDatabase();
+  const prebuiltId = Number(id);
+  if (!Number.isInteger(prebuiltId) || prebuiltId <= 0) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Некорректный номер сборки');
+  }
+
+  const { data: row, error } = await supabase
+    .from(PREBUILT_TABLE)
+    .select('id,название')
+    .eq('id', prebuiltId)
+    .maybeSingle();
+  if (error) throw databaseError('найти готовую сборку', error);
+  if (!row) throw apiError(404, 'PREBUILT_NOT_FOUND', 'Сборка не найдена');
+
+  const links = await supabase
+    .from('КонфигурацияНакопители')
+    .delete()
+    .eq('конфигурация_id', prebuiltId);
+  if (links.error) throw databaseError('удалить накопители сборки', links.error);
+
+  const carts = await supabase
+    .from('Корзина_Позиции')
+    .delete()
+    .eq('готовая_конфигурация_id', prebuiltId);
+  if (carts.error) throw databaseError('убрать сборку из корзин', carts.error);
+
+  const removal = await supabase.from(PREBUILT_TABLE).delete().eq('id', prebuiltId);
+  if (removal.error) throw databaseError('удалить готовую сборку', removal.error);
+
+  return { id: String(row.id), name: row['название'] };
+}
+
+/**
+ * Меняет остатки комплектующих готовой сборки.
+ *
+ * Когда продаётся готовый ПК, со склада уходит не только сама сборка,
+ * но и детали, из которых она собрана. При отмене заказа направление
+ * меняется на обратное, поэтому остатки возвращаются.
+ *
+ * @param {string|number} prebuiltId Номер сборки.
+ * @param {number} direction -1 — списать, 1 — вернуть.
+ * @param {number} [qty=1] Сколько сборок.
+ * @returns {Promise<void>}
+ */
+export async function adjustPrebuiltComponents(prebuiltId, direction, qty = 1) {
+  if (!isDatabaseConnected()) return;
+
+  const product = await getProduct(`prebuilt:${prebuiltId}`);
+  if (!product?.components?.length) return;
+
+  const amount = Number(qty) || 1;
+  for (const component of product.components) {
+    const table = CATEGORY_BY_ID.get(component.category)?.table;
+    if (!table) continue;
+
+    const read = await supabase
+      .from(table)
+      .select('id,количество')
+      .eq('id', component.productId)
+      .maybeSingle();
+    if (read.error) {
+      console.error(
+        `[admin] комплектующая ${component.category}:${component.productId}:`,
+        read.error.message,
+      );
+      continue;
+    }
+    if (!read.data) continue;
+
+    const next = Math.max(0, Number(read.data['количество'] || 0) + direction * amount);
+    const updated = await supabase
+      .from(table)
+      .update({ количество: next })
+      .eq('id', component.productId);
+    if (updated.error) {
+      console.error(
+        `[admin] склад комплектующей ${component.category}:${component.productId}:`,
+        updated.error.message,
+      );
+    }
+  }
+}
+
+/**
  * Меняет остаток товаров заказа: +1 при отмене, -1 при возврате в работу.
  *
  * Ошибки склада не отменяют изменение статуса: заказ важнее, а расхождение
@@ -138,6 +401,12 @@ export async function adjustOrderStock(orderId, direction) {
       .eq('id', productId);
     if (updated.error) {
       console.error(`[admin] склад ${category}:${productId}:`, updated.error.message);
+      continue;
+    }
+
+    // Проданная готовая сборка списывает ещё и свои комплектующие.
+    if (category === 'prebuilt') {
+      await adjustPrebuiltComponents(productId, direction, qty);
     }
   }
 }

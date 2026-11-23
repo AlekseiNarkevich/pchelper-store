@@ -7,7 +7,7 @@
  */
 import { CATEGORY_BY_ID } from '../domain/catalog.js';
 import { getProduct } from './catalog.repository.js';
-import { adjustOrderStock } from './admin.repository.js';
+import { adjustOrderStock, adjustPrebuiltComponents } from './admin.repository.js';
 import { isDatabaseConnected, supabase } from '../services/supabase.service.js';
 
 /** @type {Map<string, Array<object>>} */
@@ -503,6 +503,11 @@ export async function createOrder(userId, data) {
           .eq('id', Number(item.productId));
         if (stockUpdate.error) {
           console.error(`[commerce] списание ${item.id}:`, stockUpdate.error.message);
+        }
+
+        // Готовая сборка уносит со склада и свои комплектующие.
+        if (item.category === 'prebuilt') {
+          await adjustPrebuiltComponents(item.productId, -1, Number(item.qty) || 1);
         }
       }
 

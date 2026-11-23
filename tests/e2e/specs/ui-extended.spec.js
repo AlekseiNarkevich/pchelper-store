@@ -1,3 +1,7 @@
+/**
+ * PCHelper — расширенные UI- и мобильные E2E-сценарии витрины.
+ */
+
 import { expect, test } from "@playwright/test";
 
 import CartPage from "../pages/CartPage.js";

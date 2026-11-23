@@ -242,6 +242,18 @@ body {
   margin-top: 16px;
   font-size: 12px;
   color: var(--text-muted, #555);
+  text-align: center;
+}
+
+/* Пояснение об обязательных полях регистрации. */
+.auth-note {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2, #f4f6f9);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted, #555);
 }
 
 /* Ссылка возврата стоит по центру карточки, а не прижимается влево. */

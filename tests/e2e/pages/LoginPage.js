@@ -1,17 +1,21 @@
-import BasePage from './BasePage.js';
+/**
+ * PCHelper — страницы входа и регистрации в E2E-тестах.
+ */
+
+import BasePage from "./BasePage.js";
 
 /** Страницы входа и регистрации. */
 export default class LoginPage extends BasePage {
   emailInput() {
-    return this.page.getByLabel('Электронная почта');
+    return this.page.getByLabel("Электронная почта");
   }
 
   passwordInput() {
-    return this.page.getByLabel('Пароль');
+    return this.page.getByLabel("Пароль");
   }
 
   nameInput() {
-    return this.page.getByLabel('Имя');
+    return this.page.getByLabel("Имя");
   }
 
   submitButton() {
@@ -19,7 +23,7 @@ export default class LoginPage extends BasePage {
   }
 
   error() {
-    return this.page.locator('.state.error');
+    return this.page.locator(".state.error");
   }
 
   async login(email, password, waitForNavigation = true) {
@@ -27,11 +31,11 @@ export default class LoginPage extends BasePage {
     await this.passwordInput().fill(password);
     await this.submitButton().click();
     if (waitForNavigation) {
-      await this.page.waitForURL((url) => !url.pathname.endsWith('/login'));
+      await this.page.waitForURL((url) => !url.pathname.endsWith("/login"));
     }
   }
 
   async switchToRegister() {
-    await this.page.getByRole('button', { name: 'Зарегистрироваться' }).click();
+    await this.page.getByRole("button", { name: "Зарегистрироваться" }).click();
   }
 }

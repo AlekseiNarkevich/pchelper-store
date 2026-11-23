@@ -1,12 +1,19 @@
-import BasePage from './BasePage.js';
+/**
+ * PCHelper — личный кабинет в E2E-тестах: профиль и сборки.
+ */
+
+import BasePage from "./BasePage.js";
 
 /** Профиль пользователя. */
 export default class ProfilePage extends BasePage {
   emailText() {
-    return this.page.locator('.auth-card p.muted').first();
+    return this.page.locator(".auth-card p.muted").first();
   }
 
   async logout() {
-    await this.page.locator('.auth-card').getByRole('button', { name: 'Выйти' }).click();
+    await this.page
+      .locator(".auth-card")
+      .getByRole("button", { name: "Выйти" })
+      .click();
   }
 }

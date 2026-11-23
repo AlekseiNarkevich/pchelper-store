@@ -18,12 +18,9 @@ import { mergeCartWithServer } from '../cart.js';
 export default function Login({ initialMode = 'login' }) {
   // Одна форма для входа и регистрации; маршрут /register открывает второй режим.
   const [mode, setMode] = useState(initialMode);
-  const [email, setEmail] = useState(
-    initialMode === 'register' ? '' : 'demo@pchelper.by',
-  );
-  const [password, setPassword] = useState(
-    initialMode === 'register' ? '' : 'demo1234',
-  );
+  // Поля намеренно пустые: пароль и почту пользователь вводит сам.
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -67,15 +64,10 @@ export default function Login({ initialMode = 'login' }) {
     const next = mode === 'login' ? 'register' : 'login';
     setMode(next);
     setError('');
-    // Демо-доступ относится только к входу: в регистрации он мешает,
-    // потому что e-mail уже занят.
-    if (next === 'register') {
-      setEmail('');
-      setPassword('');
-    } else {
-      setEmail('demo@pchelper.by');
-      setPassword('demo1234');
-    }
+    // При смене режима поля очищаются: так в регистрацию не попадает
+    // пароль от другого аккаунта и наоборот.
+    setEmail('');
+    setPassword('');
   }
 
   return (
@@ -88,6 +80,13 @@ export default function Login({ initialMode = 'login' }) {
             : 'Создайте аккаунт: имя, телефон и адрес сохранятся в профиле.'}
         </p>
 
+        {mode === 'register' && (
+          <p className="auth-note">
+            Обязательны имя, электронная почта и пароль. Телефон и адрес доставки можно
+            указать позже в личном кабинете.
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="auth-form">
           {mode === 'register' && (
             <label className="field">
@@ -97,6 +96,7 @@ export default function Login({ initialMode = 'login' }) {
                 name="name"
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Как к вам обращаться"
+                required
                 type="text"
                 value={name}
               />
@@ -133,7 +133,7 @@ export default function Login({ initialMode = 'login' }) {
           {mode === 'register' && (
             <>
               <label className="field">
-                <span>Телефон</span>
+                <span>Телефон (необязательно)</span>
                 <input
                   autoComplete="tel"
                   name="phone"
@@ -145,7 +145,7 @@ export default function Login({ initialMode = 'login' }) {
               </label>
 
               <label className="field">
-                <span>Адрес доставки</span>
+                <span>Адрес доставки (необязательно)</span>
                 <input
                   autoComplete="street-address"
                   name="address"

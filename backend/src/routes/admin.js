@@ -17,23 +17,33 @@
  *   POST   /api/v1/admin/uploads
  *   GET    /api/v1/admin/reviews
  *   PATCH  /api/v1/admin/reviews/:id
+ *   GET    /api/v1/admin/prebuilt              готовые сборки с составом
+ *   POST   /api/v1/admin/prebuilt              добавить сборку
+ *   PUT    /api/v1/admin/prebuilt/:id          изменить состав сборки
+ *   DELETE /api/v1/admin/prebuilt/:id          удалить сборку
+ *   DELETE /api/v1/admin/stock-requests/:id    удалить обработанный запрос
+ *   DELETE /api/v1/admin/emails/:id            удалить письмо из журнала
  */
 import { Router } from 'express';
 import multer from 'multer';
 
 import { apiError } from '../domain/errors.js';
 import {
+  createPrebuilt,
   createProduct,
   deleteOrder,
+  deletePrebuilt,
   deleteProduct,
   deleteUser,
   getSummary,
   listOrderHistory,
   listOrderPositions,
   listOrders,
+  listPrebuiltAdmin,
   listPrebuiltStock,
   listProducts,
   listUsers,
+  updatePrebuilt,
   updatePrebuiltStock,
   updateOrder,
   updateProduct,
@@ -41,10 +51,12 @@ import {
 } from '../repositories/admin.repository.js';
 import { deleteReview, listAll, moderate } from '../repositories/reviews.repository.js';
 import {
+  deleteRequest as deleteStockRequest,
   listRequests as listStockRequests,
   updateRequest as updateStockRequest,
 } from '../repositories/stock.repository.js';
 import {
+  deleteEmail,
   listEmails,
   resendEmail,
   sendTestEmail,
@@ -270,6 +282,36 @@ router.delete(
 );
 
 router.get(
+  '/prebuilt',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listPrebuiltAdmin());
+  }),
+);
+
+router.post(
+  '/prebuilt',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    res.status(201).json(await createPrebuilt(body.data || body));
+  }),
+);
+
+router.put(
+  '/prebuilt/:id',
+  asyncHandler(async (req, res) => {
+    const body = req.body || {};
+    res.status(200).json(await updatePrebuilt(req.params.id, body.data || body));
+  }),
+);
+
+router.delete(
+  '/prebuilt/:id',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deletePrebuilt(req.params.id));
+  }),
+);
+
+router.get(
   '/prebuilt-stock',
   asyncHandler(async (req, res) => {
     res.status(200).json(await listPrebuiltStock());
@@ -300,6 +342,13 @@ router.patch(
   }),
 );
 
+router.delete(
+  '/stock-requests/:id',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deleteStockRequest(req.params.id));
+  }),
+);
+
 router.get(
   '/emails',
   asyncHandler(async (req, res) => {
@@ -319,6 +368,13 @@ router.post(
   '/emails/:id/resend',
   asyncHandler(async (req, res) => {
     res.status(200).json(await resendEmail(req.params.id));
+  }),
+);
+
+router.delete(
+  '/emails/:id',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deleteEmail(req.params.id));
   }),
 );
 
