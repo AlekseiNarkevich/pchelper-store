@@ -2,11 +2,16 @@
  * PCHelper — отзывы товаров.
  *
  *   GET  /api/v1/products/:id/reviews  опубликованные отзывы и средняя оценка
- *   POST /api/v1/products/:id/reviews  новый отзыв (нужен вход)
+ *   GET  /api/v1/products/:id/reviews/mine  свой отзыв (нужен вход)
+ *   POST /api/v1/products/:id/reviews  новый отзыв или замена своего (нужен вход)
  */
 import { Router } from 'express';
 
-import { createReview, listApproved } from '../repositories/reviews.repository.js';
+import {
+  createReview,
+  getMyReview,
+  listApproved,
+} from '../repositories/reviews.repository.js';
 import { requireAuth } from './auth.js';
 
 const router = Router();
@@ -27,6 +32,14 @@ router.get(
   '/products/:id/reviews',
   asyncHandler(async (req, res) => {
     res.status(200).json(await listApproved(req.params.id));
+  }),
+);
+
+router.get(
+  '/products/:id/reviews/mine',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json({ review: await getMyReview(req.user.id, req.params.id) });
   }),
 );
 

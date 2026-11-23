@@ -195,6 +195,11 @@ export default function Catalog() {
     (sum, values) => sum + values.length,
     0,
   );
+  const hasActiveFilters =
+    activeFilterCount > 0 ||
+    Boolean(minPrice) ||
+    Boolean(maxPrice) ||
+    sort !== 'price_asc';
 
   function matchesFilters(product, values, skipLabel) {
     return Object.entries(values).every(([label, selected]) => {
@@ -249,6 +254,21 @@ export default function Catalog() {
 
   function clearFilters() {
     resetAll();
+  }
+
+  /** Сбрасывает одну группу фильтров, не трогая остальные. */
+  function resetGroup(label) {
+    setFilters((current) => {
+      const next = { ...current };
+      delete next[label];
+      return next;
+    });
+    setFilterSearch((current) => {
+      const next = { ...current };
+      delete next[label];
+      return next;
+    });
+    setOffset(0);
   }
 
   // Полный сброс: боковые фильтры, цена, сортировка и страница.
@@ -443,14 +463,14 @@ export default function Catalog() {
           <aside className="catalog-filters" aria-label="Фильтры каталога">
             <div className="catalog-filter-head">
               <strong>Фильтры</strong>
-              {(activeFilterCount > 0 ||
-                minPrice ||
-                maxPrice ||
-                sort !== 'price_asc') && (
-                <button className="link-button" onClick={clearFilters} type="button">
-                  Сбросить
-                </button>
-              )}
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled={!hasActiveFilters}
+                onClick={clearFilters}
+                type="button"
+              >
+                Сбросить всё
+              </button>
             </div>
 
             {filtersLoading && <div className="small faint">Загружаем фильтры…</div>}
@@ -471,7 +491,18 @@ export default function Catalog() {
 
                 return (
                   <div className="filter-group" key={label}>
-                    <div className="filter-title">{label}</div>
+                    <div className="filter-title">
+                      <span>{label}</span>
+                      {selected.length > 0 && (
+                        <button
+                          className="link-button filter-reset"
+                          onClick={() => resetGroup(label)}
+                          type="button"
+                        >
+                          Сбросить
+                        </button>
+                      )}
+                    </div>
 
                     {options.length > 4 && (
                       <input
@@ -588,11 +619,14 @@ export default function Catalog() {
                 <option value="price_desc">Сначала дороже</option>
                 <option value="name_asc">По названию</option>
               </select>
-              {(minPrice || maxPrice || sort !== 'price_asc') && (
-                <button className="link-button" onClick={resetAll} type="button">
-                  Сбросить
-                </button>
-              )}
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled={!hasActiveFilters}
+                onClick={resetAll}
+                type="button"
+              >
+                Сбросить
+              </button>
             </div>
           </div>
 

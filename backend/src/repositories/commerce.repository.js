@@ -394,6 +394,12 @@ export async function createOrder(userId, data) {
     throw apiError(400, 'VALIDATION_ERROR', 'Укажите телефон для связи');
   }
 
+  // Комментарий покупателя храним в истории заказа: отдельного столбца
+  // в «Заказах» нет, а история уже используется админкой.
+  const customerComment = String(data.comment || '')
+    .trim()
+    .slice(0, 500);
+
   for (const item of items) {
     const product = await getProduct(item.id);
     if (!product) {
@@ -482,7 +488,7 @@ export async function createOrder(userId, data) {
       const history = await supabase.from('ИсторияЗаказов').insert({
         заказ_id: created.data.id,
         статус: 'Новый',
-        комментарий: 'Заказ создан',
+        комментарий: customerComment || 'Заказ создан',
       });
       if (history.error) {
         console.error('[commerce] история заказа:', history.error.message);

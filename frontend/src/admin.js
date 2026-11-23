@@ -63,6 +63,8 @@ export const updateOrder = (id, data) =>
   });
 export const deleteOrder = (id) =>
   request(`/admin/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const deleteOrdersBulk = (ids) =>
+  request('/admin/orders/bulk-delete', { method: 'POST', body: { ids } });
 
 export const getUsers = () => request('/admin/users');
 export const updateUser = (id, data) =>
@@ -199,6 +201,11 @@ export const updateStockRequest = (id, status) =>
   });
 export const deleteStockRequest = (id) =>
   request(`/admin/stock-requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const deleteStockRequestsBulk = (ids) =>
+  request('/admin/stock-requests/bulk-delete', {
+    method: 'POST',
+    body: { ids },
+  });
 
 export const getEmails = (limit = 100) =>
   request(`/admin/emails?limit=${encodeURIComponent(limit)}`);
@@ -206,6 +213,8 @@ export const resendEmail = (id) =>
   request(`/admin/emails/${encodeURIComponent(id)}/resend`, { method: 'POST' });
 export const deleteEmail = (id) =>
   request(`/admin/emails/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const deleteEmailsBulk = (ids) =>
+  request('/admin/emails/bulk-delete', { method: 'POST', body: { ids } });
 export const sendTestEmail = (to) =>
   request('/admin/emails/test', { method: 'POST', body: { to } });
 

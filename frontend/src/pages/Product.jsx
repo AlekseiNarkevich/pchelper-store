@@ -12,7 +12,7 @@ import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import { readAuth } from '../auth.js';
 import { addToCart } from '../cart.js';
-import { createReview, getReviews } from '../reviews.js';
+import { createReview, getMyReview, getReviews } from '../reviews.js';
 import { requestStock } from '../stock.js';
 import React from 'react';
 
@@ -51,6 +51,7 @@ export default function Product() {
   const [reviewText, setReviewText] = useState('');
   const [reviewNotice, setReviewNotice] = useState('');
   const [reviewError, setReviewError] = useState('');
+  const [myReview, setMyReview] = useState(null);
   const [reviewsLoadError, setReviewsLoadError] = useState('');
   const [stockForm, setStockForm] = useState({ email: '', phone: '' });
   const [stockNotice, setStockNotice] = useState('');
@@ -124,6 +125,27 @@ export default function Product() {
       .then((data) => setReviews(data))
       .catch(() => {});
   });
+  // Свой отзыв: если он уже есть, форма заполняется им и работает как
+  // редактирование, а не как повторная попытка оставить второй отзыв.
+  useEffect(() => {
+    let alive = true;
+    setMyReview(null);
+    if (!readAuth().accessToken) return undefined;
+
+    getMyReview(id)
+      .then((review) => {
+        if (!alive || !review) return;
+        setMyReview(review);
+        setReviewRating(review.rating);
+        setReviewText(review.text || '');
+      })
+      .catch(() => {});
+
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
   function add() {
     if (stock <= 0) return;
     if (!addToCart(product)) {
@@ -154,12 +176,18 @@ export default function Product() {
     setReviewNotice('');
     setReviewError('');
     try {
-      await createReview(id, {
+      const review = await createReview(id, {
         rating: Number(reviewRating),
         text: reviewText,
       });
+      setMyReview(review);
+      setReviewText(review.text || '');
       setReviewNotice('Спасибо! Отзыв отправлен на модерацию.');
-      setReviewText('');
+      // Изменённый отзыв снова на модерации — убираем старую версию
+      // из опубликованного списка на этой странице.
+      getReviews(id)
+        .then((data) => setReviews(data))
+        .catch(() => {});
     } catch (reason) {
       setReviewError(reason.message);
     }
@@ -336,7 +364,13 @@ export default function Product() {
 
         {readAuth().accessToken ? (
           <form className="review-form" onSubmit={submitReview}>
-            <div className="h3">Оставить отзыв</div>
+            <div className="h3">{myReview ? 'Ваш отзыв' : 'Оставить отзыв'}</div>
+            {myReview && (
+              <div className="state">
+                Статус: <strong>{myReview.status}</strong>. Можно изменить оценку и
+                текст — после отправки отзыв снова уйдёт на модерацию.
+              </div>
+            )}
             <label className="field">
               <span>Оценка</span>
               <select
@@ -363,7 +397,9 @@ export default function Product() {
             {reviewNotice && <div className="state success">{reviewNotice}</div>}
             {reviewError && <div className="state error">{reviewError}</div>}
             <button className="btn" type="submit">
-              Отправить на модерацию
+              {myReview
+                ? 'Сохранить и отправить на модерацию'
+                : 'Отправить на модерацию'}
             </button>
           </form>
         ) : (

@@ -35,12 +35,14 @@ export default function Checkout() {
     paymentMethod: 'card',
     phone: user?.phone || '',
     address: user?.address || '',
+    comment: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [deliveryPoint, setDeliveryPoint] = useState(null);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  const [addressNote, setAddressNote] = useState('');
   const navigate = useNavigate();
 
   // Esc закрывает полноэкранную карту.
@@ -104,6 +106,7 @@ export default function Checkout() {
     if (name === 'deliveryZone' || name === 'distanceKm') {
       setDeliveryPoint(null);
     }
+    if (name === 'address') setAddressNote('');
     setForm((current) => ({ ...current, [name]: value }));
   }
 
@@ -128,14 +131,24 @@ export default function Checkout() {
       setError('Сначала введите адрес доставки');
       return;
     }
+
+    // Номер дома в конце строки: «12», «12а», «12/2».
+    const house = (query.match(/(\d+[а-яa-z]?(?:\/\d+)?)\s*$/i) || [])[1] || '';
+    const normalize = (value) =>
+      String(value || '')
+        .toLowerCase()
+        .replace(/[^\dа-яa-z/]/g, '');
+
     setGeocoding(true);
     setError('');
+    setAddressNote('');
     try {
       const search = async (value) => {
         const queryWithCountry = /беларусь/i.test(value) ? value : `${value}, Беларусь`;
         const url =
-          'https://nominatim.openstreetmap.org/search?format=json&limit=1' +
-          `&countrycodes=by&accept-language=ru&q=${encodeURIComponent(queryWithCountry)}`;
+          'https://nominatim.openstreetmap.org/search?format=json&limit=5' +
+          '&addressdetails=1&countrycodes=by&accept-language=ru' +
+          `&q=${encodeURIComponent(queryWithCountry)}`;
         const response = await fetch(url, {
           headers: { Accept: 'application/json' },
         });
@@ -153,7 +166,22 @@ export default function Checkout() {
         setError('Адрес не найден. Уточните улицу и номер дома.');
         return;
       }
-      handleMapPick(Number(data[0].lat), Number(data[0].lon));
+
+      // Стараемся выбрать именно тот дом, который ввёл пользователь.
+      const exact = house
+        ? data.find(
+            (item) => normalize(item.address?.house_number) === normalize(house),
+          )
+        : null;
+      const withHouse = data.find((item) => item.address?.house_number);
+      const best = exact || withHouse || data[0];
+
+      handleMapPick(Number(best.lat), Number(best.lon));
+      if (house && !exact) {
+        setAddressNote(
+          `Дом ${house} не найден в OpenStreetMap — показана ближайшая точка. Уточните её на карте.`,
+        );
+      }
     } catch {
       setError('Не удалось найти адрес. Выберите точку на карте вручную.');
     } finally {
@@ -215,6 +243,7 @@ export default function Checkout() {
         phone,
         address: form.address.trim(),
         email: user?.email || '',
+        comment: form.comment.trim(),
       });
       clearCart();
       navigate('/orders', { replace: true, state: { order } });
@@ -285,8 +314,15 @@ export default function Checkout() {
               />
             </label>
             <label className="field">
-              <span>E-mail для писем</span>
-              <input readOnly type="email" value={user?.email || ''} />
+              <span>Комментарий к заказу (необязательно)</span>
+              <textarea
+                maxLength={500}
+                name="comment"
+                onChange={changeField}
+                placeholder="Например: позвонить за час до доставки"
+                rows={3}
+                value={form.comment}
+              />
             </label>
           </section>
 
@@ -350,6 +386,7 @@ export default function Checkout() {
                       {geocoding ? 'Ищем…' : 'Найти на карте'}
                     </button>
                   </div>
+                  {addressNote && <span className="small faint">{addressNote}</span>}
                 </label>
 
                 <div className="choice-list">

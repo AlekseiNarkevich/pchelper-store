@@ -171,6 +171,53 @@ export async function deleteRequest(requestId) {
 }
 
 /**
+ * Удаляет несколько обработанных запросов.
+ *
+ * Необработанные запросы пропускаются: покупатель ждёт ответа, поэтому
+ * сначала запрос нужно отметить обработанным. Возвращаем статистику,
+ * чтобы админка показала, сколько записей осталось.
+ *
+ * @param {Array<string|number>} ids Номера запросов.
+ * @returns {Promise<{deleted: number, skipped: number}>}
+ */
+export async function deleteRequestsBulk(ids) {
+  const clean = (Array.isArray(ids) ? ids : [])
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (!clean.length) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Выберите хотя бы один запрос');
+  }
+
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
+  }
+
+  const { data, error } = await supabase
+    .from('ЗапросыНаПоступление')
+    .select('id,статус')
+    .in('id', clean);
+  if (error) {
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось прочитать запросы');
+  }
+
+  const processed = (data || [])
+    .filter((row) => row['статус'] === 'обработан')
+    .map((row) => Number(row.id));
+  const skipped = clean.length - processed.length;
+  if (!processed.length) return { deleted: 0, skipped };
+
+  const removal = await supabase
+    .from('ЗапросыНаПоступление')
+    .delete()
+    .in('id', processed)
+    .select('id');
+  if (removal.error) {
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось удалить выбранные запросы');
+  }
+  return { deleted: (removal.data || []).length, skipped };
+}
+
+/**
  * Письма тем, кто просил сообщить о поступлении.
  *
  * Вызывается, когда администратор поднимает остаток с нуля. Запрос

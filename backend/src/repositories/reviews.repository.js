@@ -138,30 +138,75 @@ export async function createReview(userId, productId, data) {
     .trim()
     .slice(0, 2000);
 
-  const { data: row, error } = await supabase
+  // Один отзыв на товар от пользователя. Повторная отправка не блокируется,
+  // а заменяет прошлый текст и снова отправляет отзыв на модерацию:
+  // так пользователь может передумать и исправить оценку.
+  const existing = await supabase
     .from('Отзывы')
-    .insert({
-      пользователь_id: Number(userId),
-      товар_категория: category,
-      товар_id: id,
-      оценка: rating,
-      текст: text || null,
-      статус: 'на модерации',
-    })
+    .select('id')
+    .eq('пользователь_id', Number(userId))
+    .eq('товар_категория', category)
+    .eq('товар_id', id)
+    .maybeSingle();
+  if (existing.error) throw databaseError('проверить отзыв', existing.error);
+
+  const payload = {
+    оценка: rating,
+    текст: text || null,
+    статус: 'на модерации',
+  };
+
+  const query = existing.data
+    ? supabase.from('Отзывы').update(payload).eq('id', existing.data.id)
+    : supabase.from('Отзывы').insert({
+        пользователь_id: Number(userId),
+        товар_категория: category,
+        товар_id: id,
+        ...payload,
+      });
+
+  const { data: row, error } = await query
     .select('id,оценка,текст,статус,создан_в')
     .single();
-  if (error) {
-    if (error.code === '23505') {
-      throw apiError(409, 'REVIEW_EXISTS', 'Вы уже оставляли отзыв на этот товар');
-    }
-    throw databaseError('сохранить отзыв', error);
-  }
+  if (error) throw databaseError('сохранить отзыв', error);
+
   return {
     id: String(row.id),
     rating: Number(row['оценка']),
     text: row['текст'] || '',
     status: row['статус'],
     createdAt: row['создан_в'],
+  };
+}
+
+/**
+ * Отзыв текущего пользователя на товар (любой статус).
+ *
+ * Нужен странице товара, чтобы показать «Ваш отзыв на модерации»
+ * и дать исправить текст вместо повторной блокировки.
+ *
+ * @param {string} userId Идентификатор пользователя.
+ * @param {string} productId Идентификатор «cpu:1».
+ * @returns {Promise<object|null>}
+ */
+export async function getMyReview(userId, productId) {
+  if (!isDatabaseConnected()) return null;
+  const { category, id } = parseProductId(productId);
+  const { data, error } = await supabase
+    .from('Отзывы')
+    .select('id,оценка,текст,статус,создан_в')
+    .eq('пользователь_id', Number(userId))
+    .eq('товар_категория', category)
+    .eq('товар_id', id)
+    .maybeSingle();
+  if (error) throw databaseError('получить свой отзыв', error);
+  if (!data) return null;
+  return {
+    id: String(data.id),
+    rating: Number(data['оценка']),
+    text: data['текст'] || '',
+    status: data['статус'],
+    createdAt: data['создан_в'],
   };
 }
 

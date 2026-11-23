@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   adjustPrebuiltComponents,
   createPrebuilt,
+  deleteOrdersBulk,
   deletePrebuilt,
   listPrebuiltAdmin,
   prebuiltValues,
@@ -19,10 +20,21 @@ import {
 import {
   createRequest,
   deleteRequest,
+  deleteRequestsBulk,
   listRequests,
   updateRequest,
 } from '../src/repositories/stock.repository.js';
-import { deleteEmail, sendTestEmail } from '../src/repositories/mail.repository.js';
+import {
+  deleteEmail,
+  deleteEmails,
+  sendTestEmail,
+} from '../src/repositories/mail.repository.js';
+import {
+  createReview,
+  deleteReview,
+  getMyReview,
+  moderate,
+} from '../src/repositories/reviews.repository.js';
 
 test('готовая сборка: форма превращается в поля таблицы', () => {
   const { row, storage } = prebuiltValues({
@@ -134,6 +146,12 @@ test('письмо: некорректный адрес проверочного
   });
 });
 
+test('письмо: демо-адрес не отправляется реально', async () => {
+  const result = await sendTestEmail('user@example.com');
+  assert.equal(result.sent, false);
+  assert.match(result.error, /Тестовый адрес/);
+});
+
 test('готовая сборка: без базы список пуст', async () => {
   assert.deepEqual(await listPrebuiltAdmin(), { items: [], total: 0 });
 });
@@ -186,6 +204,73 @@ test('письмо: некорректный номер не принимает�
 
 test('письмо: без базы удаление возвращает 503', async () => {
   await assert.rejects(deleteEmail('1'), {
+    status: 503,
+    code: 'DATABASE_ERROR',
+  });
+});
+
+test('массовое удаление писем: пустой выбор не принимается', async () => {
+  await assert.rejects(deleteEmails([]), {
+    status: 400,
+    code: 'VALIDATION_ERROR',
+  });
+});
+
+test('массовое удаление писем: без базы возвращает 503', async () => {
+  await assert.rejects(deleteEmails(['1', '2']), {
+    status: 503,
+    code: 'DATABASE_ERROR',
+  });
+});
+
+test('массовое удаление запросов: пустой выбор не принимается', async () => {
+  await assert.rejects(deleteRequestsBulk(['нет']), {
+    status: 400,
+    code: 'VALIDATION_ERROR',
+  });
+});
+
+test('массовое удаление запросов: без базы возвращает 503', async () => {
+  await assert.rejects(deleteRequestsBulk(['1']), {
+    status: 503,
+    code: 'DATABASE_ERROR',
+  });
+});
+
+test('массовое удаление заказов: пустой выбор не принимается', async () => {
+  await assert.rejects(deleteOrdersBulk([]), {
+    status: 400,
+    code: 'VALIDATION_ERROR',
+  });
+});
+
+test('массовое удаление заказов: без базы возвращает 503', async () => {
+  await assert.rejects(deleteOrdersBulk(['1']), {
+    status: 503,
+    code: 'DATABASE_ERROR',
+  });
+});
+
+test('свой отзыв: без базы возвращает null', async () => {
+  assert.equal(await getMyReview('1', 'cpu:1'), null);
+});
+
+test('отзыв: без базы создание возвращает 503', async () => {
+  await assert.rejects(createReview('1', 'cpu:1', { rating: 5 }), {
+    status: 503,
+    code: 'DATABASE_ERROR',
+  });
+});
+
+test('отзыв: без базы модерация возвращает 503', async () => {
+  await assert.rejects(moderate('1', 'опубликован'), {
+    status: 503,
+    code: 'DATABASE_ERROR',
+  });
+});
+
+test('отзыв: без базы удаление возвращает 503', async () => {
+  await assert.rejects(deleteReview('1'), {
     status: 503,
     code: 'DATABASE_ERROR',
   });

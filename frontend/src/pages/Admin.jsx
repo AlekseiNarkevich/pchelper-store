@@ -16,11 +16,14 @@ import {
   createPrebuilt,
   createProduct,
   deleteEmail,
+  deleteEmailsBulk,
   deleteOrder,
+  deleteOrdersBulk,
   deletePrebuilt,
   deleteProduct,
   deleteReview,
   deleteStockRequest,
+  deleteStockRequestsBulk,
   deleteUser,
   getEmails,
   getOrders,
@@ -661,6 +664,8 @@ function OrdersPanel({ onError, onFlash }) {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -683,6 +688,12 @@ function OrdersPanel({ onError, onFlash }) {
       .then((data) => setOrders(data.items))
       .catch(() => {});
   });
+
+  // При смене фильтра сбрасываем выбор: скрытые заказы не должны
+  // случайно удалиться вместе с видимыми.
+  useEffect(() => {
+    setSelected([]);
+  }, [filter]);
 
   // Черновик хранит несохранённые изменения конкретного заказа.
   function draft(order) {
@@ -829,6 +840,35 @@ function OrdersPanel({ onError, onFlash }) {
     }
   }
 
+  function toggleSelect(id) {
+    setSelected((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  }
+
+  function toggleAll() {
+    const ids = visibleOrders.map((order) => order.id);
+    setSelected((current) => (current.length === ids.length ? [] : ids));
+  }
+
+  async function removeSelected() {
+    if (!selected.length) return;
+    try {
+      const result = await deleteOrdersBulk(selected);
+      setSelected([]);
+      setBulkOpen(false);
+      const fresh = await getOrders();
+      setOrders(fresh.items);
+      onFlash(
+        result.skipped
+          ? `Удалено заказов: ${result.deleted}. Пропущено: ${result.skipped} — сначала отмените или завершите их.`
+          : `Удалено заказов: ${result.deleted}`,
+      );
+    } catch (error) {
+      onError(error.message);
+    }
+  }
+
   const visibleOrders = orders.filter((order) => {
     // Финальные заказы не забивают активный список. Они доступны
     // в отдельных вкладках «Отменённые» и «Завершённые».
@@ -868,9 +908,38 @@ function OrdersPanel({ onError, onFlash }) {
         </div>
       ) : (
         <div className="admin-list">
+          <div className="bulk-bar">
+            <label className="bulk-all">
+              <input
+                checked={
+                  visibleOrders.length > 0 && selected.length === visibleOrders.length
+                }
+                onChange={toggleAll}
+                type="checkbox"
+              />
+              Выбрать все
+            </label>
+            <button
+              className="btn btn-danger btn-sm"
+              disabled={!selected.length}
+              onClick={() => setBulkOpen(true)}
+              type="button"
+            >
+              Удалить выбранные ({selected.length})
+            </button>
+          </div>
+
           {visibleOrders.map((order) => (
             <article className="admin-order" key={order.id}>
               <header>
+                <label className="bulk-check">
+                  <input
+                    aria-label={`Выбрать заказ ${order.number}`}
+                    checked={selected.includes(order.id)}
+                    onChange={() => toggleSelect(order.id)}
+                    type="checkbox"
+                  />
+                </label>
                 <div>
                   <h3>Заказ {order.number}</h3>
                   <div className="small faint">
@@ -954,6 +1023,12 @@ function OrdersPanel({ onError, onFlash }) {
                 {money(order.deliveryCost)}.
               </div>
 
+              {order.customerComment && (
+                <div className="order-comment">
+                  Комментарий покупателя: {order.customerComment}
+                </div>
+              )}
+
               <div className="order-positions">
                 <div className="order-positions-head">Состав заказа</div>
                 <div className="picker-wrap">
@@ -1035,6 +1110,14 @@ function OrdersPanel({ onError, onFlash }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        onCancel={() => setBulkOpen(false)}
+        onConfirm={removeSelected}
+        open={bulkOpen}
+        text={`Выбрано заказов: ${selected.length}. Активные заказы удалены не будут — сначала отмените или завершите их.`}
+        title="Удалить выбранные заказы?"
+      />
     </>
   );
 }
@@ -1716,6 +1799,8 @@ function StockRequestsPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [selected, setSelected] = useState([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   function load() {
     setLoading(true);
@@ -1757,14 +1842,70 @@ function StockRequestsPanel({ onError, onFlash }) {
     }
   }
 
+  function toggleSelect(id) {
+    setSelected((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  }
+
+  function toggleAll() {
+    setSelected((current) =>
+      current.length === items.length ? [] : items.map((item) => item.id),
+    );
+  }
+
+  async function removeSelected() {
+    if (!selected.length) return;
+    try {
+      const result = await deleteStockRequestsBulk(selected);
+      setSelected([]);
+      setBulkOpen(false);
+      load();
+      onFlash(
+        result.skipped
+          ? `Удалено: ${result.deleted}. Пропущено: ${result.skipped} — сначала ответьте покупателю.`
+          : `Удалено запросов: ${result.deleted}`,
+      );
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
   if (loading) return <div className="state">Загружаем запросы…</div>;
   if (!items.length) return <div className="state">Запросов нет.</div>;
 
   return (
     <div className="admin-list">
+      <div className="bulk-bar">
+        <label className="bulk-all">
+          <input
+            checked={items.length > 0 && selected.length === items.length}
+            onChange={toggleAll}
+            type="checkbox"
+          />
+          Выбрать все
+        </label>
+        <button
+          className="btn btn-danger btn-sm"
+          disabled={!selected.length}
+          onClick={() => setBulkOpen(true)}
+          type="button"
+        >
+          Удалить выбранные ({selected.length})
+        </button>
+      </div>
+
       {items.map((request) => (
         <article className="admin-order" key={request.id}>
           <header>
+            <label className="bulk-check">
+              <input
+                aria-label={`Выбрать запрос «${request.productName}»`}
+                checked={selected.includes(request.id)}
+                onChange={() => toggleSelect(request.id)}
+                type="checkbox"
+              />
+            </label>
             <div>
               <h3>{request.productName}</h3>
               <div className="small faint">
@@ -1813,6 +1954,14 @@ function StockRequestsPanel({ onError, onFlash }) {
         text="Запись исчезнет из списка. Покупатель уже получил ответ о поступлении товара."
         title={`Удалить запрос на «${removeTarget?.productName || ''}»?`}
       />
+
+      <ConfirmDialog
+        onCancel={() => setBulkOpen(false)}
+        onConfirm={removeSelected}
+        open={bulkOpen}
+        text={`Выбрано запросов: ${selected.length}. Необработанные удалены не будут — сначала ответьте покупателю.`}
+        title="Удалить выбранные запросы?"
+      />
     </div>
   );
 }
@@ -1825,6 +1974,8 @@ function EmailsPanel({ onError, onFlash }) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [selected, setSelected] = useState([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   function load() {
     setLoading(true);
@@ -1894,6 +2045,31 @@ function EmailsPanel({ onError, onFlash }) {
     }
   }
 
+  function toggleSelect(id) {
+    setSelected((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  }
+
+  function toggleAll() {
+    setSelected((current) =>
+      current.length === items.length ? [] : items.map((item) => item.id),
+    );
+  }
+
+  async function removeSelected() {
+    if (!selected.length) return;
+    try {
+      const result = await deleteEmailsBulk(selected);
+      setSelected([]);
+      setBulkOpen(false);
+      load();
+      onFlash(`Удалено писем: ${result.deleted}`);
+    } catch (reason) {
+      onError(reason.message);
+    }
+  }
+
   return (
     <div className="admin-list">
       <div className={`state ${configured ? 'success' : 'error'}`}>
@@ -1934,6 +2110,25 @@ function EmailsPanel({ onError, onFlash }) {
         </div>
       </form>
 
+      <div className="bulk-bar">
+        <label className="bulk-all">
+          <input
+            checked={items.length > 0 && selected.length === items.length}
+            onChange={toggleAll}
+            type="checkbox"
+          />
+          Выбрать все
+        </label>
+        <button
+          className="btn btn-danger btn-sm"
+          disabled={!selected.length}
+          onClick={() => setBulkOpen(true)}
+          type="button"
+        >
+          Удалить выбранные ({selected.length})
+        </button>
+      </div>
+
       {loading ? (
         <div className="state">Загружаем письма…</div>
       ) : (
@@ -1943,6 +2138,14 @@ function EmailsPanel({ onError, onFlash }) {
       {items.map((item) => (
         <article className="admin-order" key={item.id}>
           <header>
+            <label className="bulk-check">
+              <input
+                aria-label={`Выбрать письмо «${item.subject}»`}
+                checked={selected.includes(item.id)}
+                onChange={() => toggleSelect(item.id)}
+                type="checkbox"
+              />
+            </label>
             <div>
               <h3>{item.subject}</h3>
               <div className="small faint">
@@ -1981,6 +2184,14 @@ function EmailsPanel({ onError, onFlash }) {
         open={Boolean(removeTarget)}
         text="Удаляется только запись журнала. Письмо, уже отправленное получателю, не отзывается."
         title={`Удалить письмо «${removeTarget?.subject || ''}»?`}
+      />
+
+      <ConfirmDialog
+        onCancel={() => setBulkOpen(false)}
+        onConfirm={removeSelected}
+        open={bulkOpen}
+        text={`Будет удалено записей журнала: ${selected.length}. Уже отправленные письма у получателей останутся.`}
+        title="Удалить выбранные письма?"
       />
     </div>
   );

@@ -424,12 +424,17 @@ export async function listOrders() {
     .order('создан_в', { ascending: false });
   if (error) throw databaseError('получить заказы', error);
 
-  const [users, positions] = await Promise.all([
+  const [users, positions, history] = await Promise.all([
     supabase.from('Пользователи').select('id,email,имя,телефон'),
     supabase.from('Заказ_Позиции').select('*').order('id'),
+    supabase
+      .from('ИсторияЗаказов')
+      .select('заказ_id,статус,комментарий')
+      .eq('статус', 'Новый'),
   ]);
   if (users.error) throw databaseError('получить пользователей', users.error);
   if (positions.error) throw databaseError('получить позиции заказов', positions.error);
+  if (history.error) throw databaseError('получить историю заказов', history.error);
 
   const userMap = new Map((users.data || []).map((row) => [Number(row.id), row]));
   const byOrder = new Map();
@@ -437,6 +442,16 @@ export async function listOrders() {
     const id = Number(row['заказ_id']);
     if (!byOrder.has(id)) byOrder.set(id, []);
     byOrder.get(id).push(mapOrderPosition(row));
+  }
+
+  // Первый комментарий в истории со статусом «Новый» — это то, что
+  // покупатель написал при оформлении заказа.
+  const customerComments = new Map();
+  for (const row of history.data || []) {
+    const id = Number(row['заказ_id']);
+    const text = String(row['комментарий'] || '').trim();
+    if (!text || text === 'Заказ создан' || customerComments.has(id)) continue;
+    customerComments.set(id, text);
   }
 
   const items = (data || []).map((row) => {
@@ -461,6 +476,7 @@ export async function listOrders() {
       distanceKm: row['расстояние_км'] != null ? Number(row['расстояние_км']) : null,
       track: row['трек_номер'] || '',
       managerComment: row['комментарий_менеджера'] || '',
+      customerComment: customerComments.get(Number(row.id)) || '',
       email: row['эл_почта'] || user.email || '',
       positionsCount: orderPositions.length,
       positions: orderPositions,
@@ -608,6 +624,46 @@ export async function deleteOrder(orderId) {
   if (removal.error) throw databaseError('удалить заказ', removal.error);
 
   return { id: String(row.id), number: row['номер'] };
+}
+
+/**
+ * Удаляет несколько финальных заказов.
+ *
+ * Активные заказы пропускаются: сначала их нужно отменить или завершить,
+ * иначе потеряется заказ, который ещё в работе. Возвращаем количество
+ * удалённых и пропущенных, чтобы админка объяснила причину.
+ *
+ * @param {Array<string|number>} ids Номера заказов.
+ * @returns {Promise<{deleted: number, skipped: number}>}
+ */
+export async function deleteOrdersBulk(ids) {
+  const clean = (Array.isArray(ids) ? ids : [])
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (!clean.length) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Выберите хотя бы один заказ');
+  }
+  requireDatabase();
+
+  const { data, error } = await supabase
+    .from('Заказы')
+    .select('id,статус')
+    .in('id', clean);
+  if (error) throw databaseError('прочитать выбранные заказы', error);
+
+  const finalIds = (data || [])
+    .filter((row) => ['Отменён', 'Завершён'].includes(row['статус']))
+    .map((row) => Number(row.id));
+  const skipped = clean.length - finalIds.length;
+  if (!finalIds.length) return { deleted: 0, skipped };
+
+  const removal = await supabase
+    .from('Заказы')
+    .delete()
+    .in('id', finalIds)
+    .select('id');
+  if (removal.error) throw databaseError('удалить выбранные заказы', removal.error);
+  return { deleted: (removal.data || []).length, skipped };
 }
 
 /**

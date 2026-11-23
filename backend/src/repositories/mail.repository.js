@@ -134,6 +134,35 @@ export async function deleteEmail(id) {
 }
 
 /**
+ * Удаляет несколько писем из журнала.
+ *
+ * Журнал — это история отправок, а не сами письма у получателей:
+ * удаление записи не отзывает уже доставленное письмо.
+ *
+ * @param {Array<string|number>} ids Идентификаторы писем.
+ * @returns {Promise<{deleted: number}>}
+ */
+export async function deleteEmails(ids) {
+  const clean = (Array.isArray(ids) ? ids : [])
+    .map(Number)
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (!clean.length) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Выберите хотя бы одно письмо');
+  }
+
+  if (!isDatabaseConnected()) {
+    throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
+  }
+
+  const removal = await supabase.from('Письма').delete().in('id', clean).select('id');
+  if (removal.error) {
+    console.error('[mail] массовое удаление:', removal.error.message);
+    throw apiError(502, 'DATABASE_ERROR', 'Не удалось удалить выбранные письма');
+  }
+  return { deleted: (removal.data || []).length };
+}
+
+/**
  * Отправляет проверочное письмо на указанный адрес.
  *
  * @param {string} to Получатель.

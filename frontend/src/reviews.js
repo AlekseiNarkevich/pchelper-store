@@ -25,7 +25,37 @@ export async function getReviews(productId) {
 }
 
 /**
+ * Свой отзыв на товар — любого статуса.
+ *
+ * @param {string} productId Идентификатор «cpu:1».
+ * @returns {Promise<object|null>}
+ */
+export async function getMyReview(productId) {
+  let token = readAuth().accessToken;
+  if (!token) return null;
+
+  const send = (accessToken) =>
+    fetch(`${BASE}/products/${encodeURIComponent(productId)}/reviews/mine`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+    });
+
+  let response = await send(token);
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed?.accessToken) {
+      token = refreshed.accessToken;
+      response = await send(token);
+    }
+  }
+  if (!response.ok) return null;
+  const data = await response.json().catch(() => null);
+  return data?.review || null;
+}
+
+/**
  * Отправляет отзыв на модерацию.
+ *
+ * Повторная отправка заменяет прошлый отзыв пользователя на этот товар.
  *
  * @param {string} productId Идентификатор «cpu:1».
  * @param {{rating: number, text: string}} review Отзыв.

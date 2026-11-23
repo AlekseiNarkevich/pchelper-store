@@ -32,6 +32,7 @@ import {
   createPrebuilt,
   createProduct,
   deleteOrder,
+  deleteOrdersBulk,
   deletePrebuilt,
   deleteProduct,
   deleteUser,
@@ -52,11 +53,13 @@ import {
 import { deleteReview, listAll, moderate } from '../repositories/reviews.repository.js';
 import {
   deleteRequest as deleteStockRequest,
+  deleteRequestsBulk,
   listRequests as listStockRequests,
   updateRequest as updateStockRequest,
 } from '../repositories/stock.repository.js';
 import {
   deleteEmail,
+  deleteEmails,
   listEmails,
   resendEmail,
   sendTestEmail,
@@ -182,6 +185,13 @@ router.delete(
   '/orders/:id',
   asyncHandler(async (req, res) => {
     res.status(200).json(await deleteOrder(req.params.id));
+  }),
+);
+
+router.post(
+  '/orders/bulk-delete',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deleteOrdersBulk((req.body || {}).ids));
   }),
 );
 
@@ -349,6 +359,13 @@ router.delete(
   }),
 );
 
+router.post(
+  '/stock-requests/bulk-delete',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deleteRequestsBulk((req.body || {}).ids));
+  }),
+);
+
 router.get(
   '/emails',
   asyncHandler(async (req, res) => {
@@ -375,6 +392,13 @@ router.delete(
   '/emails/:id',
   asyncHandler(async (req, res) => {
     res.status(200).json(await deleteEmail(req.params.id));
+  }),
+);
+
+router.post(
+  '/emails/bulk-delete',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await deleteEmails((req.body || {}).ids));
   }),
 );
 
