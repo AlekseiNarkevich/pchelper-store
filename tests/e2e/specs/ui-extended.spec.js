@@ -135,6 +135,19 @@ test.describe("PCHelper — расширенные UI-сценарии", () => {
     await expect(login.error()).toBeVisible();
   });
 
+  test("desktop без сессии открывает страницу входа", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.pchelperDesktop = { platform: "win32" };
+      try {
+        localStorage.clear();
+      } catch {
+        // На about:blank localStorage ещё недоступен.
+      }
+    });
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/login$/, { timeout: 10_000 });
+  });
+
   test("регистрация нового пользователя", async ({ page }) => {
     const login = new LoginPage(page);
     const email = `qa-${Date.now()}@example.com`;

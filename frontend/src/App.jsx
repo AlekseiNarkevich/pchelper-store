@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 import Footer from './components/Footer.jsx';
 import Header from './components/Header.jsx';
@@ -74,6 +74,23 @@ class ErrorBoundary extends React.Component {
  */
 export default function App() {
   const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // В desktop-приложении при первом запуске сразу показываем вход:
+    // так на новой машине не откроется чужая сессия или админка.
+    // Если пользователь уже входил, localStorage сохранён — сессия остаётся.
+    if (
+      window.pchelperDesktop &&
+      !readAuth().accessToken &&
+      location.pathname === '/'
+    ) {
+      navigate('/login', { replace: true });
+    }
+    // Проверяем только при старте приложения.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let timer;

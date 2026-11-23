@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 
 import { getPrebuilt, money } from '../api.js';
 import { useAutoRefresh } from '../useAutoRefresh.js';
+import { plural } from '../utils/plural.js';
 import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import { addToCart } from '../cart.js';
 import React from 'react';
@@ -77,7 +78,11 @@ export default function Prebuilt() {
           <div className="h1" style={{ fontSize: 26 }}>
             Готовые сборки
           </div>
-          <div className="sub">{items.length} конфигурации под разные задачи</div>
+          <div className="sub">
+            {items.length}{' '}
+            {plural(items.length, 'конфигурация', 'конфигурации', 'конфигураций')} под
+            разные задачи
+          </div>
         </div>
         <Link className="btn btn-secondary" to="/catalog">
           Собрать самому

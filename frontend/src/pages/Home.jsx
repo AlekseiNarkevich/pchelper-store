@@ -10,6 +10,7 @@ import { getCategories, getPrebuilt, getProducts, money } from '../api.js';
 import ImageWithStatus from '../components/ImageWithStatus.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import { useAutoRefresh } from '../useAutoRefresh.js';
+import { plural } from '../utils/plural.js';
 import React from 'react';
 
 /**
@@ -136,7 +137,10 @@ export default function Home() {
               >
                 <div className="h3">{category.name}</div>
                 <p>{category.description}</p>
-                <div className="small faint">{category.count} товаров</div>
+                <div className="small faint">
+                  {category.count}{' '}
+                  {plural(category.count, 'товар', 'товара', 'товаров')}
+                </div>
               </Link>
             ))}
           </div>

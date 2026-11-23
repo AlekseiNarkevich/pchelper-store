@@ -8,6 +8,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { getCategories, getProducts } from '../api.js';
 import { useAutoRefresh } from '../useAutoRefresh.js';
+import { plural } from '../utils/plural.js';
 import ProductCard from '../components/ProductCard.jsx';
 import React from 'react';
 
@@ -451,7 +452,7 @@ export default function Catalog() {
               </div>
               <div className="sub">
                 {search ? `Поиск: «${search}». ` : ''}
-                {total} товаров
+                {total} {plural(total, 'товар', 'товара', 'товаров')}
               </div>
             </div>
             <div className="controls">

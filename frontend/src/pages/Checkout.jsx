@@ -12,6 +12,7 @@ import DeliveryMap from '../components/DeliveryMap.jsx';
 import { readCart, clearCart, onCartChange } from '../cart.js';
 import { createOrder, syncCart } from '../commerce.js';
 import { calculateDelivery } from '../utils/delivery.js';
+import { plural } from '../utils/plural.js';
 
 /** Адрес пункта самовывоза. */
 const PICKUP_ADDRESS = 'г. Минск, пер. Корженевского, 6, пом. 1';
@@ -23,23 +24,6 @@ const MAP_LINK = 'https://yandex.by/maps/?text=';
  * Доставка: самовывоз бесплатен; курьер по Минску — бесплатно от 500 BYN,
  * иначе 10 BYN; за МКАД — 15 BYN + 3 BYN за километр.
  */
-/**
- * Русское склонение для количества товаров.
- *
- * @param {number} count Количество.
- * @param {string} one Форма для 1.
- * @param {string} few Форма для 2–4.
- * @param {string} many Форма для 5+.
- * @returns {string}
- */
-function plural(count, one, few, many) {
-  const mod10 = count % 10;
-  const mod100 = count % 100;
-  if (mod10 === 1 && mod100 !== 11) return one;
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-  return many;
-}
-
 export default function Checkout() {
   // Телефон и адрес подставляются из профиля, но пользователь может их изменить.
   const [items, setItems] = useState(readCart);
