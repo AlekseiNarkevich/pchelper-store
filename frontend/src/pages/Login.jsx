@@ -176,13 +176,7 @@ export default function Login({ initialMode = 'login' }) {
           </button>
         </p>
 
-        {mode === 'login' && (
-          <p className="auth-hint">
-            Демо-доступ: <code>demo@pchelper.by</code> / <code>demo1234</code>
-          </p>
-        )}
-
-        <p>
+        <p className="auth-back">
           <Link to="/">← Вернуться в каталог</Link>
         </p>
       </div>
