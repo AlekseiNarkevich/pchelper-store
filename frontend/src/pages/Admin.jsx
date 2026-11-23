@@ -436,6 +436,18 @@ export default function Admin() {
             <span>Отзывы на модерации</span>
             <strong>{summary.pendingReviews}</strong>
           </div>
+          <div>
+            <span>Выручка</span>
+            <strong>{money(summary.revenue)}</strong>
+          </div>
+          <div>
+            <span>Заказов сегодня</span>
+            <strong>{summary.ordersToday}</strong>
+          </div>
+          <div>
+            <span>Нет в наличии</span>
+            <strong>{summary.outOfStock}</strong>
+          </div>
         </div>
       ) : (
         <div className="state">Загружаем сводку…</div>

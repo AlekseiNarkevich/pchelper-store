@@ -225,6 +225,49 @@ test(
   },
 );
 
+test('состав заказа и повтор заказа', { skip: isDatabaseConnected() }, async () => {
+  await request('/api/v1/cart/items', {
+    method: 'POST',
+    body: { id: productId, qty: 2 },
+  });
+  const created = await request('/api/v1/orders', {
+    method: 'POST',
+    body: {
+      deliveryMethod: 'pickup',
+      phone: '+375291234567',
+      paymentMethod: 'cash',
+    },
+  });
+  assert.equal(created.status, 201);
+
+  const stored = await listOrders(userId);
+  const order = stored.find((item) => item.id === created.body.id);
+  assert.ok(order);
+  order.status = 'Завершён';
+
+  const items = await request(`/api/v1/orders/${created.body.id}/items`);
+  assert.equal(items.status, 200);
+  assert.equal(items.body.items[0].qty, 2);
+
+  const repeated = await request(`/api/v1/orders/${created.body.id}/repeat`, {
+    method: 'POST',
+  });
+  assert.equal(repeated.status, 200);
+  assert.equal(repeated.body.added, 1);
+  assert.deepEqual(repeated.body.skipped, []);
+
+  const cart = await request('/api/v1/cart');
+  assert.equal(cart.body.items[0].qty, 2);
+  await request('/api/v1/cart/clear', { method: 'POST' });
+
+  order.status = 'Новый';
+  const notFinal = await request(`/api/v1/orders/${created.body.id}/repeat`, {
+    method: 'POST',
+  });
+  assert.equal(notFinal.status, 400);
+  assert.equal(notFinal.body.error.code, 'ORDER_NOT_FINAL');
+});
+
 test('доставка за МКАД считается по километрам', async () => {
   const email = `delivery-${Date.now()}@example.com`;
   const registered = await request('/api/v1/auth/register', {

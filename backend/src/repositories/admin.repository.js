@@ -689,8 +689,17 @@ export async function updatePrebuiltStock(id, stock) {
  */
 export async function getSummary() {
   if (!isDatabaseConnected()) {
-    return { orders: 0, users: 0, pendingReviews: 0, products: 0 };
+    return {
+      orders: 0,
+      users: 0,
+      pendingReviews: 0,
+      products: 0,
+      revenue: 0,
+      ordersToday: 0,
+      outOfStock: 0,
+    };
   }
+
   const results = await Promise.all([
     supabase.from('Заказы').select('id', { count: 'exact', head: true }),
     supabase
@@ -710,8 +719,42 @@ export async function getSummary() {
     if (result.error) throw databaseError('получить сводку', result.error);
   }
 
+  // Выручка — сумма только завершённых заказов: отменённые и ещё
+  // не полученные деньги магазина не считаются.
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const extras = await Promise.all([
+    supabase.from('Заказы').select('итоговая_сумма').eq('статус', 'Завершён'),
+    supabase
+      .from('Заказы')
+      .select('id', { count: 'exact', head: true })
+      .gte('создан_в', startOfDay.toISOString()),
+    ...CATEGORIES.map((category) =>
+      supabase
+        .from(category.table)
+        .select('id', { count: 'exact', head: true })
+        .eq('количество', 0),
+    ),
+    supabase
+      .from(PREBUILT_TABLE)
+      .select('id', { count: 'exact', head: true })
+      .eq('количество', 0),
+  ]);
+
+  for (const result of extras) {
+    if (result.error) throw databaseError('получить расширенную сводку', result.error);
+  }
+
   const products = results
     .slice(3)
+    .reduce((sum, result) => sum + (result.count || 0), 0);
+  const revenue = (extras[0].data || []).reduce(
+    (sum, row) => sum + Number(row['итоговая_сумма'] || 0),
+    0,
+  );
+  const outOfStock = extras
+    .slice(2)
     .reduce((sum, result) => sum + (result.count || 0), 0);
 
   return {
@@ -719,5 +762,8 @@ export async function getSummary() {
     users: results[1].count || 0,
     pendingReviews: results[2].count || 0,
     products,
+    revenue,
+    ordersToday: extras[1].count || 0,
+    outOfStock,
   };
 }

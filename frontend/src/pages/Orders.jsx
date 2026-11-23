@@ -7,12 +7,15 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { money } from '../api.js';
+import { replaceCart } from '../cart.js';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import {
   completeOrder,
   getOrderHistory,
+  getServerCart,
   listOrders,
   refuseOrder,
+  repeatOrder,
 } from '../commerce.js';
 import { onDataChanged } from '../dataBus.js';
 
@@ -43,6 +46,7 @@ export default function Orders() {
   const [refuseTarget, setRefuseTarget] = useState(null);
   const [refuseReason, setRefuseReason] = useState('');
   const [refusing, setRefusing] = useState(false);
+  const [repeating, setRepeating] = useState(null);
   const location = useLocation();
   // Если пользователь только что оформил заказ, показываем его сверху.
   const created = location.state?.order || null;
@@ -110,6 +114,32 @@ export default function Orders() {
     if (refusing) return;
     setRefuseTarget(null);
     setRefuseReason('');
+  }
+
+  // Повтор заказа: backend сам проверяет остатки и добавляет позиции
+  // в серверную корзину; локальную копию синхронизируем после ответа.
+  async function repeat(order) {
+    setError('');
+    setNotice('');
+    setRepeating(order.id);
+    try {
+      const result = await repeatOrder(order.id);
+      const cart = await getServerCart();
+      replaceCart(cart.items);
+      if (!result.added) {
+        setError('Не удалось добавить заказ: товаров нет в наличии');
+      } else if (result.skipped.length) {
+        setNotice(
+          `Добавлено позиций: ${result.added}. Нет в наличии: ${result.skipped.join(', ')}`,
+        );
+      } else {
+        setNotice(`Состав заказа ${order.number} добавлен в корзину`);
+      }
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setRepeating(null);
+    }
   }
 
   // История переходов подгружается один раз при первом раскрытии заказа.
@@ -271,6 +301,16 @@ export default function Orders() {
             )}
 
             <div className="order-actions">
+              {['Завершён', 'Отменён'].includes(order.status) && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  disabled={repeating === order.id}
+                  onClick={() => repeat(order)}
+                  type="button"
+                >
+                  {repeating === order.id ? 'Добавляем…' : 'Повторить заказ'}
+                </button>
+              )}
               <button
                 className="link-button"
                 onClick={() => toggleHistory(order)}

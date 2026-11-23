@@ -8,6 +8,8 @@
  *   POST   /api/v1/cart/clear
  *   GET    /api/v1/orders
  *   POST   /api/v1/orders
+ *   GET    /api/v1/orders/:id/items
+ *   POST   /api/v1/orders/:id/repeat
  *   POST   /api/v1/orders/:id/complete
  *   POST   /api/v1/orders/:id/refuse
  */
@@ -27,9 +29,11 @@ import {
   createOrder,
   getCart,
   listOrderHistory,
+  listOrderItems,
   listOrders,
   refuseOrder,
   removeItem,
+  repeatOrder,
   updateItem,
 } from '../repositories/commerce.repository.js';
 
@@ -131,6 +135,21 @@ router.get(
   '/orders/:id/history',
   asyncHandler(async (req, res) => {
     res.status(200).json(await listOrderHistory(req.user.id, req.params.id));
+  }),
+);
+
+// Состав заказа нужен кнопке «Повторить заказ» в личном кабинете.
+router.get(
+  '/orders/:id/items',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listOrderItems(req.user.id, req.params.id));
+  }),
+);
+
+router.post(
+  '/orders/:id/repeat',
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await repeatOrder(req.user.id, req.params.id));
   }),
 );
 

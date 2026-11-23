@@ -141,6 +141,17 @@ test('требование FR-08: админ-маршрут с верным то
   assert.equal(body.total, 0);
 });
 
+test('сводка админки без базы отдаёт нулевые показатели', async () => {
+  const { status, body } = await get('/api/v1/admin/summary', {
+    Authorization: `Bearer ${ADMIN_TOKEN}`,
+  });
+  assert.equal(status, 200);
+  assert.equal(body.orders, 0);
+  assert.equal(body.revenue, 0);
+  assert.equal(body.ordersToday, 0);
+  assert.equal(body.outOfStock, 0);
+});
+
 test('удаление пользователя без базы возвращает 503 с текстом', async () => {
   const response = await fetch(`${BASE}/api/v1/admin/users/2`, {
     method: 'DELETE',

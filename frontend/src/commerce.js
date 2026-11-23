@@ -153,6 +153,26 @@ export function getOrderHistory(id) {
 }
 
 /**
+ * Состав заказа для кнопки «Повторить заказ».
+ *
+ * @param {string} id Идентификатор заказа.
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export function getOrderItems(id) {
+  return request(`/orders/${encodeURIComponent(id)}/items`);
+}
+
+/**
+ * Добавляет состав завершённого или отменённого заказа в корзину.
+ *
+ * @param {string} id Идентификатор заказа.
+ * @returns {Promise<{added: number, skipped: string[]}>}
+ */
+export function repeatOrder(id) {
+  return request(`/orders/${encodeURIComponent(id)}/repeat`, { method: 'POST' });
+}
+
+/**
  * Подтвердить получение заказа.
  *
  * @param {string} id Идентификатор заказа.

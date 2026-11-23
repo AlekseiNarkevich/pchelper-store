@@ -782,6 +782,113 @@ export async function refuseOrder(userId, orderId, reason) {
   };
 }
 
+/**
+ * Находит заказ пользователя или возвращает null.
+ *
+ * @param {string} userId Пользователь.
+ * @param {string} orderId Заказ.
+ * @returns {Promise<object|null>}
+ */
+async function findOrderForUser(userId, orderId) {
+  if (useSupabase()) {
+    const { data, error } = await supabase
+      .from('Заказы')
+      .select('*')
+      .eq('id', Number(orderId))
+      .eq('пользователь_id', Number(userId))
+      .maybeSingle();
+    if (error) throw databaseFailure('найти заказ', error);
+    return data || null;
+  }
+  const list = orders.get(key(userId)) || [];
+  return list.find((item) => item.id === String(orderId)) || null;
+}
+
+/**
+ * Состав заказа покупателя (только для его собственного заказа).
+ *
+ * @param {string} userId Пользователь.
+ * @param {string} orderId Заказ.
+ * @returns {Promise<{items: object[], total: number}>}
+ */
+export async function listOrderItems(userId, orderId) {
+  const order = await findOrderForUser(userId, orderId);
+  if (!order) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+
+  if (useSupabase()) {
+    const { data, error } = await supabase
+      .from('Заказ_Позиции')
+      .select('*')
+      .eq('заказ_id', Number(orderId));
+    if (error) throw databaseFailure('загрузить состав заказа', error);
+    const items = (data || []).map((row) => ({
+      id: `${row['тип_компонента']}:${row['идентификатор']}`,
+      category: row['тип_компонента'],
+      name: row['название'] || 'Товар',
+      price: Number(row['цена_за_единицу'] || 0),
+      qty: Number(row['количество'] || 1),
+      sum: Number(row['сумма'] || 0),
+    }));
+    return { items, total: items.length };
+  }
+
+  const items = (order.items || []).map((item) => ({
+    id: `${item.category}:${item.productId}`,
+    category: item.category,
+    name: item.name,
+    price: Number(item.price || 0),
+    qty: Number(item.qty || 1),
+    sum: Number(item.sum || 0),
+  }));
+  return { items, total: items.length };
+}
+
+/**
+ * Повторяет завершённый или отменённый заказ.
+ *
+ * Позиции добавляются в серверную корзину с проверкой остатка. Товары,
+ * которых больше нет на складе, пропускаются и возвращаются в skipped.
+ *
+ * @param {string} userId Пользователь.
+ * @param {string} orderId Заказ.
+ * @returns {Promise<{added: number, skipped: string[]}>}
+ */
+export async function repeatOrder(userId, orderId) {
+  const order = await findOrderForUser(userId, orderId);
+  if (!order) throw apiError(404, 'ORDER_NOT_FOUND', 'Заказ не найден');
+
+  const status = useSupabase() ? order.статус : order.status;
+  if (!['Завершён', 'Отменён'].includes(status)) {
+    throw apiError(
+      400,
+      'ORDER_NOT_FINAL',
+      'Повторить можно только завершённый или отменённый заказ',
+    );
+  }
+
+  const { items } = await listOrderItems(userId, orderId);
+  const skipped = [];
+  let added = 0;
+
+  for (const item of items) {
+    const product = await getProduct(item.id);
+    if (!product || Number(product.stock ?? 0) < item.qty) {
+      skipped.push(item.name);
+      continue;
+    }
+    try {
+      // addItem ожидает числовой productId, а getProduct отдаёт составной id.
+      const productId = Number(item.id.split(':')[1]);
+      await addItem(userId, { ...product, productId, qty: item.qty });
+      added += 1;
+    } catch {
+      skipped.push(item.name);
+    }
+  }
+
+  return { added, skipped };
+}
+
 export async function listOrders(userId) {
   if (useSupabase()) {
     try {
