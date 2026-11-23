@@ -367,12 +367,11 @@ export default function Orders() {
       {/* Отказ от получения: причина обязательна, заказ становится
           «Отменён», а товар возвращается на склад. */}
       {refuseTarget && (
-        <div className="modal-backdrop" onClick={closeRefuse} role="presentation">
+        <div className="modal-backdrop">
           <div
             aria-labelledby="refuse-title"
             aria-modal="true"
             className="modal"
-            onClick={(event) => event.stopPropagation()}
             role="dialog"
           >
             <h3 id="refuse-title">Отказаться от заказа {refuseTarget.number}?</h3>

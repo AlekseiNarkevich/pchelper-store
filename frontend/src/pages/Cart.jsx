@@ -199,7 +199,7 @@ export default function Cart() {
 
       {recommendations.length > 0 && (
         <section className="cart-recommendations">
-          <div className="h3">С этим товаром часто покупают</div>
+          <div className="h3">Рекомендуем</div>
           <div className="cart-recommendations-grid">
             {recommendations.map((product) => (
               <ProductCard key={product.id} product={product} />

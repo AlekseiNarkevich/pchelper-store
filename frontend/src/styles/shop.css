@@ -537,8 +537,43 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: var(--space-5);
+}
+
+/* Номера страниц: кнопки в стиле ссылок, активная — синяя. */
+.pagination button.page {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text, #111);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pagination button.page:hover {
+  border-color: var(--primary, #1976d2);
+  color: var(--primary, #1976d2);
+}
+
+.pagination button.page.is-active {
+  background: var(--primary, #1976d2);
+  border-color: var(--primary, #1976d2);
+  color: #fff;
+}
+
+.pagination .page-gap {
+  color: var(--text-muted, #555);
+}
+
+.pagination-info {
+  margin: 0 4px;
+  white-space: nowrap;
 }
 
 .breadcrumbs {

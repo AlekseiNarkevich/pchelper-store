@@ -84,7 +84,7 @@ export default function Prebuilt() {
             разные задачи
           </div>
         </div>
-        <Link className="btn btn-secondary" to="/catalog">
+        <Link className="btn btn-secondary" to="/builder">
           Собрать самому
         </Link>
       </div>

@@ -10,6 +10,7 @@ import { getCategories, money } from '../api.js';
 import { readAuth } from '../auth.js';
 import { checkCompatibility } from '../builds.js';
 import { onDataChanged } from '../dataBus.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { useAutoRefresh } from '../useAutoRefresh.js';
 import {
   createPrebuilt,
@@ -259,6 +260,100 @@ const PREBUILT_CATEGORIES = [
 ];
 
 /**
+ * Значение строки для сортировки таблицы.
+ *
+ * @param {string} kind Какая таблица: prebuilt, products или users.
+ * @param {object} row Строка.
+ * @param {string} field Поле сортировки.
+ * @returns {string|number}
+ */
+function sortValue(kind, row, field) {
+  if (kind === 'products') {
+    if (field === 'name') return row['название'] || '';
+    if (field === 'price') return Number(row['цена'] || 0);
+    return Number(row.id || 0);
+  }
+  if (kind === 'users') {
+    if (field === 'role') return ROLE_LABELS[row.role] || row.role || '';
+    if (field === 'status') {
+      return row.deleted ? 'удалён' : row.blocked ? 'заблокирован' : 'активен';
+    }
+    return row.name || row.email || '';
+  }
+  if (field === 'price') return Number(row.price || 0);
+  if (field === 'stock') return Number(row.stock || 0);
+  if (field === 'name') return row.name || '';
+  return Number(row.id || 0);
+}
+
+/**
+ * Сортировка строк таблицы по клику на заголовок.
+ *
+ * Повторный клик по тому же полю меняет направление. Сортировка
+ * выполняется на клиенте: списки в админке небольшие.
+ *
+ * @param {object[]} items Строки.
+ * @param {string} kind Тип таблицы.
+ * @param {string} initialField Поле по умолчанию.
+ * @returns {{sorted: object[], sort: object, onSort: Function}}
+ */
+function useTableSort(items, kind, initialField) {
+  const [sort, setSort] = useState({ field: initialField, direction: 'asc' });
+
+  function onSort(field) {
+    setSort((current) =>
+      current.field === field
+        ? { field, direction: current.direction === 'asc' ? 'desc' : 'asc' }
+        : { field, direction: 'asc' },
+    );
+  }
+
+  const sorted = useMemo(() => {
+    const list = [...items];
+    list.sort((a, b) => {
+      const left = sortValue(kind, a, sort.field);
+      const right = sortValue(kind, b, sort.field);
+      const result =
+        typeof left === 'number' && typeof right === 'number'
+          ? left - right
+          : String(left).localeCompare(String(right), 'ru', { numeric: true });
+      return sort.direction === 'asc' ? result : -result;
+    });
+    return list;
+  }, [items, kind, sort]);
+
+  return { sorted, sort, onSort };
+}
+
+/**
+ * Заголовок таблицы с кнопкой сортировки.
+ *
+ * @param {object} props Свойства.
+ * @returns {React.ReactElement}
+ */
+function SortHeader({ label, field, sort, onSort }) {
+  const active = sort.field === field;
+  return (
+    <th
+      aria-sort={
+        active ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'
+      }
+    >
+      <button
+        className={`sort-head${active ? ' is-on' : ''}`}
+        onClick={() => onSort(field)}
+        type="button"
+      >
+        {label}
+        <span aria-hidden="true">
+          {active ? (sort.direction === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+/**
  * Пустая форма готовой сборки.
  *
  * @returns {object}
@@ -381,12 +476,11 @@ function ActionReasonDialog({
   if (!open) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onCancel} role="presentation">
+    <div className="modal-backdrop">
       <div
         aria-labelledby="action-reason-title"
         aria-modal="true"
         className="modal"
-        onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
         <h3 id="action-reason-title">{title}</h3>
@@ -397,9 +491,12 @@ function ActionReasonDialog({
             autoFocus
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
-            rows={4}
+            rows={3}
             value={value}
           />
+          <span className="small faint">
+            Текст уйдёт пользователю письмом и сохранится в истории.
+          </span>
         </label>
         <div className="modal-actions">
           <button
@@ -886,12 +983,11 @@ function OrdersPanel({ onError, onFlash }) {
       )}
 
       {cancelTarget && (
-        <div className="modal-backdrop" onClick={closeCancel} role="presentation">
+        <div className="modal-backdrop">
           <div
             aria-labelledby="cancel-order-title"
             aria-modal="true"
             className="modal"
-            onClick={(event) => event.stopPropagation()}
             role="dialog"
           >
             <h3 id="cancel-order-title">
@@ -952,6 +1048,8 @@ function ProductsPanel({ onError, onFlash }) {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const { sorted: sortedItems, sort, onSort } = useTableSort(items, 'products', 'id');
 
   useEffect(() => {
     getCategories()
@@ -1064,10 +1162,12 @@ function ProductsPanel({ onError, onFlash }) {
     }
   }
 
-  async function remove(row) {
-    if (!window.confirm(`Удалить товар «${row['название']}»?`)) return;
+  async function remove() {
+    const row = removeTarget;
+    if (!row) return;
     try {
       await deleteProduct(category, row.id);
+      setRemoveTarget(null);
       load();
       onFlash('Товар удалён');
     } catch (reason) {
@@ -1105,14 +1205,24 @@ function ProductsPanel({ onError, onFlash }) {
               <table className="picker">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Название</th>
-                    <th>Цена</th>
+                    <SortHeader field="id" label="ID" onSort={onSort} sort={sort} />
+                    <SortHeader
+                      field="name"
+                      label="Название"
+                      onSort={onSort}
+                      sort={sort}
+                    />
+                    <SortHeader
+                      field="price"
+                      label="Цена"
+                      onSort={onSort}
+                      sort={sort}
+                    />
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row) => (
+                  {sortedItems.map((row) => (
                     <tr key={row.id}>
                       <td>{row.id}</td>
                       <td className="picker-name">{row['название']}</td>
@@ -1128,7 +1238,7 @@ function ProductsPanel({ onError, onFlash }) {
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
-                            onClick={() => remove(row)}
+                            onClick={() => setRemoveTarget(row)}
                             type="button"
                           >
                             Удалить
@@ -1219,6 +1329,14 @@ function ProductsPanel({ onError, onFlash }) {
           </button>
         </form>
       </div>
+
+      <ConfirmDialog
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={remove}
+        open={Boolean(removeTarget)}
+        text="Товар исчезнет из каталога и корзины. Уже оформленные заказы не изменятся."
+        title={`Удалить товар «${removeTarget?.['название'] || ''}»?`}
+      />
     </div>
   );
 }
@@ -1233,6 +1351,8 @@ function PrebuiltStockPanel({ onError, onFlash }) {
   const [busy, setBusy] = useState(false);
   const [check, setCheck] = useState(null);
   const [checking, setChecking] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const { sorted: sortedItems, sort, onSort } = useTableSort(items, 'prebuilt', 'name');
 
   // Кроме сборок нужны каталоги всех категорий: из них выбирается состав.
   function load() {
@@ -1377,11 +1497,13 @@ function PrebuiltStockPanel({ onError, onFlash }) {
     }
   }
 
-  async function remove(item) {
-    if (!window.confirm(`Удалить сборку «${item.name}»?`)) return;
+  async function remove() {
+    const item = removeTarget;
+    if (!item) return;
     try {
       await deletePrebuilt(item.id);
       if (editingId === item.id) startCreate();
+      setRemoveTarget(null);
       load();
       onFlash('Сборка удалена');
     } catch (reason) {
@@ -1409,14 +1531,29 @@ function PrebuiltStockPanel({ onError, onFlash }) {
               <table className="picker">
                 <thead>
                   <tr>
-                    <th>Сборка</th>
-                    <th>Цена</th>
-                    <th>На складе</th>
+                    <SortHeader
+                      field="name"
+                      label="Сборка"
+                      onSort={onSort}
+                      sort={sort}
+                    />
+                    <SortHeader
+                      field="price"
+                      label="Цена"
+                      onSort={onSort}
+                      sort={sort}
+                    />
+                    <SortHeader
+                      field="stock"
+                      label="На складе"
+                      onSort={onSort}
+                      sort={sort}
+                    />
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
+                  {sortedItems.map((item) => (
                     <tr key={item.id}>
                       <td className="picker-name">
                         {item.name}
@@ -1435,7 +1572,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
-                            onClick={() => remove(item)}
+                            onClick={() => setRemoveTarget(item)}
                             type="button"
                           >
                             Удалить
@@ -1562,6 +1699,14 @@ function PrebuiltStockPanel({ onError, onFlash }) {
           </button>
         </form>
       </div>
+
+      <ConfirmDialog
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={remove}
+        open={Boolean(removeTarget)}
+        text="Сборка исчезнет из каталога и корзин покупателей. Уже оформленные заказы сохранят состав."
+        title={`Удалить сборку «${removeTarget?.name || ''}»?`}
+      />
     </div>
   );
 }
@@ -1570,6 +1715,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
 function StockRequestsPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [removeTarget, setRemoveTarget] = useState(null);
 
   function load() {
     setLoading(true);
@@ -1598,10 +1744,12 @@ function StockRequestsPanel({ onError, onFlash }) {
     }
   }
 
-  async function remove(request) {
-    if (!window.confirm(`Удалить запрос на «${request.productName}»?`)) return;
+  async function remove() {
+    const request = removeTarget;
+    if (!request) return;
     try {
       await deleteStockRequest(request.id);
+      setRemoveTarget(null);
       load();
       onFlash('Запрос удалён');
     } catch (reason) {
@@ -1649,7 +1797,7 @@ function StockRequestsPanel({ onError, onFlash }) {
           ) : (
             <button
               className="btn btn-danger btn-sm"
-              onClick={() => remove(request)}
+              onClick={() => setRemoveTarget(request)}
               type="button"
             >
               Удалить
@@ -1657,6 +1805,14 @@ function StockRequestsPanel({ onError, onFlash }) {
           )}
         </article>
       ))}
+
+      <ConfirmDialog
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={remove}
+        open={Boolean(removeTarget)}
+        text="Запись исчезнет из списка. Покупатель уже получил ответ о поступлении товара."
+        title={`Удалить запрос на «${removeTarget?.productName || ''}»?`}
+      />
     </div>
   );
 }
@@ -1668,6 +1824,7 @@ function EmailsPanel({ onError, onFlash }) {
   const [to, setTo] = useState(readAuth()?.user?.email || '');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [removeTarget, setRemoveTarget] = useState(null);
 
   function load() {
     setLoading(true);
@@ -1724,10 +1881,12 @@ function EmailsPanel({ onError, onFlash }) {
     }
   }
 
-  async function remove(item) {
-    if (!window.confirm(`Удалить письмо «${item.subject}» из журнала?`)) return;
+  async function remove() {
+    const item = removeTarget;
+    if (!item) return;
     try {
       await deleteEmail(item.id);
+      setRemoveTarget(null);
       load();
       onFlash('Письмо удалено из журнала');
     } catch (reason) {
@@ -1807,7 +1966,7 @@ function EmailsPanel({ onError, onFlash }) {
             )}
             <button
               className="btn btn-danger btn-sm"
-              onClick={() => remove(item)}
+              onClick={() => setRemoveTarget(item)}
               type="button"
             >
               Удалить
@@ -1815,6 +1974,14 @@ function EmailsPanel({ onError, onFlash }) {
           </div>
         </article>
       ))}
+
+      <ConfirmDialog
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={remove}
+        open={Boolean(removeTarget)}
+        text="Удаляется только запись журнала. Письмо, уже отправленное получателю, не отзывается."
+        title={`Удалить письмо «${removeTarget?.subject || ''}»?`}
+      />
     </div>
   );
 }
@@ -1822,6 +1989,7 @@ function EmailsPanel({ onError, onFlash }) {
 /** Пользователи: роли, блокировка и удаление с причиной. */
 function UsersPanel({ onError, onFlash }) {
   const [users, setUsers] = useState([]);
+  const { sorted: sortedUsers, sort, onSort } = useTableSort(users, 'users', 'name');
   const [dialog, setDialog] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1938,14 +2106,19 @@ function UsersPanel({ onError, onFlash }) {
         <table className="admin-users">
           <thead>
             <tr>
-              <th>Пользователь</th>
-              <th>Роль</th>
-              <th>Статус</th>
+              <SortHeader
+                field="name"
+                label="Пользователь"
+                onSort={onSort}
+                sort={sort}
+              />
+              <SortHeader field="role" label="Роль" onSort={onSort} sort={sort} />
+              <SortHeader field="status" label="Статус" onSort={onSort} sort={sort} />
               <th>Действия</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
+            {sortedUsers.map((user) => (
               <tr className={user.id === currentId ? 'is-self' : ''} key={user.id}>
                 <td>
                   <div className="admin-user-main">
@@ -2093,10 +2266,11 @@ function ReviewsPanel({ onError, onFlash }) {
     const { review, action } = dialog;
     setBusy(true);
     try {
+      let result;
       if (action === 'delete') {
-        await deleteReview(review.id, reason.trim());
+        result = await deleteReview(review.id, reason.trim());
       } else {
-        await moderateReview(
+        result = await moderateReview(
           review.id,
           action === 'publish' ? 'опубликован' : 'отклонён',
           reason.trim(),
@@ -2104,11 +2278,17 @@ function ReviewsPanel({ onError, onFlash }) {
       }
       load(status);
       const messages = {
-        publish: 'Отзыв опубликован — автору отправлено письмо',
-        reject: 'Отзыв отклонён — автору отправлено письмо',
-        delete: 'Отзыв удалён — автору отправлено письмо',
+        publish: 'Отзыв опубликован',
+        reject: 'Отзыв отклонён',
+        delete: 'Отзыв удалён',
       };
-      onFlash(messages[action]);
+      onFlash(
+        result?.emailSent
+          ? `${messages[action]} — автору отправлено письмо`
+          : `${messages[action]} — письмо не отправлено: ${
+              result?.emailError || 'у автора не указан e-mail'
+            }`,
+      );
       setDialog(null);
       setReason('');
     } catch (error) {

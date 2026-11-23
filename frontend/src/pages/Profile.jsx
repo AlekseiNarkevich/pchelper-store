@@ -18,6 +18,7 @@ import {
 import { listBuilds } from '../builds.js';
 import { useAutoRefresh } from '../useAutoRefresh.js';
 import { clearLocalCart } from '../cart.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 /** Подписи ролей для интерфейса. */
 const ROLE_LABELS = {
@@ -40,6 +41,7 @@ export default function Profile() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -100,14 +102,7 @@ export default function Profile() {
   }
 
   async function handleDeleteAccount() {
-    // Два подтверждения: случайное нажатие не должно удалять аккаунт.
-    const confirmed = window.confirm(
-      'Удалить аккаунт? Профиль, корзина и сборки будут удалены, вход станет невозможен.',
-    );
-    if (!confirmed) return;
-    const typed = window.prompt('Введите УДАЛИТЬ для подтверждения');
-    if (typed !== 'УДАЛИТЬ') return;
-
+    // Подтверждение уже получено в модальном окне с вводом «УДАЛИТЬ».
     try {
       await deleteMyAccount();
       clearLocalCart();
@@ -200,7 +195,7 @@ export default function Profile() {
                   </p>
                   <button
                     className="btn btn-danger btn-block"
-                    onClick={handleDeleteAccount}
+                    onClick={() => setDeleteOpen(true)}
                     type="button"
                   >
                     Удалить аккаунт
@@ -299,6 +294,16 @@ export default function Profile() {
           </div>
         </aside>
       </div>
+
+      <ConfirmDialog
+        confirmLabel="Удалить аккаунт"
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={handleDeleteAccount}
+        open={deleteOpen}
+        requireText={{ word: 'УДАЛИТЬ' }}
+        text="Профиль, корзина и сохранённые сборки будут удалены. Заказы останутся обезличенными, войти в аккаунт больше не получится."
+        title="Удалить аккаунт?"
+      />
     </div>
   );
 }

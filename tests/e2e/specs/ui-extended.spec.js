@@ -59,6 +59,20 @@ test.describe("PCHelper — расширенные UI-сценарии", () => {
     await expect(page.locator("#price-to")).toHaveValue("500");
   });
 
+  test("сброс фильтров остаётся в категории и очищает цену", async ({
+    page,
+  }) => {
+    await page.goto("/catalog/cpu");
+    await page.locator("#price-from").fill("4000");
+    await page.locator("#catalog-sort").selectOption("price_desc");
+    await page.locator(".catalog-filter-head button").click();
+
+    await expect(page).toHaveURL(/\/catalog\/cpu$/);
+    await expect(page.locator("#price-from")).toHaveValue("");
+    await expect(page.locator("#catalog-sort")).toHaveValue("price_asc");
+    await expect(page.locator(".product-card").first()).toBeVisible();
+  });
+
   test("пагинация ведёт на вторую страницу", async ({ page }) => {
     const catalog = new CatalogPage(page);
     await catalog.goto("/catalog");

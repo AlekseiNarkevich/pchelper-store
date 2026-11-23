@@ -49,9 +49,16 @@ function ProductList({ items, selectedId, onPick, emptyText }) {
 
             return (
               <tr
+                aria-selected={selected}
                 className={`${selected ? 'is-on' : ''}${outOfStock ? ' is-out' : ''}`}
                 key={product.id}
                 onClick={() => onPick(product)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onPick(product);
+                  }
+                }}
                 title={
                   outOfStock
                     ? 'Нет в наличии — можно выбрать для расчёта, но не для сборки'
@@ -162,13 +169,14 @@ export default function PsuCalculator() {
   const canBuild = selectionComplete && unavailable.length === 0;
 
   function pickCpu(product) {
-    setCpuId(product.id);
+    // Повторный клик по выбранной строке снимает выбор.
+    setCpuId((current) => (current === product.id ? '' : product.id));
     setResult(null);
     setPsuId('');
   }
 
   function pickGpu(product) {
-    setGpuId(product.id);
+    setGpuId((current) => (current === product.id ? '' : product.id));
     setResult(null);
     setPsuId('');
   }
@@ -253,15 +261,23 @@ export default function PsuCalculator() {
             <section className="profile-panel psu-picker-panel">
               <div className="panel-head">
                 <h2>Видеокарта</h2>
-                {integrated && (
-                  <button
-                    className={`btn btn-sm ${gpuId ? 'btn-secondary' : ''}`}
-                    onClick={useIntegrated}
-                    type="button"
-                  >
-                    Без дискретной
-                  </button>
-                )}
+                <div className="psu-panel-meta">
+                  {selectedGpu && (
+                    <span className="small faint">
+                      TDP{' '}
+                      {selectedGpu.specs?.find((s) => s.label === 'TDP')?.value || '—'}
+                    </span>
+                  )}
+                  {integrated && (
+                    <button
+                      className={`btn btn-sm ${gpuId ? 'btn-secondary' : ''}`}
+                      onClick={useIntegrated}
+                      type="button"
+                    >
+                      Без дискретной
+                    </button>
+                  )}
+                </div>
               </div>
               <ProductList
                 emptyText="Видеокарты не найдены."

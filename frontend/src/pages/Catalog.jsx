@@ -14,6 +14,41 @@ import React from 'react';
 
 const PAGE_SIZE = 12;
 
+/**
+ * Номера страниц для пагинации: 1 … 4 5 6 … 12.
+ *
+ * Многоточие показывается вместо длинного пропуска, чтобы можно было
+ * быстро перейти на нужную страницу, не листая по одной.
+ *
+ * @param {number} current Текущая страница.
+ * @param {number} total Всего страниц.
+ * @returns {Array<number|string>}
+ */
+function pageNumbers(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, index) => index + 1);
+  }
+
+  const wanted = new Set([1, total, current - 1, current, current + 1]);
+  if (current <= 3) [2, 3, 4].forEach((page) => wanted.add(page));
+  if (current >= total - 2) {
+    [total - 3, total - 2, total - 1].forEach((page) => wanted.add(page));
+  }
+
+  const sorted = [...wanted]
+    .filter((page) => page >= 1 && page <= total)
+    .sort((a, b) => a - b);
+
+  const result = [];
+  let previous = 0;
+  for (const page of sorted) {
+    if (page - previous > 1) result.push(`gap-${page}`);
+    result.push(page);
+    previous = page;
+  }
+  return result;
+}
+
 /** Какие характеристики показывать в фильтрах каждой категории. */
 const FILTER_LABELS = {
   cpu: [
@@ -96,6 +131,8 @@ export default function Catalog() {
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  const gridRef = useRef(null);
   const [sort, setSort] = useState('price_asc');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -115,12 +152,16 @@ export default function Catalog() {
       .catch(() => setCategories([]));
   }, []);
 
-  // При смене категории сбрасываем фильтры. Это отдельный эффект:
-  // автообновление не должно стирать выбранные пользователем значения.
+  // При смене категории сбрасываем фильтры, цену, сортировку и страницу:
+  // иначе ограничение «от 4000» из прошлой категории спрячет весь список.
   useEffect(() => {
     setFilters({});
     setFilterSearch({});
     setFilterExpanded({});
+    setMinPrice('');
+    setMaxPrice('');
+    setSort('price_asc');
+    setOffset(0);
   }, [category]);
 
   // Для выбранной категории загружаем все товары: по ним считаем
@@ -207,8 +248,18 @@ export default function Catalog() {
   }
 
   function clearFilters() {
+    resetAll();
+  }
+
+  // Полный сброс: боковые фильтры, цена, сортировка и страница.
+  // Категория при этом не меняется — пользователь остаётся там же.
+  function resetAll() {
     setFilters({});
     setFilterSearch({});
+    setFilterExpanded({});
+    setMinPrice('');
+    setMaxPrice('');
+    setSort('price_asc');
     setOffset(0);
   }
 
@@ -236,7 +287,7 @@ export default function Catalog() {
       minPrice,
       maxPrice,
       filters: filterKey === '{}' ? '' : filterKey,
-      limit: PAGE_SIZE,
+      limit: pageSize,
       offset,
     })
       .then((data) => {
@@ -254,7 +305,44 @@ export default function Catalog() {
     return () => {
       alive = false;
     };
-  }, [category, search, sort, minPrice, maxPrice, offset, queryKey, filterKey]);
+  }, [
+    category,
+    search,
+    sort,
+    minPrice,
+    maxPrice,
+    offset,
+    queryKey,
+    filterKey,
+    pageSize,
+  ]);
+
+  // На широком экране помещается больше колонок: добираем страницу
+  // целыми рядами, чтобы внизу не оставалось пустых мест.
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return undefined;
+
+    const measure = () => {
+      const columns =
+        getComputedStyle(grid).gridTemplateColumns.split(' ').filter(Boolean).length ||
+        1;
+      const rows = Math.max(2, Math.ceil(PAGE_SIZE / columns));
+      const next = columns * rows;
+      setPageSize((current) => (current === next ? current : next));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [loading]);
+
+  // После смены размера страницы начинаем с первой, чтобы offset
+  // не оказался за пределами нового списка.
+  useEffect(() => {
+    setOffset(0);
+  }, [pageSize]);
 
   // Тихо перечитываем категории, фильтры и текущую страницу после
   // изменений в админке или при возврате в окно. Фильтры не сбрасываем.
@@ -276,7 +364,7 @@ export default function Catalog() {
       minPrice,
       maxPrice,
       filters: filterKey === '{}' ? '' : filterKey,
-      limit: PAGE_SIZE,
+      limit: pageSize,
       offset,
     })
       .then((data) => {
@@ -288,8 +376,8 @@ export default function Catalog() {
 
   const current = categories.find((item) => item.id === category);
   const title = category ? current?.name || 'Категория' : 'Все комплектующие';
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.floor(offset / pageSize) + 1;
 
   useEffect(() => {
     setTerm(search);
@@ -355,7 +443,10 @@ export default function Catalog() {
           <aside className="catalog-filters" aria-label="Фильтры каталога">
             <div className="catalog-filter-head">
               <strong>Фильтры</strong>
-              {activeFilterCount > 0 && (
+              {(activeFilterCount > 0 ||
+                minPrice ||
+                maxPrice ||
+                sort !== 'price_asc') && (
                 <button className="link-button" onClick={clearFilters} type="button">
                   Сбросить
                 </button>
@@ -497,6 +588,11 @@ export default function Catalog() {
                 <option value="price_desc">Сначала дороже</option>
                 <option value="name_asc">По названию</option>
               </select>
+              {(minPrice || maxPrice || sort !== 'price_asc') && (
+                <button className="link-button" onClick={resetAll} type="button">
+                  Сбросить
+                </button>
+              )}
             </div>
           </div>
 
@@ -523,7 +619,7 @@ export default function Catalog() {
           )}
 
           {loading && (
-            <div className="product-grid">
+            <div className="product-grid" ref={gridRef}>
               {[0, 1, 2, 3, 4, 5].map((key) => (
                 <div className="skeleton" key={key} />
               ))}
@@ -534,15 +630,15 @@ export default function Catalog() {
             <div className="state">
               Ничего не найдено. Попробуйте изменить цену или категорию.
               <br />
-              <Link className="btn" to="/catalog">
+              <button className="btn" onClick={resetAll} type="button">
                 Сбросить фильтры
-              </Link>
+              </button>
             </div>
           )}
 
           {!loading && !error && items.length > 0 && (
             <>
-              <div className="product-grid">
+              <div className="product-grid" ref={gridRef}>
                 {items.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -556,18 +652,35 @@ export default function Catalog() {
                   <button
                     className="btn btn-secondary"
                     disabled={page === 1}
-                    onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+                    onClick={() => setOffset(Math.max(0, (page - 2) * pageSize))}
                     type="button"
                   >
                     ← Назад
                   </button>
-                  <span className="small muted">
+                  {pageNumbers(page, pages).map((value) =>
+                    typeof value === 'number' ? (
+                      <button
+                        aria-current={value === page ? 'page' : undefined}
+                        className={`page${value === page ? ' is-active' : ''}`}
+                        key={value}
+                        onClick={() => setOffset((value - 1) * pageSize)}
+                        type="button"
+                      >
+                        {value}
+                      </button>
+                    ) : (
+                      <span className="page-gap" key={value}>
+                        …
+                      </span>
+                    ),
+                  )}
+                  <span className="small muted pagination-info">
                     Страница {page} из {pages}
                   </span>
                   <button
                     className="btn btn-secondary"
                     disabled={page === pages}
-                    onClick={() => setOffset(offset + PAGE_SIZE)}
+                    onClick={() => setOffset(page * pageSize)}
                     type="button"
                   >
                     Вперёд →

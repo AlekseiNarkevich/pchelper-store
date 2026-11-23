@@ -20,6 +20,14 @@
   font-size: 13px;
 }
 
+/* Кнопки справа от заголовка: сброс и калькулятор БП. */
+.builder-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* --- Полоса шагов --- */
 .step-strip {
   display: flex;
@@ -468,6 +476,31 @@
   background: var(--surface-2, #f2f4f7);
 }
 
+/* Сортируемые заголовки таблиц админки. */
+.sort-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sort-head:hover,
+.sort-head.is-on {
+  color: var(--primary, #1976d2);
+}
+
+.sort-head span {
+  font-size: 11px;
+}
+
 /* Выбранная строка в таблицах выбора (конфигуратор, калькулятор БП):
    мягкий жёлтый фон и полоска слева, чтобы выбор было видно не только
    по галочке, но и цветом — как в конфигураторе 3 курса. */
@@ -776,6 +809,13 @@
 }
 
 /* --- Калькулятор БП --- */
+.psu-panel-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .psu-pickers {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

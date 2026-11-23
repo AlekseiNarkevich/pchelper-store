@@ -14,6 +14,7 @@ import { getProducts, money } from '../api.js';
 import { readAuth } from '../auth.js';
 import { addBuildToCart } from '../cart.js';
 import { checkCompatibility, getBuild, saveBuild } from '../builds.js';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import {
   booleanOf,
   formRank,
@@ -364,6 +365,7 @@ export default function Builder() {
   const [check, setCheck] = useState(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [resetOpen, setResetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft] = useState(readDraft);
   const [hydrated, setHydrated] = useState(false);
@@ -736,15 +738,25 @@ export default function Builder() {
     }
 
     if (key === 'gpu') setSkipGpu(false);
-    // Сразу убираем детали, которые конфликтуют с новым выбором.
-    const merged = { ...selection, [key]: product };
-    const pruned = pruneIncompatible(merged, key === 'gpu' ? false : skipGpu);
+    // Повторный клик по выбранной строке снимает выбор.
+    const isSame = selection[key]?.id === product.id;
+    const merged = { ...selection, [key]: isSame ? null : product };
+    const pruned = pruneIncompatible(
+      merged,
+      key === 'gpu' && !isSame ? false : skipGpu,
+    );
     const removed = Object.keys(merged).filter(
       (field) =>
         field !== 'storage' && merged[field] && merged[field] !== pruned[field],
     );
     setSelection(pruned);
-    setMessage(removed.length ? 'Несовместимые компоненты убраны из сборки.' : '');
+    setMessage(
+      isSame
+        ? 'Выбор снят.'
+        : removed.length
+          ? 'Несовместимые компоненты убраны из сборки.'
+          : '',
+    );
     setCheck(null);
   }
 
@@ -754,6 +766,37 @@ export default function Builder() {
     }
     if (current.key === 'gpu' && skipGpu) return false;
     return selection[current.key]?.id === product.id;
+  }
+
+  /**
+   * Полный сброс конфигуратора: детали, название, заметка и проверка.
+   * Черновик тоже удаляем, чтобы после перезагрузки сборка не вернулась.
+   */
+  function resetBuilder() {
+    setSelection({
+      cpu: null,
+      motherboard: null,
+      ram: null,
+      cooling: null,
+      gpu: null,
+      storage: [],
+      psu: null,
+      case: null,
+    });
+    setSkipGpu(false);
+    setBuildName('');
+    setNote('');
+    setCheck(null);
+    setMessage('');
+    setError('');
+    setStep(0);
+    setResetOpen(false);
+    try {
+      localStorage.removeItem(draftKey());
+    } catch {
+      /* локальное хранилище может быть недоступно */
+    }
+    if (buildId) navigate('/builder', { replace: true });
   }
 
   async function handleCheck() {
@@ -1014,9 +1057,18 @@ export default function Builder() {
             Шаг {Math.min(step + 1, STEPS.length)} из {STEPS.length}
           </div>
         </div>
-        <Link className="btn btn-secondary" to="/psu">
-          Калькулятор БП
-        </Link>
+        <div className="builder-head-actions">
+          <button
+            className="btn btn-secondary"
+            onClick={() => setResetOpen(true)}
+            type="button"
+          >
+            Сбросить конфигурацию
+          </button>
+          <Link className="btn btn-secondary" to="/psu">
+            Калькулятор БП
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -1102,6 +1154,15 @@ export default function Builder() {
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        confirmLabel="Сбросить"
+        onCancel={() => setResetOpen(false)}
+        onConfirm={resetBuilder}
+        open={resetOpen}
+        text="Все выбранные комплектующие, название и заметка будут удалены. Черновик тоже очистится."
+        title="Сбросить конфигурацию?"
+      />
     </div>
   );
 }

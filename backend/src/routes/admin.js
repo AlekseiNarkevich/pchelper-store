@@ -392,17 +392,25 @@ router.patch(
     const body = req.body || {};
     const reason = String(body.reason || '').trim();
     const review = await moderate(req.params.id, String(body.status || ''));
-    if (review.email) {
-      void sendReviewModeratedEmail({
-        to: review.email,
-        name: review.author,
-        productId: review.productId,
-        productName: review.productName,
-        status: review.status,
-        comment: reason,
-      });
-    }
-    res.status(200).json(review);
+
+    // Письмо отправляем до ответа, чтобы админ видел, ушло ли оно:
+    // для демо-адресов оно только попадёт в журнал с пометкой.
+    const mail = review.email
+      ? await sendReviewModeratedEmail({
+          to: review.email,
+          name: review.author,
+          productId: review.productId,
+          productName: review.productName,
+          status: review.status,
+          comment: reason,
+        })
+      : null;
+
+    res.status(200).json({
+      ...review,
+      emailSent: Boolean(mail?.sent),
+      emailError: mail?.error || '',
+    });
   }),
 );
 
@@ -411,16 +419,21 @@ router.delete(
   asyncHandler(async (req, res) => {
     const reason = String((req.body || {}).reason || '').trim();
     const review = await deleteReview(req.params.id);
-    if (review.email) {
-      void sendReviewDeletedEmail({
-        to: review.email,
-        name: review.author,
-        productId: review.productId,
-        productName: review.productName,
-        comment: reason || 'Решение модератора',
-      });
-    }
-    res.status(200).json(review);
+    const mail = review.email
+      ? await sendReviewDeletedEmail({
+          to: review.email,
+          name: review.author,
+          productId: review.productId,
+          productName: review.productName,
+          comment: reason || 'Решение модератора',
+        })
+      : null;
+
+    res.status(200).json({
+      ...review,
+      emailSent: Boolean(mail?.sent),
+      emailError: mail?.error || '',
+    });
   }),
 );
 

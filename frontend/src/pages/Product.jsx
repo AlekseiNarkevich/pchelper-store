@@ -376,7 +376,7 @@ export default function Product() {
       {related.length > 0 && (
         <section className="section">
           <div className="h3" style={{ marginBottom: 12 }}>
-            С этой категорией смотрят
+            Похожие товары
           </div>
           <div className="product-grid">
             {related.slice(0, 4).map((item) => (
