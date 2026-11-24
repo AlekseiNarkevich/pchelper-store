@@ -6,7 +6,7 @@
 **Проект:** PCHelper — интернет-магазин компьютерных комплектующих  
 **Команда:** StudentsTrio — Наркевич А. С., Бирюк И. А., Бельский Т. Д.  
 **Репозиторий:** https://github.com/AlekseiNarkevich/pchelper-store  
-**Ветка:** `pchmi/lr9-final` (снимок `e78afe7`)  
+**Ветка:** `pchmi/lr9-final` (от снимка `e78afe7`)  
 **Дата:** ноябрь 2026
 
 ---
