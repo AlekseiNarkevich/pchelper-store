@@ -24,9 +24,9 @@ export default function ProductCard({ product, onAdded }) {
     <article className="product-card">
       <Link className="photo" to={`/product/${product.id}`}>
         {product.imageUrl ? (
-          <img alt={product.name} loading="lazy" src={product.imageUrl} />
+          <img alt={product.name} loading="lazy" decoding="async" src={product.imageUrl} />
         ) : (
-          <img alt="" aria-hidden="true" src="/placeholder.jpg" />
+          <img alt="" aria-hidden="true" loading="lazy" decoding="async" src="/placeholder.jpg" />
         )}
       </Link>
       <Link className="name" to={`/product/${product.id}`}>

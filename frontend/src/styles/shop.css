@@ -644,3 +644,51 @@ select {
     align-self: start;
   }
 }
+
+/* ---------------------------------------------------------------
+   Блок «ИИ-подбор через MCP» на главной странице (ЛР8, п. 7.3).
+   Показывает, как подключить агент и какие сценарии он закрывает.
+   --------------------------------------------------------------- */
+.mcp-panel {
+  padding: 20px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e8e8e8);
+  border-radius: 16px;
+}
+
+.mcp-panel > p {
+  margin: 6px 0 12px;
+  color: var(--muted, #555);
+  line-height: 1.5;
+}
+
+.mcp-steps {
+  margin: 0 0 12px 20px;
+  color: var(--muted, #555);
+  line-height: 1.6;
+}
+
+.mcp-panel details {
+  margin-top: 10px;
+}
+
+.mcp-panel summary {
+  cursor: pointer;
+  color: var(--primary, #1976d2);
+  font-weight: 600;
+}
+
+.mcp-code {
+  margin: 10px 0 0;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: #0f1720;
+  color: #e8f1f8;
+  font: 13px/1.5 Consolas, monospace;
+}
+
+.mcp-panel :focus-visible {
+  outline: 3px solid var(--accent, #fbc02d);
+  outline-offset: 2px;
+}

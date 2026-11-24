@@ -153,7 +153,7 @@ export default function Home() {
               <article className="product-card" key={build.id}>
                 <div className="photo">
                   {build.imageUrl ? (
-                    <img alt={build.name} loading="lazy" src={build.imageUrl} />
+                    <img alt={build.name} loading="lazy" decoding="async" src={build.imageUrl} />
                   ) : (
                     <span>фото</span>
                   )}
@@ -174,6 +174,30 @@ export default function Home() {
             ))}
           </div>
         )}
+      </section>
+
+      {/* ЛР8, п. 7.3: рекомендации по подключению ИИ-агента через MCP. */}
+      <section className="section">
+        <div className="mcp-panel">
+          <div className="h2">ИИ-подбор через MCP</div>
+          <p>
+            Агент может собрать ПК по бюджету, проверить совместимость, положить
+            детали в корзину и оформить заказ. Работает через MCP-сервер
+            PCHelper и те же правила, что и витрина.
+          </p>
+          <ol className="mcp-steps">
+            <li>Запустите MCP-сервер в режиме HTTP на порту 8080.</li>
+            <li>Подключите Claude Desktop, Cursor или MCP Inspector к адресу
+              <code> http://127.0.0.1:8080/mcp</code>.
+            </li>
+            <li>Напишите агенту: «Собери игровой ПК до 4000 BYN».</li>
+          </ol>
+          <details>
+            <summary>Команды запуска и проверки</summary>
+            <pre className="mcp-code">{`python server.py --http --port 8080
+npx @modelcontextprotocol/inspector`}</pre>
+          </details>
+        </div>
       </section>
     </div>
   );
