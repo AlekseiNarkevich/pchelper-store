@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <rect width="400" height="300" fill="#eef3f8"/>
+  <rect x="110" y="80" width="180" height="120" rx="10" fill="#d7e3ee" stroke="#9fb3c8" stroke-width="4"/>
+  <rect x="130" y="105" width="140" height="70" rx="4" fill="#f8fbfe" stroke="#b7c8d8" stroke-width="3"/>
+  <rect x="170" y="205" width="60" height="12" rx="4" fill="#9fb3c8"/>
+  <text x="200" y="255" text-anchor="middle" font-family="Segoe UI, Arial" font-size="22" fill="#5b7186">PCHelper</text>
+</svg>

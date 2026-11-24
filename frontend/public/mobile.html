@@ -446,8 +446,8 @@
       <div class="brand-wrap">
         <div class="brand-mark">
           <picture>
-            <source srcset="/logo-icon.webp" type="image/webp" />
-            <img alt="" aria-hidden="true" width="38" height="38" src="/logo-icon.jpg" />
+            <source srcset="logo-icon.webp" type="image/webp" />
+            <img alt="" aria-hidden="true" width="38" height="38" src="logo-icon.jpg" />
           </picture>
         </div>
         <div>
@@ -652,7 +652,70 @@ npx @modelcontextprotocol/inspector</pre>
         toastTimer = setTimeout(() => node.classList.remove('is-on'), 1800);
       }
 
+
+      /* Демонстрационные данные для автономного показа прототипа.
+         Если файл открыт с диска (file://), backend недоступен — показываем
+         тот же набор карточек, чтобы прототип можно было показать без сервера. */
+      const DEMO = {
+        categories: [
+          { id: 'cpu', name: 'Процессоры', description: 'AMD и Intel', count: 16 },
+          { id: 'motherboard', name: 'Материнские платы', description: 'AM5 и LGA1700', count: 17 },
+          { id: 'ram', name: 'Оперативная память', description: 'DDR4 и DDR5', count: 12 },
+          { id: 'gpu', name: 'Видеокарты', description: 'NVIDIA и AMD', count: 9 },
+          { id: 'psu', name: 'Блоки питания', description: '450–1000 Вт', count: 10 },
+          { id: 'storage', name: 'Накопители', description: 'NVMe и SATA', count: 17 },
+          { id: 'case', name: 'Корпуса', description: 'ATX и mATX', count: 7 },
+          { id: 'cooling', name: 'Системы охлаждения', description: 'Кулеры и СЖО', count: 8 },
+        ],
+        products: [
+          { id: 'demo-cpu-1', name: 'AMD Ryzen 5 5600', categoryId: 'cpu', categoryName: 'Процессоры', vendor: 'AMD', price: 368, stock: 4, imageUrl: 'demo-product.svg', description: '6 ядер, 12 потоков, сокет AM4.', specs: [{ label: 'Сокет', value: 'AM4' }, { label: 'TDP', value: '65 Вт' }] },
+          { id: 'demo-cpu-2', name: 'Intel Core i5-12400F', categoryId: 'cpu', categoryName: 'Процессоры', vendor: 'Intel', price: 405, stock: 6, imageUrl: 'demo-product.svg', description: '6 ядер, 12 потоков, сокет LGA1700.', specs: [{ label: 'Сокет', value: 'LGA1700' }, { label: 'TDP', value: '65 Вт' }] },
+          { id: 'demo-gpu-1', name: 'Radeon RX 7700 XT', categoryId: 'gpu', categoryName: 'Видеокарты', vendor: 'AMD', price: 1320, stock: 2, imageUrl: 'demo-product.svg', description: 'Игровая видеокарта 12 ГБ GDDR6.', specs: [{ label: 'Память', value: '12 ГБ' }, { label: 'TDP', value: '245 Вт' }] },
+          { id: 'demo-ram-1', name: 'Kingston Fury 16 ГБ', categoryId: 'ram', categoryName: 'Оперативная память', vendor: 'Kingston', price: 154, stock: 12, imageUrl: 'demo-product.svg', description: 'Комплект DDR5 2×8 ГБ, 5600 МГц.', specs: [{ label: 'Тип', value: 'DDR5' }, { label: 'Частота', value: '5600 МГц' }] },
+          { id: 'demo-psu-1', name: 'Cougar GEX 750', categoryId: 'psu', categoryName: 'Блоки питания', vendor: 'Cougar', price: 289, stock: 5, imageUrl: 'demo-product.svg', description: '750 Вт, 80 Plus Gold, модульный.', specs: [{ label: 'Мощность', value: '750 Вт' }, { label: 'Сертификат', value: '80+ Gold' }] },
+          { id: 'demo-ssd-1', name: 'Kingston NV3 1 ТБ', categoryId: 'storage', categoryName: 'Накопители', vendor: 'Kingston', price: 229, stock: 8, imageUrl: 'demo-product.svg', description: 'NVMe SSD, PCIe 4.0.', specs: [{ label: 'Объём', value: '1 ТБ' }, { label: 'Интерфейс', value: 'PCIe 4.0' }] },
+        ],
+        prebuilt: [
+          { id: 'demo-build-1', name: 'Офисный ПК 2', task: 'Офис, учёба, веб-серфинг', price: 2122, componentCount: 8, imageUrl: 'demo-product.svg', components: [{ name: 'Intel Core i3-12100' }, { name: 'ASRock B760 Pro RS/D4' }, { name: 'Kingston Fury 16 ГБ' }] },
+          { id: 'demo-build-2', name: 'Игровой ПК 1', task: 'Игры 1080p', price: 3307, componentCount: 8, imageUrl: 'demo-product.svg', components: [{ name: 'Intel Core i5-12400F' }, { name: 'Radeon RX 7700 XT' }, { name: 'Kingston Fury 16 ГБ' }] },
+        ],
+      };
+
+      function demoApi(path) {
+        const [route, queryString] = path.split('?');
+        const params = new URLSearchParams(queryString || '');
+
+        if (route === '/categories') return { items: DEMO.categories };
+        if (route === '/prebuilt') return { items: DEMO.prebuilt };
+
+        if (route.startsWith('/products/')) {
+          const id = decodeURIComponent(route.slice('/products/'.length));
+          const product = DEMO.products.find((item) => String(item.id) === id);
+          if (!product) throw new Error('Товар не найден');
+          return product;
+        }
+
+        if (route === '/products') {
+          const category = params.get('category');
+          const search = (params.get('search') || '').toLowerCase();
+          let items = DEMO.products.filter((item) => {
+            const inCategory = !category || item.categoryId === category;
+            const inSearch = !search || (item.name + ' ' + item.vendor).toLowerCase().includes(search);
+            return inCategory && inSearch;
+          });
+          if (params.get('sort') === 'price_asc') items = items.sort((a, b) => a.price - b.price);
+          const offset = Number(params.get('offset') || 0);
+          const limit = Number(params.get('limit') || 12);
+          return { items: items.slice(offset, offset + limit), total: items.length, limit, offset };
+        }
+
+        throw new Error('Демо-данные для запроса не найдены');
+      }
+
       async function api(path) {
+        // При открытии с диска backend недоступен — работаем на демо-данных.
+        if (location.protocol === 'file:') return demoApi(path);
+
         const response = await fetch(API + path, { headers: { Accept: 'application/json' } });
         if (!response.ok) {
           let message = 'Ошибка ' + response.status;
