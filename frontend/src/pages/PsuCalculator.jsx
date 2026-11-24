@@ -152,11 +152,6 @@ export default function PsuCalculator() {
   );
   const integrated = hasIntegratedGraphics(selectedCpu);
 
-  // Если у процессора нет встроенной графики, видеокарта обязательна.
-  useEffect(() => {
-    if (!integrated && !gpuId && gpus[0]) setGpuId(gpus[0].id);
-  }, [integrated, gpuId, gpus]);
-
   const selectedPsu = result?.items.find((item) => item.id === psuId) || null;
   const selectedGpu = useMemo(
     () => gpus.find((product) => product.id === gpuId) || null,

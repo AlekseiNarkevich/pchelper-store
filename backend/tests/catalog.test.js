@@ -99,6 +99,23 @@ test('каталог: поиск находит по характеристик�
   }
 });
 
+test('каталог: поиск понимает синонимы и разговорные слова', async () => {
+  const kingston = await get('/products?search=кинстон');
+  assert.equal(kingston.status, 200);
+  assert.ok(
+    kingston.body.items.some((item) => /kingston/i.test(item.name)),
+    'по «кинстон» должен находиться Kingston',
+  );
+
+  const cpu = await get('/products?search=проц');
+  assert.ok(cpu.body.total >= 1);
+  for (const item of cpu.body.items) assert.equal(item.category, 'cpu');
+
+  const psu = await get('/products?search=бп');
+  assert.ok(psu.body.total >= 1);
+  for (const item of psu.body.items) assert.equal(item.category, 'psu');
+});
+
 test('каталог: фильтр по цене оставляет товары в диапазоне', async () => {
   const { status, body } = await get('/products?minPrice=100&maxPrice=300');
   assert.equal(status, 200);

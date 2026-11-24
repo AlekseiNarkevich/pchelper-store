@@ -40,9 +40,11 @@ export async function listEmails(limit = 100) {
   }
 
   const size = Math.min(Math.max(Number(limit) || 100, 1), 500);
-  const { data, error } = await supabase
+  const { data, error, count } = await supabase
     .from('Письма')
-    .select('id,заказ_id,email,тема,отправлено,ошибка,создан_в')
+    .select('id,заказ_id,email,тема,отправлено,ошибка,создан_в', {
+      count: 'exact',
+    })
     .order('создан_в', { ascending: false })
     .limit(size);
   if (error) {
@@ -51,7 +53,11 @@ export async function listEmails(limit = 100) {
   }
 
   const items = (data || []).map(toLetter);
-  return { items, total: items.length, configured: mailConfigured() };
+  return {
+    items,
+    total: count ?? items.length,
+    configured: mailConfigured(),
+  };
 }
 
 /**
@@ -154,12 +160,12 @@ export async function deleteEmails(ids) {
     throw apiError(503, 'DATABASE_ERROR', 'Supabase не настроен');
   }
 
-  const removal = await supabase.from('Письма').delete().in('id', clean).select('id');
+  const removal = await supabase.from('Письма').delete().in('id', clean);
   if (removal.error) {
     console.error('[mail] массовое удаление:', removal.error.message);
     throw apiError(502, 'DATABASE_ERROR', 'Не удалось удалить выбранные письма');
   }
-  return { deleted: (removal.data || []).length };
+  return { deleted: clean.length };
 }
 
 /**

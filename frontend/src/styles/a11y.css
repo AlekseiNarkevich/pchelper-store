@@ -179,6 +179,12 @@ body {
   padding: 24px 0;
 }
 
+/* Заголовок и пояснение по центру карточки; подписи полей остаются слева. */
+.auth-page .auth-card > h1,
+.auth-page .auth-card > .muted {
+  text-align: center;
+}
+
 @media (max-width: 900px) {
   .auth-page {
     min-height: calc(100vh - 380px);

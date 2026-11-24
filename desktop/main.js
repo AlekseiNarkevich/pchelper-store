@@ -245,8 +245,11 @@ async function createWindow() {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 960,
-    minHeight: 640,
+    // Минимальный размер совпадает с рабочим макетом: при меньшем окне
+    // длинные подписи и сетки начинают ломаться. Требование к экрану —
+    // не меньше 1280×800, при меньшем разрешении приложение не запускать.
+    minWidth: 1280,
+    minHeight: 800,
     show: false,
     autoHideMenuBar: true,
     icon: appIconPath,

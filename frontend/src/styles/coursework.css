@@ -512,7 +512,20 @@
 }
 
 .bulk-check {
-  padding-right: 4px;
+  align-self: flex-start;
+  padding: 2px 8px 0 0;
+}
+
+/* Крупные галочки, как в списках товаров: удобно попадать мышью. */
+.bulk-check input,
+.bulk-all input {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  margin: 0;
+  accent-color: var(--primary, #1976d2);
+  cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .sort-head:hover,

@@ -1969,6 +1969,7 @@ function StockRequestsPanel({ onError, onFlash }) {
 /** Журнал писем и повторная отправка. */
 function EmailsPanel({ onError, onFlash }) {
   const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
   const [configured, setConfigured] = useState(false);
   const [to, setTo] = useState(readAuth()?.user?.email || '');
   const [busy, setBusy] = useState(false);
@@ -1979,9 +1980,10 @@ function EmailsPanel({ onError, onFlash }) {
 
   function load() {
     setLoading(true);
-    getEmails()
+    getEmails(500)
       .then((data) => {
         setItems(data.items);
+        setTotal(data.total);
         setConfigured(data.configured);
       })
       .catch((reason) => onError(reason.message))
@@ -1992,9 +1994,10 @@ function EmailsPanel({ onError, onFlash }) {
   useEffect(load, []);
 
   useAutoRefresh(() => {
-    getEmails()
+    getEmails(500)
       .then((data) => {
         setItems(data.items);
+        setTotal(data.total);
         setConfigured(data.configured);
       })
       .catch(() => {});
@@ -2119,6 +2122,10 @@ function EmailsPanel({ onError, onFlash }) {
           />
           Выбрать все
         </label>
+        <span className="small faint">
+          Показано {items.length} из {total}
+          {total > items.length ? ' — удаляются только показанные' : ''}
+        </span>
         <button
           className="btn btn-danger btn-sm"
           disabled={!selected.length}

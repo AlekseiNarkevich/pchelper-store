@@ -690,17 +690,13 @@ export async function deleteOrdersBulk(ids) {
   const skipped = clean.length - finalIds.length;
   if (!finalIds.length) return { deleted: 0, skipped };
 
-  const removal = await supabase
-    .from('Заказы')
-    .delete()
-    .in('id', finalIds)
-    .select('id');
+  const removal = await supabase.from('Заказы').delete().in('id', finalIds);
   if (removal.error) throw databaseError('удалить выбранные заказы', removal.error);
 
   // Позиции и история удалённых заказов тоже больше не нужны.
   await deleteOrderChildren(finalIds);
 
-  return { deleted: (removal.data || []).length, skipped };
+  return { deleted: finalIds.length, skipped };
 }
 
 /**

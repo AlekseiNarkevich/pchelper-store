@@ -209,12 +209,11 @@ export async function deleteRequestsBulk(ids) {
   const removal = await supabase
     .from('ЗапросыНаПоступление')
     .delete()
-    .in('id', processed)
-    .select('id');
+    .in('id', processed);
   if (removal.error) {
     throw apiError(502, 'DATABASE_ERROR', 'Не удалось удалить выбранные запросы');
   }
-  return { deleted: (removal.data || []).length, skipped };
+  return { deleted: processed.length, skipped };
 }
 
 /**

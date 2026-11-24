@@ -83,7 +83,63 @@ export async function listCategories() {
 function normalize(value) {
   return String(value || '')
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[-–—]/g, '');
+}
+
+/**
+ * Понятные людям синонимы брендов и категорий.
+ *
+ * Люди пишут «адата», «проц», «бп», «видюха» — это не ошибка, а обычная
+ * речь. Подменяем такие слова на английское название или основу слова,
+ * которая встречается в каталоге. Список намеренно небольшой: ищем
+ * близкое, а не «всё подряд».
+ */
+const SEARCH_SYNONYMS = {
+  адата: 'adata',
+  асус: 'asus',
+  мси: 'msi',
+  гигабайт: 'gigabyte',
+  интел: 'intel',
+  амд: 'amd',
+  райзен: 'ryzen',
+  корсар: 'corsair',
+  кингстон: 'kingston',
+  кинстон: 'kingston',
+  самсунг: 'samsung',
+  сигейт: 'seagate',
+  вестерн: 'western',
+  палит: 'palit',
+  нвидиа: 'nvidia',
+  джифорс: 'geforce',
+  радион: 'radeon',
+  сапфир: 'sapphire',
+  бп: 'блок',
+  озу: 'оперативная',
+  проц: 'процессор',
+  видюха: 'видеокарт',
+  мать: 'материнск',
+  матплата: 'материнск',
+  ссд: 'ssd',
+  хдд: 'hdd',
+  кулер: 'охлажд',
+  ддр4: 'ddr4',
+  ддр5: 'ddr5',
+};
+
+/**
+ * Разбивает запрос на слова и подставляет синонимы.
+ *
+ * @param {string} query Запрос.
+ * @returns {string[]} Слова для поиска.
+ */
+function searchTokens(query) {
+  return normalize(query)
+    .replace(/[.,()]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => SEARCH_SYNONYMS[word] || word);
 }
 
 /**
@@ -91,19 +147,26 @@ function normalize(value) {
  *
  * Ищем не только по названию: пользователь часто помнит характеристику
  * («AM5», «DDR5», «750 Вт»), а не модель. Поэтому запрос сравнивается
- * ещё с категорией и значениями характеристик.
+ * ещё с категорией и значениями характеристик. Каждое слово запроса
+ * должно найтись хотя бы в одном из этих полей.
  *
  * @param {object} product Товар.
- * @param {string} needle Запрос в нижнем регистре.
+ * @param {string} query Поисковый запрос.
  * @returns {boolean}
  */
-function matchesSearch(product, needle) {
-  if (normalize(product.name).includes(needle)) return true;
-  if (normalize(product.categoryName).includes(needle)) return true;
-  return product.specs.some(
-    (spec) =>
-      normalize(spec.label).includes(needle) || normalize(spec.value).includes(needle),
+function matchesSearch(product, query) {
+  const tokens = searchTokens(query);
+  if (!tokens.length) return true;
+
+  const haystack = normalize(
+    [
+      product.name,
+      product.categoryName,
+      ...(product.specs || []).flatMap((spec) => [spec.label, spec.value]),
+    ].join(' '),
   );
+
+  return tokens.every((token) => haystack.includes(token));
 }
 
 /**
@@ -137,8 +200,7 @@ export async function listProducts(params = {}) {
     : await loadAllProducts();
 
   if (search) {
-    const needle = normalize(search);
-    products = products.filter((product) => matchesSearch(product, needle));
+    products = products.filter((product) => matchesSearch(product, search));
   }
   if (minPrice !== undefined) products = products.filter((p) => p.price >= minPrice);
   if (maxPrice !== undefined) products = products.filter((p) => p.price <= maxPrice);
