@@ -1,14 +1,18 @@
-/* PCHelper (ЛР8) — service worker для PWA. */
-const CACHE = 'pchelper-v1';
+/* PCHelper (ЛР8) — service worker мобильной PWA.
+   Кэширует оболочку, отдаёт offline-страницу при отсутствии сети
+   и сохраняет последние ответы API для повторного открытия. */
+const CACHE = 'pchelper-v2';
 
 const SHELL = [
   '/',
   '/index.html',
   '/mobile.html',
-  '/manifest.webmanifest',
+  '/offline.html',
+  '/manifest-mobile.webmanifest',
   '/favicon.svg',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -36,9 +40,27 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
+  // Навигация: сначала сеть, при ошибке — сохранённая страница или offline.html.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          return cached || caches.match('/offline.html');
+        }),
+    );
+    return;
+  }
+
   if (url.origin !== self.location.origin) return;
 
-  // API: сеть сначала, кэш как fallback для офлайн-режима.
+  // API: сеть с резервной копией последнего успешного ответа.
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request)
@@ -52,7 +74,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Статика: кэш primero, сеть для обновления.
+  // Статика: сначала кэш, затем сеть с сохранением результата.
   event.respondWith(
     caches.match(request).then(
       (cached) =>
