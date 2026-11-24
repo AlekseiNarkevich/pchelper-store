@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1976D2" />
+  <title>PCHelper — веб-прототип</title>
+  <link rel="icon" href="favicon.ico" />
+  <style>
+    /* Автономный веб-прототип PCHelper для показа на паре.
+       Работает без backend: данные и корзина хранятся в браузере. */
+    :root {
+      --primary: #1976d2;
+      --primary-dark: #125aa0;
+      --primary-soft: #e3f2fd;
+      --accent: #fbc02d;
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #111827;
+      --muted: #556274;
+      --faint: #7b8794;
+      --danger: #c62828;
+      --radius: 14px;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; touch-action: manipulation; }
+    a { color: var(--primary); }
+    img { max-width: 100%; display: block; }
+    .skip-link {
+      position: absolute; left: -9999px; top: 8px; z-index: 100;
+      padding: 12px 16px; border-radius: 10px; background: var(--primary);
+      color: #fff; text-decoration: none;
+    }
+    .skip-link:focus { left: 12px; }
+    :where(a, button, input, select, [tabindex]):focus-visible {
+      outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+    }
+    .container { width: min(1240px, calc(100% - 40px)); margin: 0 auto; }
+
+    /* Шапка */
+    .site-header {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(255,255,255,.96);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner { display: flex; align-items: center; gap: 22px; padding: 14px 0; }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+    .brand img { width: 42px; height: 42px; object-fit: contain; }
+    .brand-name { font-size: 20px; font-weight: 800; color: var(--primary); line-height: 1.05; }
+    .brand-tag { font-size: 11px; color: var(--faint); }
+    .main-nav { display: flex; gap: 6px; }
+    .nav-btn {
+      border: 0; background: transparent; color: var(--muted);
+      padding: 10px 14px; border-radius: 10px; font-weight: 600;
+    }
+    .nav-btn.is-active { background: var(--primary); color: #fff; }
+    .search { margin-left: auto; position: relative; width: min(340px, 30vw); }
+    .search input {
+      width: 100%; height: 44px; padding: 0 14px 0 38px;
+      border: 1px solid var(--border); border-radius: 999px;
+      background: #f8fafc; color: var(--text);
+    }
+    .search::before { content: "⌕"; position: absolute; left: 14px; top: 9px; color: var(--faint); font-size: 20px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      position: relative; width: 44px; height: 44px; border: 1px solid var(--border);
+      border-radius: 12px; background: var(--surface); font-size: 18px;
+    }
+    .badge {
+      position: absolute; top: -6px; right: -6px; min-width: 19px; height: 19px;
+      display: none; align-items: center; justify-content: center;
+      padding: 0 5px; border-radius: 10px; background: var(--accent);
+      color: #111; font-size: 11px; font-weight: 700;
+    }
+    .badge.is-on { display: inline-flex; }
+    .btn {
+      border: 0; border-radius: 11px; min-height: 44px; padding: 11px 18px;
+      background: var(--primary); color: #fff; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      text-decoration: none;
+    }
+    .btn:hover { background: var(--primary-dark); }
+    .btn-secondary { background: var(--primary-soft); color: var(--primary); }
+    .btn-secondary:hover { background: #d4e9fb; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm { min-height: 40px; padding: 8px 12px; font-size: 13px; }
+
+    /* Главная */
+    .hero {
+      display: grid; grid-template-columns: 1.2fr .8fr; gap: 24px;
+      align-items: center; padding: 48px 0 28px;
+    }
+    .hero h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1.12; margin-bottom: 12px; }
+    .hero p { color: var(--muted); font-size: 17px; max-width: 620px; }
+    .hero-actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .hero-card {
+      padding: 22px; border-radius: 20px; background: linear-gradient(135deg, #0d47a1, #1976d2);
+      color: #fff; box-shadow: var(--shadow);
+    }
+    .hero-card b { font-size: 18px; }
+    .hero-card ul { margin: 12px 0 0 18px; font-size: 14px; opacity: .95; line-height: 1.6; }
+
+    .section { padding: 26px 0; }
+    .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    .section-head h2 { font-size: clamp(20px, 2.4vw, 28px); }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .category-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .category-card {
+      text-align: left; border: 1px solid var(--border); background: var(--surface);
+      border-radius: var(--radius); padding: 16px; min-height: 96px;
+    }
+    .category-card:hover { border-color: #b7d4f1; box-shadow: 0 6px 18px rgba(25,118,210,.08); }
+    .category-card b { display: block; margin-bottom: 4px; }
+    .category-card span { color: var(--faint); font-size: 12px; }
+    .category-card.is-active { border-color: var(--primary); background: var(--primary-soft); }
+
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+    .chip {
+      border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+      border-radius: 999px; padding: 9px 14px; min-height: 40px; font-size: 13px;
+    }
+    .chip.is-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .filters select {
+      min-height: 40px; border: 1px solid var(--border); border-radius: 10px;
+      padding: 0 10px; background: var(--surface); color: var(--text);
+    }
+
+    .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .product-card {
+      border: 1px solid var(--border); background: var(--surface);
+      border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column;
+    }
+    .product-photo { height: 150px; background: #eef3f8; display: grid; place-items: center; padding: 10px; }
+    .product-photo img { max-height: 128px; object-fit: contain; }
+    .product-body { padding: 12px 14px 14px; display: flex; flex-direction: column; flex: 1; }
+    .product-name { font-weight: 700; line-height: 1.3; margin-bottom: 4px; }
+    .product-cat { color: var(--faint); font-size: 12px; margin-bottom: 8px; }
+    .product-bottom { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .price { font-size: 18px; font-weight: 800; }
+    .add-btn { width: 44px; height: 44px; border: 0; border-radius: 11px; background: var(--primary); color: #fff; font-size: 22px; }
+    .empty { padding: 28px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: var(--radius); }
+
+    .mcp-panel {
+      border: 1px solid var(--border); background: var(--surface); border-radius: 18px;
+      padding: 22px; display: grid; grid-template-columns: 1.2fr .8fr; gap: 22px;
+    }
+    .mcp-panel h2 { margin-bottom: 8px; }
+    .mcp-steps { margin: 10px 0 0 20px; color: var(--muted); line-height: 1.6; }
+    .mcp-code {
+      background: #0f1720; color: #e8f1f8; border-radius: 12px; padding: 14px;
+      font: 12px/1.6 Consolas, monospace; overflow-x: auto; white-space: pre;
+    }
+
+    /* Корзина */
+    .drawer-overlay {
+      position: fixed; inset: 0; z-index: 40; background: rgba(15,23,42,.45);
+      opacity: 0; pointer-events: none; transition: opacity .18s;
+    }
+    .drawer-overlay.is-on { opacity: 1; pointer-events: auto; }
+    .cart-drawer {
+      position: fixed; right: 0; top: 0; bottom: 0; z-index: 41;
+      width: min(420px, 100%); background: var(--surface); box-shadow: -10px 0 40px rgba(15,23,42,.18);
+      transform: translateX(105%); transition: transform .2s; display: flex; flex-direction: column;
+    }
+    .cart-drawer.is-on { transform: translateX(0); }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 18px; border-bottom: 1px solid var(--border); }
+    .drawer-body { flex: 1; overflow: auto; padding: 14px 18px; }
+    .drawer-foot { border-top: 1px solid var(--border); padding: 16px 18px; }
+    .cart-row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .cart-thumb { width: 64px; height: 64px; border-radius: 10px; background: #eef3f8; display: grid; place-items: center; }
+    .cart-thumb img { max-width: 56px; max-height: 56px; }
+    .cart-name { font-weight: 700; font-size: 13px; }
+    .cart-price { color: var(--faint); font-size: 11px; }
+    .qty { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 9px; margin-top: 6px; }
+    .qty button { width: 36px; height: 36px; border: 0; background: #f8fafc; }
+    .qty span { min-width: 30px; text-align: center; font-size: 12px; }
+    .remove-btn { border: 0; background: transparent; color: var(--danger); font-size: 19px; min-width: 44px; min-height: 44px; }
+    .cart-total { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 16px; }
+    .cart-total b { font-size: 22px; color: var(--primary); }
+
+    /* Модальные окна */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      place-items: center; background: rgba(15,23,42,.55); padding: 20px;
+    }
+    .modal-overlay.is-on { display: grid; }
+    .modal {
+      width: min(520px, 100%); max-height: 90vh; overflow: auto;
+      background: var(--surface); border-radius: 18px; padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .modal h2 { margin-bottom: 10px; }
+    .field { display: grid; gap: 6px; margin-bottom: 12px; }
+    .field input { height: 44px; border: 1px solid var(--border); border-radius: 10px; padding: 0 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; z-index: 60; transform: translateX(-50%);
+      background: #111827; color: #fff; border-radius: 999px; padding: 10px 16px;
+      font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .toast.is-on { opacity: 1; }
+    .site-footer { border-top: 1px solid var(--border); background: var(--surface); margin-top: 30px; padding: 20px 0; color: var(--muted); font-size: 13px; }
+
+    @media (max-width: 1000px) {
+      .product-grid { grid-template-columns: repeat(3, 1fr); }
+      .category-grid { grid-template-columns: repeat(3, 1fr); }
+      .search { width: 220px; }
+      .main-nav .nav-btn:nth-child(n+4) { display: none; }
+    }
+    @media (max-width: 760px) {
+      .container { width: calc(100% - 24px); }
+      .header-inner { flex-wrap: wrap; gap: 10px; }
+      .main-nav { order: 3; width: 100%; overflow-x: auto; }
+      .search { order: 2; width: calc(100% - 110px); margin-left: 0; }
+      .hero { grid-template-columns: 1fr; padding-top: 26px; }
+      .product-grid { grid-template-columns: repeat(2, 1fr); }
+      .category-grid { grid-template-columns: repeat(2, 1fr); }
+      .mcp-panel { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 430px) {
+      .product-grid { grid-template-columns: 1fr; }
+      .brand-tag { display: none; }
+      .search { order: 4; width: 100%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f141a; --surface: #171f28; --border: #2a3542;
+        --text: #eef3f7; --muted: #b9c4cf; --faint: #93a1af; --primary-soft: #14324a;
+      }
+      .site-header { background: rgba(23,31,40,.96); }
+      .search input, .qty button { background: #111820; color: var(--text); }
+      .product-photo, .cart-thumb { background: #111820; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к содержимому</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="#main">
+        <img alt="" src="logo-icon.jpg" width="42" height="42" />
+        <span><span class="brand-name">PCHelper</span><br /><span class="brand-tag">Просто и ясно</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Основная навигация">
+        <button class="nav-btn is-active" data-view="home" type="button">Главная</button>
+        <button class="nav-btn" data-view="catalog" type="button">Каталог</button>
+        <button class="nav-btn" data-view="prebuilt" type="button">Готовые ПК</button>
+        <button class="nav-btn" data-view="mcp" type="button">ИИ-подбор</button>
+      </nav>
+      <form class="search" id="search-form" role="search">
+        <input id="search-input" type="search" placeholder="Поиск: модель, AM5, DDR5…" aria-label="Поиск по каталогу" />
+      </form>
+      <div class="header-actions">
+        <button class="btn btn-secondary btn-sm" id="login-btn" type="button">Войти</button>
+        <button class="icon-btn" id="cart-btn" aria-label="Корзина" type="button">🛒<span class="badge" id="cart-badge">0</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container">
+      <section class="hero" id="view-home">
+        <div>
+          <h1>Помощник ПК-энтузиасту</h1>
+          <p>Комплектующие, готовые сборки и подбор блока питания. Цены в белорусских рублях, характеристики — из каталога магазина.</p>
+          <div class="hero-actions">
+            <button class="btn" data-view="catalog" type="button">Перейти в каталог</button>
+            <button class="btn btn-secondary" data-view="prebuilt" type="button">Готовые сборки</button>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <b>Что можно проверить</b>
+          <ul>
+            <li>каталог и фильтры;</li>
+            <li>карточку товара;</li>
+            <li>корзину и пересчёт суммы;</li>
+            <li>вход демо-покупателя;</li>
+            <li>подключение ИИ-агента через MCP.</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Категории</h2><span class="small muted" id="cat-count"></span></div>
+        <div class="category-grid" id="category-grid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <h2 id="catalog-title">Недорогие комплектующие</h2>
+          <span class="small muted" id="catalog-count"></span>
+        </div>
+        <div class="filters" id="filters">
+          <button class="chip is-active" data-cat="" type="button">Все</button>
+          <select id="sort-select" aria-label="Сортировка">
+            <option value="price_asc">Сначала дешёвые</option>
+            <option value="price_desc">Сначала дорогие</option>
+            <option value="name">По названию</option>
+          </select>
+        </div>
+        <div class="product-grid" id="product-grid"></div>
+      </section>
+
+      <section class="section" id="view-mcp">
+        <div class="mcp-panel">
+          <div>
+            <h2>ИИ-подбор через MCP</h2>
+            <p class="muted">Агент может собрать ПК по бюджету, проверить совместимость и оформить заказ через MCP-сервер PCHelper.</p>
+            <ol class="mcp-steps">
+              <li>Запустите MCP-сервер в режиме HTTP на порту 8080.</li>
+              <li>Подключите Claude Desktop, Cursor или MCP Inspector к <code>http://127.0.0.1:8080/mcp</code>.</li>
+              <li>Напишите агенту: «Собери игровой ПК до 4000 BYN».</li>
+            </ol>
+          </div>
+          <pre class="mcp-code">python server.py --http --port 8080
+npx @modelcontextprotocol/inspector</pre>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">PCHelper — учебный проект, 2026. Демонстрационные данные; заказы не отправляются на сервер.</div>
+  </footer>
+
+  <div class="drawer-overlay" id="drawer-overlay"></div>
+  <aside class="cart-drawer" id="cart-drawer" aria-label="Корзина">
+    <div class="drawer-head"><h2>Корзина</h2><button class="icon-btn" id="cart-close" aria-label="Закрыть корзину" type="button">×</button></div>
+    <div class="drawer-body" id="cart-body"></div>
+    <div class="drawer-foot">
+      <div class="cart-total"><span>Итого</span><b id="cart-total">0 BYN</b></div>
+      <button class="btn" id="checkout-btn" style="width:100%" type="button">Оформить заказ</button>
+    </div>
+  </aside>
+
+  <div class="modal-overlay" id="login-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+      <h2 id="login-title">Вход в PCHelper</h2>
+      <p class="muted small">Демо-доступ: demo@pchelper.by / demo1234</p>
+      <form id="login-form">
+        <label class="field"><span>Электронная почта</span><input id="login-email" type="email" value="demo@pchelper.by" required /></label>
+        <label class="field"><span>Пароль</span><input id="login-password" type="password" value="demo1234" required /></label>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="login-cancel" type="button">Отмена</button>
+          <button class="btn" type="submit">Войти</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="product-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="product-modal-title">
+      <div id="product-modal-body"></div>
+      <div class="modal-actions"><button class="btn btn-ghost" id="product-close" type="button">Закрыть</button></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    // Демонстрационные данные: прототип работает без backend.
+    const CATEGORIES = [
+      { id: 'cpu', name: 'Процессоры', desc: 'AMD и Intel', count: 16 },
+      { id: 'motherboard', name: 'Материнские платы', desc: 'AM5 и LGA1700', count: 17 },
+      { id: 'ram', name: 'Оперативная память', desc: 'DDR4 и DDR5', count: 12 },
+      { id: 'gpu', name: 'Видеокарты', desc: 'NVIDIA и AMD', count: 9 },
+      { id: 'psu', name: 'Блоки питания', desc: '450–1000 Вт', count: 10 },
+      { id: 'storage', name: 'Накопители', desc: 'NVMe и SATA', count: 17 },
+      { id: 'case', name: 'Корпуса', desc: 'ATX и mATX', count: 7 },
+      { id: 'cooling', name: 'Системы охлаждения', desc: 'Кулеры и СЖО', count: 8 },
+    ];
+
+    const PRODUCTS = [
+      { id: 'cpu-1', name: 'AMD Ryzen 5 5600', cat: 'cpu', price: 368, vendor: 'AMD', desc: '6 ядер, 12 потоков, сокет AM4, TDP 65 Вт.' },
+      { id: 'cpu-2', name: 'Intel Core i5-12400F', cat: 'cpu', price: 405, vendor: 'Intel', desc: '6 ядер, 12 потоков, сокет LGA1700, TDP 65 Вт.' },
+      { id: 'gpu-1', name: 'Radeon RX 7700 XT', cat: 'gpu', price: 1320, vendor: 'AMD', desc: '12 ГБ GDDR6, gaming 1080p/1440p.' },
+      { id: 'gpu-2', name: 'GeForce RTX 4060', cat: 'gpu', price: 1150, vendor: 'NVIDIA', desc: '8 ГБ GDDR6, DLSS 3, TDP 115 Вт.' },
+      { id: 'ram-1', name: 'Kingston Fury 16 ГБ', cat: 'ram', price: 154, vendor: 'Kingston', desc: 'DDR5 2×8 ГБ, 5600 МГц.' },
+      { id: 'ram-2', name: 'Patriot Viper 32 ГБ', cat: 'ram', price: 289, vendor: 'Patriot', desc: 'DDR5 2×16 ГБ, 6000 МГц.' },
+      { id: 'psu-1', name: 'Cougar GEX 750', cat: 'psu', price: 289, vendor: 'Cougar', desc: '750 Вт, 80 Plus Gold, модульный.' },
+      { id: 'psu-2', name: 'be quiet! System Power 10', cat: 'psu', price: 219, vendor: 'be quiet!', desc: '650 Вт, 80 Plus Bronze.' },
+      { id: 'ssd-1', name: 'Kingston NV3 1 ТБ', cat: 'storage', price: 229, vendor: 'Kingston', desc: 'NVMe PCIe 4.0, до 6000 МБ/с.' },
+      { id: 'mb-1', name: 'ASRock B650M-HDV', cat: 'motherboard', price: 399, vendor: 'ASRock', desc: 'AM5, DDR5, mATX, PCIe 4.0.' },
+      { id: 'case-1', name: 'Zalman i3 Neo', cat: 'case', price: 149, vendor: 'Zalman', desc: 'ATX, 4 вентилятора, стекло.' },
+      { id: 'cool-1', name: 'ID-Cooling SE-214-XT', cat: 'cooling', price: 43, vendor: 'ID-Cooling', desc: 'Башенный кулер, 4 тепловые трубки.' },
+    ];
+
+    const BUILDS = [
+      { id: 'b1', name: 'Офисный ПК 2', task: 'Офис, учёба, веб-серфинг', price: 2122 },
+      { id: 'b2', name: 'Игровой ПК 1', task: 'Игры 1080p', price: 3307 },
+    ];
+
+    const state = { view: 'home', category: '', query: '', sort: 'price_asc', cart: readCart(), user: readUser() };
+    const $ = (id) => document.getElementById(id);
+    const money = (value) => `${new Intl.NumberFormat('ru-RU').format(value)} BYN`;
+    const categoryName = (id) => CATEGORIES.find((c) => c.id === id)?.name || '';
+
+    function readCart() {
+      try { return JSON.parse(localStorage.getItem('pchelper-demo-cart') || '[]'); } catch { return []; }
+    }
+    function writeCart() {
+      localStorage.setItem('pchelper-demo-cart', JSON.stringify(state.cart));
+      renderCart(); renderBadge();
+    }
+    function readUser() {
+      try { return JSON.parse(localStorage.getItem('pchelper-demo-user') || 'null'); } catch { return null; }
+    }
+    function writeUser(user) {
+      state.user = user;
+      if (user) localStorage.setItem('pchelper-demo-user', JSON.stringify(user));
+      else localStorage.removeItem('pchelper-demo-user');
+      renderLogin();
+    }
+    function toast(message) {
+      const node = $('toast');
+      node.textContent = message;
+      node.classList.add('is-on');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => node.classList.remove('is-on'), 1900);
+    }
+
+    function renderBadge() {
+      const count = state.cart.reduce((sum, item) => sum + item.qty, 0);
+      const badge = $('cart-badge');
+      badge.textContent = count;
+      badge.classList.toggle('is-on', count > 0);
+    }
+
+    function renderLogin() {
+      $('login-btn').textContent = state.user ? state.user.name : 'Войти';
+      $('login-btn').classList.toggle('btn-secondary', !state.user);
+    }
+
+    function renderCategories() {
+      $('cat-count').textContent = `${CATEGORIES.length} разделов`;
+      $('category-grid').innerHTML = CATEGORIES.map((c) => `
+        <button class="category-card${state.category === c.id ? ' is-active' : ''}" data-cat="${c.id}" type="button">
+          <b>${c.name}</b><span>${c.desc} · ${c.count} товаров</span>
+        </button>`).join('');
+    }
+
+    function filteredProducts() {
+      let items = PRODUCTS.filter((p) => (!state.category || p.cat === state.category) &&
+        (!state.query || (p.name + ' ' + p.vendor + ' ' + categoryName(p.cat)).toLowerCase().includes(state.query.toLowerCase())));
+      if (state.sort === 'price_asc') items = items.sort((a, b) => a.price - b.price);
+      if (state.sort === 'price_desc') items = items.sort((a, b) => b.price - a.price);
+      if (state.sort === 'name') items = items.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+      return items;
+    }
+
+    function renderProducts() {
+      const items = filteredProducts();
+      $('catalog-count').textContent = `${items.length} товаров`;
+      $('catalog-title').textContent = state.category ? categoryName(state.category) : 'Недорогие комплектующие';
+      $('product-grid').innerHTML = items.length ? items.map((p) => `
+        <article class="product-card">
+          <button class="product-photo" data-open="${p.id}" type="button" aria-label="Открыть ${p.name}">
+            <img src="demo-product.svg" alt="${p.name}" loading="lazy" width="120" height="90" />
+          </button>
+          <div class="product-body">
+            <button class="product-name" data-open="${p.id}" type="button" style="border:0;background:none;text-align:left;padding:0;color:inherit">${p.name}</button>
+            <div class="product-cat">${categoryName(p.cat)}</div>
+            <div class="product-bottom"><span class="price">${money(p.price)}</span>
+              <button class="add-btn" data-add="${p.id}" aria-label="Добавить ${p.name} в корзину" type="button">+</button>
+            </div>
+          </div>
+        </article>`).join('') : '<div class="empty">Ничего не найдено. Измените фильтры.</div>';
+      $('filters').querySelectorAll('.chip').forEach((chip) => chip.classList.toggle('is-active', (chip.dataset.cat || '') === state.category));
+    }
+
+    function renderCart() {
+      const total = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      $('cart-total').textContent = money(total);
+      $('cart-body').innerHTML = state.cart.length ? state.cart.map((item) => `
+        <div class="cart-row">
+          <div class="cart-thumb"><img src="demo-product.svg" alt="" width="56" height="42" /></div>
+          <div><div class="cart-name">${item.name}</div><div class="cart-price">${money(item.price)} за штуку</div>
+            <div class="qty"><button data-qty="${item.id}" data-delta="-1" aria-label="Уменьшить количество" type="button">−</button><span>${item.qty}</span><button data-qty="${item.id}" data-delta="1" aria-label="Увеличить количество" type="button">+</button></div>
+          </div>
+          <button class="remove-btn" data-remove="${item.id}" aria-label="Удалить товар" type="button">×</button>
+        </div>`).join('') : '<div class="empty">Корзина пуста.<br>Добавьте товар из каталога.</div>';
+    }
+
+    function openCart() { $('cart-drawer').classList.add('is-on'); $('drawer-overlay').classList.add('is-on'); $('cart-close').focus(); }
+    function closeCart() { $('cart-drawer').classList.remove('is-on'); $('drawer-overlay').classList.remove('is-on'); }
+
+    function addToCart(product) {
+      const existing = state.cart.find((item) => item.id === product.id);
+      if (existing) existing.qty += 1;
+      else state.cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
+      writeCart();
+      toast(`«${product.name}» добавлен в корзину`);
+    }
+
+    function openProduct(id) {
+      const p = PRODUCTS.find((x) => x.id === id);
+      if (!p) return;
+      $('product-modal-title').textContent = p.name;
+      $('product-modal-body').innerHTML = `
+        <div class="product-photo" style="height:190px"><img src="demo-product.svg" alt="${p.name}" width="180" height="135"></div>
+        <p class="muted small">${categoryName(p.cat)} · ${p.vendor}</p>
+        <h2 id="product-modal-title">${p.name}</h2>
+        <div class="price" style="margin:8px 0">${money(p.price)}</div>
+        <p>${p.desc}</p>
+        <button class="btn" data-add="${p.id}" type="button">В корзину</button>`;
+      $('product-modal').classList.add('is-on');
+    }
+
+    function openLogin() { $('login-modal').classList.add('is-on'); $('login-email').focus(); }
+    function closeLogin() { $('login-modal').classList.remove('is-on'); }
+
+    function checkout() {
+      if (!state.cart.length) { toast('Корзина пуста'); return; }
+      if (!state.user) { closeCart(); openLogin(); toast('Войдите, чтобы оформить заказ'); return; }
+      const number = 'PCH-DEMO-' + String(Date.now()).slice(-5);
+      state.cart = [];
+      writeCart();
+      closeCart();
+      toast(`Заказ ${number} оформлен (демо)`);
+    }
+
+    // Делегирование кликов: карточки, фильтры, корзина.
+    document.addEventListener('click', (event) => {
+      const view = event.target.closest('[data-view]');
+      if (view) {
+        state.view = view.dataset.view;
+        document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('is-active', b.dataset.view === state.view));
+        if (state.view === 'mcp') $('view-mcp').scrollIntoView({ behavior: 'smooth' });
+        else if (state.view === 'prebuilt') { state.category = ''; $('search-input').value = ''; state.query = ''; renderProducts(); }
+        else if (state.view === 'catalog') { $('filters').scrollIntoView({ behavior: 'smooth' }); }
+        else window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      const cat = event.target.closest('[data-cat]');
+      if (cat) { state.category = cat.dataset.cat; renderCategories(); renderProducts(); $('filters').scrollIntoView({ behavior: 'smooth' }); return; }
+      const add = event.target.closest('[data-add]');
+      if (add) { const p = PRODUCTS.find((x) => x.id === add.dataset.add); if (p) addToCart(p); $('product-modal').classList.remove('is-on'); return; }
+      const open = event.target.closest('[data-open]');
+      if (open) { openProduct(open.dataset.open); return; }
+      const qty = event.target.closest('[data-qty]');
+      if (qty) {
+        const item = state.cart.find((x) => x.id === qty.dataset.qty);
+        if (item) { item.qty = Math.max(1, item.qty + Number(qty.dataset.delta)); writeCart(); }
+        return;
+      }
+      const remove = event.target.closest('[data-remove]');
+      if (remove) { state.cart = state.cart.filter((x) => x.id !== remove.dataset.remove); writeCart(); return; }
+    });
+
+    $('search-form').addEventListener('submit', (event) => { event.preventDefault(); state.query = $('search-input').value.trim(); renderProducts(); });
+    $('search-input').addEventListener('input', () => { state.query = $('search-input').value.trim(); renderProducts(); });
+    $('sort-select').addEventListener('change', () => { state.sort = $('sort-select').value; renderProducts(); });
+    $('cart-btn').addEventListener('click', openCart);
+    $('cart-close').addEventListener('click', closeCart);
+    $('drawer-overlay').addEventListener('click', closeCart);
+    $('checkout-btn').addEventListener('click', checkout);
+    $('login-btn').addEventListener('click', () => state.user ? (state.user = null, writeUser(null), toast('Вы вышли из демо-аккаунта')) : openLogin());
+    $('login-cancel').addEventListener('click', closeLogin);
+    $('product-close').addEventListener('click', () => $('product-modal').classList.remove('is-on'));
+    $('login-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const email = $('login-email').value.trim();
+      const password = $('login-password').value;
+      if (email !== 'demo@pchelper.by' || password !== 'demo1234') { toast('Неверный демо-логин или пароль'); return; }
+      writeUser({ name: 'Демо-покупатель', email });
+      closeLogin(); toast('Вы вошли как демо-покупатель');
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { closeCart(); closeLogin(); $('product-modal').classList.remove('is-on'); }
+    });
+
+    renderCategories(); renderProducts(); renderCart(); renderBadge(); renderLogin();
+  </script>
+</body>
+</html>
