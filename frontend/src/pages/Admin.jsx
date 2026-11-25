@@ -274,6 +274,7 @@ function sortValue(kind, row, field) {
   if (kind === 'products') {
     if (field === 'name') return row['название'] || '';
     if (field === 'price') return Number(row['цена'] || 0);
+    if (field === 'stock') return Number(row['количество'] || 0);
     return Number(row.id || 0);
   }
   if (kind === 'users') {
@@ -1301,6 +1302,12 @@ function ProductsPanel({ onError, onFlash }) {
                       onSort={onSort}
                       sort={sort}
                     />
+                    <SortHeader
+                      field="stock"
+                      label="Количество"
+                      onSort={onSort}
+                      sort={sort}
+                    />
                     <th />
                   </tr>
                 </thead>
@@ -1310,6 +1317,7 @@ function ProductsPanel({ onError, onFlash }) {
                       <td>{row.id}</td>
                       <td className="picker-name">{row['название']}</td>
                       <td>{money(row['цена'])}</td>
+                      <td>{row['количество'] ?? 0}</td>
                       <td>
                         <div className="admin-row-actions">
                           <button
@@ -1614,6 +1622,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
               <table className="picker">
                 <thead>
                   <tr>
+                    <SortHeader field="id" label="ID" onSort={onSort} sort={sort} />
                     <SortHeader
                       field="name"
                       label="Сборка"
@@ -1628,7 +1637,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
                     />
                     <SortHeader
                       field="stock"
-                      label="На складе"
+                      label="Количество"
                       onSort={onSort}
                       sort={sort}
                     />
@@ -1638,6 +1647,7 @@ function PrebuiltStockPanel({ onError, onFlash }) {
                 <tbody>
                   {sortedItems.map((item) => (
                     <tr key={item.id}>
+                      <td>{item.id}</td>
                       <td className="picker-name">
                         {item.name}
                         {item.task && <div className="small faint">{item.task}</div>}
