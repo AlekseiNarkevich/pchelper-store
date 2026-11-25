@@ -298,8 +298,10 @@ async function createWindow() {
   // Чистим кэш service worker до загрузки. Иначе после обновления
   // приложения Electron может открыть старую страницу из кэша: она
   // ссылается на уже удалённые файлы, и окно остаётся белым.
+  // Логин хранится в localStorage, поэтому его не трогаем: при первом
+  // запуске после установки сессии ещё нет, а дальше вход сохраняется.
   await win.webContents.session
-    .clearStorageData({ storages: ['localstorage', 'cookies', 'indexdb', 'serviceworkers', 'cachestorage'] })
+    .clearStorageData({ storages: ['serviceworkers', 'cachestorage'] })
     .catch((error) => console.error('[web] очистка кэша:', error.message));
   await win.webContents.session
     .clearCache()
