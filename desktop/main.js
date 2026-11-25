@@ -21,6 +21,10 @@ const { spawn } = require('child_process');
 
 const BACKEND_PORT = Number(process.env.PORT || 3001);
 
+// Идентификатор приложения для панели задач Windows: без него
+// система группирует окно как Electron и берёт его иконку.
+app.setAppUserModelId('com.pchelper.store');
+
 // Portable-сборка запускается из временной папки, но по умолчанию хранит
 // сессию там же, где установленная версия. Из-за этого Portable подхватывал
 // вход администратора из Setup и сразу открывал админку. Даём Portable
@@ -295,7 +299,7 @@ async function createWindow() {
   // приложения Electron может открыть старую страницу из кэша: она
   // ссылается на уже удалённые файлы, и окно остаётся белым.
   await win.webContents.session
-    .clearStorageData({ storages: ['serviceworkers', 'cachestorage'] })
+    .clearStorageData({ storages: ['localstorage', 'cookies', 'indexdb', 'serviceworkers', 'cachestorage'] })
     .catch((error) => console.error('[web] очистка кэша:', error.message));
   await win.webContents.session
     .clearCache()
